@@ -10,18 +10,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const overrides = await sql`SELECT * FROM manual_overrides`;
+    const overrides = await pool.query("SELECT * FROM manual_overrides");
     const overrideMap = new Map(overrides.rows.map((o: any) => [o.original_asset_name, o]));
 
-    await sql`DELETE FROM holdings`;
-    await sql`DELETE FROM portfolios`;
+    await pool.query("DELETE FROM holdings");
+    await pool.query("DELETE FROM portfolios");
 
     for (const p of portfolios) {
-      const result = await sql`
-        INSERT INTO portfolios (name, type, description) 
-        VALUES (${p.name}, ${p.type}, ${p.description || ""}) 
-        RETURNING id
-      `;
+      const result = await pool.query(
+        "INSERT INTO portfolios (name, type, description) VALUES ($1, $2, $3) RETURNING id",
+        [p.name, p.type, p.description || ""]
+      );
       const pId = result.rows[0].id;
 
       if (p.holdings && Array.isArray(p.holdings)) {
@@ -34,10 +33,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const category = override?.manual_category || h.category || "Unknown";
           const instrument = override?.manual_instrument || h.instrument || "Other";
 
-          await sql`
-            INSERT INTO holdings (portfolio_id, asset_name, original_asset_name, category, region, instrument, weight, currency, isin)
-            VALUES (${pId}, ${assetName}, ${h.asset_name}, ${category}, ${region}, ${instrument}, ${h.weight || 0}, ${currency}, ${isin})
-          `;
+          await pool.query(
+            "INSERT INTO holdings (portfolio_id, asset_name, original_asset_name, category, region, instrument, weight, currency, isin) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+            [pId, assetName, h.asset_name, category, region, instrument, h.weight || 0, currency, isin]
+          );
         }
       }
     }
