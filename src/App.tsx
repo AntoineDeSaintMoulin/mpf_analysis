@@ -318,7 +318,7 @@ export default function App() {
     });
   }, [currentPortfolio, drillDownFilter]);
 
- const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
   const file = event.target.files?.[0];
   if (!file) return;
 
@@ -326,41 +326,32 @@ export default function App() {
   setUploadSuccess(false);
 
   Papa.parse(file, {
-    header: false, // pas de header, on utilise les indices
+    header: false,
     skipEmptyLines: true,
     complete: async (results) => {
       try {
         const portfolioMap = new Map<string, any>();
         
         results.data.forEach((row: any, index: number) => {
-          // Ignorer les 2 premières lignes (headers)
           if (index < 2) return;
-
           const rawRow = row as string[];
-          
-          const portfolioName = rawRow[1]?.trim(); // Colonne B
-          if (!portfolioName) return;
 
-// Colonne E = index 4, on enlève les 20 derniers caractères pour le nom de l'instrument
-const rawName = rawRow[4]?.trim() || "";
-const assetName = rawName.length > 20 ? rawName.slice(0, -20).trim() : rawName;
-if (!assetName) return;
+          const rawName = rawRow[4]?.trim() || "";
+          const assetName = rawName.length > 20 ? rawName.slice(0, -20).trim() : rawName;
+          if (!assetName) return;
 
-// Nom du portefeuille = colonne E sans "TECHNICAL.MPF." et sans les 20 derniers caractères
-const rawPortfolioName = rawName.replace("TECHNICAL.MPF.", "");
-const portfolioShortName = rawPortfolioName.length > 20 ? rawPortfolioName.slice(0, -20).trim() : rawPortfolioName;
+          const rawPortfolioName = rawName.replace("TECHNICAL.MPF.", "");
+          const portfolioShortName = rawPortfolioName.length > 20 ? rawPortfolioName.slice(0, -20).trim() : rawPortfolioName;
+          const portfolioCode = portfolioShortName.split("_").slice(0, 2).join("_");
+          const portfolioType = portfolioCode.startsWith("MIX") ? "Mixed" : "Sicav";
+          const portfolioName = `${portfolioType} - ${portfolioCode}`;
 
-// Extraire juste le code portefeuille ex: MIX_HIGH, SCV_ML
-const portfolioCode = portfolioShortName.split("_").slice(0, 2).join("_");
-const portfolioType = portfolioCode.startsWith("MIX") ? "Mixed" : portfolioCode.startsWith("SCV") ? "Sicav" : "Sicav";
-const portfolioName = `${portfolioType} - ${portfolioCode}`;
-
-const weight = parseFloat(rawRow[12]?.replace(",", ".") || "0"); // Colonne M
-const currency = rawRow[11]?.trim() || "EUR"; // Colonne L
-const isin = rawRow[20]?.trim() || ""; // Colonne U
-const instrument = rawRow[21]?.trim() || "Other"; // Colonne V
-const category = rawRow[23]?.trim() || "Unknown"; // Colonne X
-const region = rawRow[26]?.trim() || "Global"; // Colonne AA
+          const weight = parseFloat(rawRow[12]?.replace(",", ".") || "0");
+          const currency = rawRow[11]?.trim() || "EUR";
+          const isin = rawRow[20]?.trim() || "";
+          const instrument = rawRow[21]?.trim() || "Other";
+          const category = rawRow[23]?.trim() || "Unknown";
+          const region = rawRow[26]?.trim() || "Global";
 
           if (!portfolioMap.has(portfolioName)) {
             portfolioMap.set(portfolioName, {
@@ -371,21 +362,18 @@ const region = rawRow[26]?.trim() || "Global"; // Colonne AA
             });
           }
 
-          if (assetName) {
-            portfolioMap.get(portfolioName).holdings.push({
-              asset_name: assetName,
-              isin,
-              category,
-              region,
-              instrument,
-              weight,
-              currency
-            });
-          }
+          portfolioMap.get(portfolioName).holdings.push({
+            asset_name: assetName,
+            isin,
+            category,
+            region,
+            instrument,
+            weight,
+            currency
+          });
         });
 
         const portfoliosToUpload = Array.from(portfolioMap.values());
-
         const response = await fetch("/api/upload-data", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -409,7 +397,6 @@ const region = rawRow[26]?.trim() || "Global"; // Colonne AA
     }
   });
 };
-
   if (loading && !currentPortfolio && allPortfolios.length === 0) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50">
