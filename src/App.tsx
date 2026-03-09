@@ -318,76 +318,90 @@ export default function App() {
     });
   }, [currentPortfolio, drillDownFilter]);
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
 
-    setUploading(true);
-    setUploadSuccess(false);
+  setUploading(true);
+  setUploadSuccess(false);
 
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: async (results) => {
-        try {
-          // Group by portfolio
-          const portfolioMap = new Map<string, any>();
+  Papa.parse(file, {
+    header: false, // pas de header, on utilise les indices
+    skipEmptyLines: true,
+    complete: async (results) => {
+      try {
+        const portfolioMap = new Map<string, any>();
+        
+        results.data.forEach((row: any, index: number) => {
+          // Ignorer les 2 premières lignes (headers)
+          if (index < 2) return;
+
+          const rawRow = row as string[];
           
-          results.data.forEach((row: any) => {
-            // Try to find portfolio name and type
-            // If headers are missing, we might need to use indices
-            // Based on user hint: Col E (index 4) is name, Col U (index 20) is ISIN
-            const rawRow = Object.values(row);
-            const assetName = row["Asset Name"] || row["Name"] || rawRow[4] || "Unknown Asset";
-            const isin = row["ISIN"] || rawRow[20] || "";
-            const portfolioName = row["Portfolio"] || row["Portefeuille"] || "Default Portfolio";
-            const portfolioType = row["Type"] || (portfolioName.toLowerCase().includes("mixed") ? "Mixed" : "Sicav");
-            
-            if (!portfolioMap.has(portfolioName)) {
-              portfolioMap.set(portfolioName, {
-                name: portfolioName,
-                type: portfolioType,
-                holdings: []
-              });
-            }
-            
+          const portfolioName = rawRow[1]?.trim(); // Colonne B
+          if (!portfolioName) return;
+
+          // Colonne E = index 4, on enlève les 20 derniers caractères
+          const rawName = rawRow[4]?.trim() || "";
+          const assetName = rawName.length > 20 ? rawName.slice(0, -20).trim() : rawName;
+
+          const weight = parseFloat(rawRow[12]?.replace(",", ".") || "0"); // Colonne M
+          const currency = rawRow[11]?.trim() || "EUR"; // Colonne L
+          const isin = rawRow[20]?.trim() || ""; // Colonne U
+          const instrument = rawRow[21]?.trim() || "Other"; // Colonne V
+          const category = rawRow[23]?.trim() || "Unknown"; // Colonne X
+          const region = rawRow[26]?.trim() || "Global"; // Colonne AA
+
+          // Déterminer le type de portefeuille
+          const portfolioType = portfolioName.toLowerCase().includes("mix") ? "Mixed" : "Sicav";
+
+          if (!portfolioMap.has(portfolioName)) {
+            portfolioMap.set(portfolioName, {
+              name: portfolioName,
+              type: portfolioType,
+              description: "",
+              holdings: []
+            });
+          }
+
+          if (assetName) {
             portfolioMap.get(portfolioName).holdings.push({
               asset_name: assetName,
-              isin: isin,
-              category: row["Category"] || row["Catégorie"] || "Equity",
-              region: row["Region"] || row["Région"] || "Global",
-              instrument: row["Instrument"] || "Stock",
-              weight: parseFloat(row["Weight"] || row["Poids"] || "0"),
-              currency: row["Currency"] || row["Devise"] || "EUR"
+              isin,
+              category,
+              region,
+              instrument,
+              weight,
+              currency
             });
-          });
+          }
+        });
 
-          const portfoliosToUpload = Array.from(portfolioMap.values());
-          
-          const response = await fetch("/api/upload-data", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ portfolios: portfoliosToUpload })
-          });
+        const portfoliosToUpload = Array.from(portfolioMap.values());
 
-if (response.ok) {
-  setUploadSuccess(true);
-  await refreshData();
-  setTimeout(() => setUploadSuccess(false), 3000);
-} else {
-  const errorText = await response.text();
-  console.error("Upload error:", response.status, errorText);
-  alert(`Erreur ${response.status}: ${errorText}`);
-}
-        } catch (error) {
-          console.error("CSV processing error", error);
-          alert("Erreur lors du traitement du fichier CSV.");
-        } finally {
-          setUploading(false);
+        const response = await fetch("/api/upload-data", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ portfolios: portfoliosToUpload })
+        });
+
+        if (response.ok) {
+          setUploadSuccess(true);
+          await refreshData();
+          setTimeout(() => setUploadSuccess(false), 3000);
+        } else {
+          const err = await response.text();
+          alert(`Erreur ${err}`);
         }
+      } catch (error) {
+        console.error("CSV processing error", error);
+        alert("Erreur lors du traitement du fichier CSV.");
+      } finally {
+        setUploading(false);
       }
-    });
-  };
+    }
+  });
+};
 
   if (loading && !currentPortfolio && allPortfolios.length === 0) {
     return (
