@@ -623,26 +623,6 @@ export default function App() {
     )}
   </label>
 </div>
-                    
-                    {uploading ? (
-                      <div className="flex items-center gap-2 bg-sky-50 px-3 py-1.5 rounded-lg">
-                        <Loader2 className="h-4 w-4 text-sky-600 animate-spin" />
-                        <span className="text-xs font-bold text-sky-700">Importation...</span>
-                      </div>
-                    ) : uploadSuccess ? (
-                      <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-lg">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                        <span className="text-xs font-bold text-emerald-700">Succès !</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1.5 rounded-lg">
-                        <FileText className="h-3 w-3" />
-                        CSV
-                      </div>
-                    )}
-                  </div>
-                </div>
-
                 <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
