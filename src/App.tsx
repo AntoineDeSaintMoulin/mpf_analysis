@@ -586,24 +586,43 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Upload Zone - Compact version */}
-                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                  <div className="flex items-center justify-between border border-dashed border-slate-200 rounded-xl p-3 hover:border-sky-400 transition-all group relative">
-                    <input 
-                      type="file" 
-                      accept=".csv" 
-                      onChange={handleFileUpload}
-                      className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                    />
-                    <div className="flex items-center gap-4">
-                      <div className="bg-slate-50 p-2 rounded-lg group-hover:bg-sky-50 transition-colors">
-                        <Upload className="h-5 w-5 text-slate-400 group-hover:text-sky-600" />
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-bold text-slate-900 leading-tight">Importer CSV</h3>
-                        <p className="text-[11px] text-slate-500 leading-tight">Remplace toutes les données (Col E: Nom, Col U: ISIN)</p>
-                      </div>
-                    </div>
+{/* Upload Zone - Compact version */}
+<div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+  <label className="flex items-center justify-between border border-dashed border-slate-200 rounded-xl p-3 hover:border-sky-400 transition-all group cursor-pointer">
+    <input 
+      type="file" 
+      accept=".csv" 
+      onChange={handleFileUpload}
+      className="hidden"
+    />
+    <div className="flex items-center gap-4">
+      <div className="bg-slate-50 p-2 rounded-lg group-hover:bg-sky-50 transition-colors">
+        <Upload className="h-5 w-5 text-slate-400 group-hover:text-sky-600" />
+      </div>
+      <div>
+        <h3 className="text-sm font-bold text-slate-900 leading-tight">Importer CSV</h3>
+        <p className="text-[11px] text-slate-500 leading-tight">Remplace toutes les données (Col E: Nom, Col U: ISIN)</p>
+      </div>
+    </div>
+    
+    {uploading ? (
+      <div className="flex items-center gap-2 bg-sky-50 px-3 py-1.5 rounded-lg">
+        <Loader2 className="h-4 w-4 text-sky-600 animate-spin" />
+        <span className="text-xs font-bold text-sky-700">Importation...</span>
+      </div>
+    ) : uploadSuccess ? (
+      <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-lg">
+        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+        <span className="text-xs font-bold text-emerald-700">Succès !</span>
+      </div>
+    ) : (
+      <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1.5 rounded-lg">
+        <FileText className="h-3 w-3" />
+        CSV
+      </div>
+    )}
+  </label>
+</div>
                     
                     {uploading ? (
                       <div className="flex items-center gap-2 bg-sky-50 px-3 py-1.5 rounded-lg">
