@@ -370,13 +370,15 @@ export default function App() {
             body: JSON.stringify({ portfolios: portfoliosToUpload })
           });
 
-          if (response.ok) {
-            setUploadSuccess(true);
-            await refreshData();
-            setTimeout(() => setUploadSuccess(false), 3000);
-          } else {
-            alert("Erreur lors de l'importation des données.");
-          }
+if (response.ok) {
+  setUploadSuccess(true);
+  await refreshData();
+  setTimeout(() => setUploadSuccess(false), 3000);
+} else {
+  const errorText = await response.text();
+  console.error("Upload error:", response.status, errorText);
+  alert(`Erreur ${response.status}: ${errorText}`);
+}
         } catch (error) {
           console.error("CSV processing error", error);
           alert("Erreur lors du traitement du fichier CSV.");
