@@ -333,25 +333,28 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const portfolioMap = new Map<string, any>();
         
         results.data.forEach((row: any, index: number) => {
-          if (index < 2) return;
+          if (index < 4) return; // ignorer les lignes de header
+
           const rawRow = row as string[];
 
-          const rawName = rawRow[4]?.trim() || "";
-          const assetName = rawName.length > 20 ? rawName.slice(0, -20).trim() : rawName;
-          if (!assetName) return;
-
-          const rawPortfolioName = rawName.replace("TECHNICAL.MPF.", "");
-          const portfolioShortName = rawPortfolioName.length > 20 ? rawPortfolioName.slice(0, -20).trim() : rawPortfolioName;
-          const portfolioCode = portfolioShortName.split("_").slice(0, 2).join("_");
+          // Colonne B = index 1 → nom du portefeuille
+          const rawPortfolioName = rawRow[1]?.trim() || "";
+          if (!rawPortfolioName) return;
+          const portfolioCode = rawPortfolioName.replace("TECHNICAL.MPF.", "").trim();
           const portfolioType = portfolioCode.startsWith("MIX") ? "Mixed" : "Sicav";
           const portfolioName = `${portfolioType} - ${portfolioCode}`;
 
-          const weight = parseFloat(rawRow[12]?.replace(",", ".") || "0");
-          const currency = rawRow[11]?.trim() || "EUR";
-          const isin = rawRow[20]?.trim() || "";
-          const instrument = rawRow[21]?.trim() || "Other";
-          const category = rawRow[23]?.trim() || "Unknown";
-          const region = rawRow[26]?.trim() || "Global";
+          // Colonne E = index 4 → nom instrument, enlever 20 derniers caractères
+          const rawInstrument = rawRow[4]?.trim() || "";
+          const assetName = rawInstrument.length > 20 ? rawInstrument.slice(0, -20).trim() : rawInstrument;
+          if (!assetName) return;
+
+          const weight = parseFloat(rawRow[12]?.replace(",", ".") || "0"); // Colonne M
+          const currency = rawRow[11]?.trim() || "EUR"; // Colonne L
+          const isin = rawRow[20]?.trim() || ""; // Colonne U
+          const instrument = rawRow[21]?.trim() || "Other"; // Colonne V
+          const category = rawRow[23]?.trim() || "Unknown"; // Colonne X
+          const region = rawRow[26]?.trim() || "Global"; // Colonne AA
 
           if (!portfolioMap.has(portfolioName)) {
             portfolioMap.set(portfolioName, {
