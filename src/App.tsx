@@ -341,19 +341,26 @@ export default function App() {
           const portfolioName = rawRow[1]?.trim(); // Colonne B
           if (!portfolioName) return;
 
-          // Colonne E = index 4, on enlève les 20 derniers caractères
-          const rawName = rawRow[4]?.trim() || "";
-          const assetName = rawName.length > 20 ? rawName.slice(0, -20).trim() : rawName;
+// Colonne E = index 4, on enlève les 20 derniers caractères pour le nom de l'instrument
+const rawName = rawRow[4]?.trim() || "";
+const assetName = rawName.length > 20 ? rawName.slice(0, -20).trim() : rawName;
+if (!assetName) return;
 
-          const weight = parseFloat(rawRow[12]?.replace(",", ".") || "0"); // Colonne M
-          const currency = rawRow[11]?.trim() || "EUR"; // Colonne L
-          const isin = rawRow[20]?.trim() || ""; // Colonne U
-          const instrument = rawRow[21]?.trim() || "Other"; // Colonne V
-          const category = rawRow[23]?.trim() || "Unknown"; // Colonne X
-          const region = rawRow[26]?.trim() || "Global"; // Colonne AA
+// Nom du portefeuille = colonne E sans "TECHNICAL.MPF." et sans les 20 derniers caractères
+const rawPortfolioName = rawName.replace("TECHNICAL.MPF.", "");
+const portfolioShortName = rawPortfolioName.length > 20 ? rawPortfolioName.slice(0, -20).trim() : rawPortfolioName;
 
-          // Déterminer le type de portefeuille
-          const portfolioType = portfolioName.toLowerCase().includes("mix") ? "Mixed" : "Sicav";
+// Extraire juste le code portefeuille ex: MIX_HIGH, SCV_ML
+const portfolioCode = portfolioShortName.split("_").slice(0, 2).join("_");
+const portfolioType = portfolioCode.startsWith("MIX") ? "Mixed" : portfolioCode.startsWith("SCV") ? "Sicav" : "Sicav";
+const portfolioName = `${portfolioType} - ${portfolioCode}`;
+
+const weight = parseFloat(rawRow[12]?.replace(",", ".") || "0"); // Colonne M
+const currency = rawRow[11]?.trim() || "EUR"; // Colonne L
+const isin = rawRow[20]?.trim() || ""; // Colonne U
+const instrument = rawRow[21]?.trim() || "Other"; // Colonne V
+const category = rawRow[23]?.trim() || "Unknown"; // Colonne X
+const region = rawRow[26]?.trim() || "Global"; // Colonne AA
 
           if (!portfolioMap.has(portfolioName)) {
             portfolioMap.set(portfolioName, {
