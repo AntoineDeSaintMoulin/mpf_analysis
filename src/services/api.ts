@@ -1,7 +1,7 @@
 import { Portfolio, ModelGridItem, ManualOverride } from "../types";
 
 export async function fetchAllPortfolios(): Promise<Portfolio[]> {
-  const res = await fetch("/api/portfolios/all");
+  const res = await fetch("/api/portfolios-all");
   return res.json();
 }
 
@@ -11,7 +11,7 @@ export async function fetchPortfolios(): Promise<Portfolio[]> {
 }
 
 export async function fetchPortfolioDetails(id: number): Promise<Portfolio> {
-  const res = await fetch(`/api/portfolios/${id}`);
+  const res = await fetch(`/api/portfolio-detail?id=${id}`);
   return res.json();
 }
 
@@ -35,7 +35,7 @@ export async function saveManualOverride(override: Partial<ManualOverride>): Pro
 }
 
 export async function deleteManualOverride(id: number): Promise<{ success: boolean }> {
-  const res = await fetch(`/api/manual-overrides/${id}`, {
+  const res = await fetch(`/api/manual-overrides-delete?id=${id}`, {
     method: "DELETE",
   });
   return res.json();
