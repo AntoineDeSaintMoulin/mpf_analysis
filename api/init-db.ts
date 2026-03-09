@@ -5,17 +5,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    // Créer les tables
-    await sql`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS portfolios (
         id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
         type TEXT NOT NULL,
         description TEXT
       )
-    `;
+    `);
 
-    await sql`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS holdings (
         id SERIAL PRIMARY KEY,
         portfolio_id INTEGER REFERENCES portfolios(id),
@@ -28,18 +27,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         currency TEXT NOT NULL,
         isin TEXT NOT NULL
       )
-    `;
+    `);
 
-    await sql`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS model_grid (
         id SERIAL PRIMARY KEY,
         category TEXT NOT NULL,
         region TEXT NOT NULL,
         target_weight REAL NOT NULL
       )
-    `;
+    `);
 
-    await sql`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS manual_overrides (
         id SERIAL PRIMARY KEY,
         original_asset_name TEXT UNIQUE NOT NULL,
@@ -51,16 +50,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         manual_instrument TEXT,
         updated_at TIMESTAMP DEFAULT NOW()
       )
-    `;
+    `);
 
-    // Seed model_grid si vide
-    const existing = await sql`SELECT COUNT(*) FROM model_grid`;
+    const existing = await pool.query("SELECT COUNT(*) FROM model_grid");
     if (Number(existing.rows[0].count) === 0) {
-      await sql`INSERT INTO model_grid (category, region, target_weight) VALUES ('Equity', 'US', 40)`;
-      await sql`INSERT INTO model_grid (category, region, target_weight) VALUES ('Equity', 'Europe', 15)`;
-      await sql`INSERT INTO model_grid (category, region, target_weight) VALUES ('Equity', 'Emerging Markets', 10)`;
-      await sql`INSERT INTO model_grid (category, region, target_weight) VALUES ('Fixed Income', 'US', 30)`;
-      await sql`INSERT INTO model_grid (category, region, target_weight) VALUES ('Cash', 'Global', 5)`;
+      await pool.query("INSERT INTO model_grid (category, region, target_weight) VALUES ($1, $2, $3)", ["Equity", "US", 40]);
+      await pool.query("INSERT INTO model_grid (category, region, target_weight) VALUES ($1, $2, $3)", ["Equity", "Europe", 15]);
+      await pool.query("INSERT INTO model_grid (category, region, target_weight) VALUES ($1, $2, $3)", ["Equity", "Emerging Markets", 10]);
+      await pool.query("INSERT INTO model_grid (category, region, target_weight) VALUES ($1, $2, $3)", ["Fixed Income", "US", 30]);
+      await pool.query("INSERT INTO model_grid (category, region, target_weight) VALUES ($1, $2, $3)", ["Cash", "Global", 5]);
     }
 
     res.json({ success: true, message: "Base de données initialisée avec succès" });
