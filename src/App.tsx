@@ -22,6 +22,9 @@ import {
   Edit2,
   Trash2,
   Save,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
 } from "lucide-react";
 import Papa from "papaparse";
 import { 
@@ -124,6 +127,7 @@ export default function App() {
   const [selectedInstrument, setSelectedInstrument] = useState<Holding | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
   const [manualOverrides, setManualOverrides] = useState<ManualOverride[]>([]);
   const [editingOverride, setEditingOverride] = useState<{ 
@@ -297,6 +301,16 @@ export default function App() {
     }));
   }, [allPortfolios]);
 
+  const handleSort = (key: string) => {
+    setSortConfig(prev => {
+      if (prev?.key === key) {
+        if (prev.direction === 'asc') return { key, direction: 'desc' };
+        return null;
+      }
+      return { key, direction: 'asc' };
+    });
+  };
+
   const sortedPortfolios = useMemo(() => {
     return [...allPortfolios].sort((a, b) => {
       const ai = PORTFOLIO_ORDER.indexOf(a.name);
@@ -316,6 +330,19 @@ export default function App() {
       return { name: p.name, type: p.type, ...regionWeights };
     });
   }, [sortedPortfolios]);
+
+  const sortedInstruments = useMemo(() => {
+    if (!sortConfig) return instrumentsSynthesis;
+    return [...instrumentsSynthesis].sort((a, b) => {
+      const dir = sortConfig.direction === 'asc' ? 1 : -1;
+      if (sortConfig.key === 'name') {
+        return a.name.localeCompare(b.name) * dir;
+      }
+      const wa = a.weights[sortConfig.key] || 0;
+      const wb = b.weights[sortConfig.key] || 0;
+      return (wa - wb) * dir;
+    });
+  }, [instrumentsSynthesis, sortConfig]);
 
   const filteredPortfolios = useMemo(() => {
     return portfolios.filter(p => p.type === activeTab);
@@ -628,23 +655,36 @@ export default function App() {
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-slate-50/50">
-                          <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10">Instrument</th>
+                          <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10">
+                            <button onClick={() => handleSort('name')} className="flex items-center gap-1 hover:text-slate-900 transition-colors">
+                              Instrument
+                              {sortConfig?.key === 'name' ? (
+                                sortConfig.direction === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+                              ) : <ChevronsUpDown className="h-3 w-3 opacity-40" />}
+                            </button>
+                          </th>
                           <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">ISIN</th>
                           {sortedPortfolios.map(p => {
                             const [type, profile] = p.name.split(' - ');
+                            const isActive = sortConfig?.key === p.name;
                             return (
                               <th key={p.id} className="px-4 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right min-w-[100px]" title={p.name}>
-                                <div className="flex flex-col">
+                                <button onClick={() => handleSort(p.name)} className="flex flex-col items-end w-full hover:text-slate-900 transition-colors">
                                   <span className="opacity-60 leading-tight">{type}</span>
-                                  <span className="text-slate-900 leading-tight">{profile}</span>
-                                </div>
+                                  <span className={cn("leading-tight flex items-center gap-1", isActive ? "text-sky-600" : "text-slate-900")}>
+                                    {profile}
+                                    {isActive ? (
+                                      sortConfig.direction === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+                                    ) : <ChevronsUpDown className="h-3 w-3 opacity-40" />}
+                                  </span>
+                                </button>
                               </th>
                             );
                           })}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50">
-                        {instrumentsSynthesis.map((row, i) => (
+                        {sortedInstruments.map((row, i) => (
                           <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
                             <td className="px-8 py-5 sticky left-0 bg-white group-hover:bg-slate-50">
                               <button 
