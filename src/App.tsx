@@ -4,7 +4,6 @@ import {
   PieChart as PieChartIcon, 
   Globe, 
   Briefcase, 
-  AlertCircle, 
   ChevronRight, 
   TrendingUp,
   Info,
@@ -23,7 +22,6 @@ import {
   Edit2,
   Trash2,
   Save,
-  Plus
 } from "lucide-react";
 import Papa from "papaparse";
 import { 
@@ -121,15 +119,12 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   
-  // Drill-down states
   const [drillDownFilter, setDrillDownFilter] = useState<{ type: 'category' | 'region', value: string } | null>(null);
   
-  // Modal states
   const [selectedInstrument, setSelectedInstrument] = useState<Holding | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
 
-  // Manual Overrides states
   const [manualOverrides, setManualOverrides] = useState<ManualOverride[]>([]);
   const [editingOverride, setEditingOverride] = useState<{ 
     original_asset_name: string, 
@@ -221,7 +216,7 @@ export default function App() {
           const details = await fetchPortfolioDetails(selectedId!);
           setCurrentPortfolio(details);
           setAnalysis(null);
-          setDrillDownFilter(null); // Reset drill-down
+          setDrillDownFilter(null);
         } catch (error) {
           console.error("Failed to load portfolio details", error);
         } finally {
@@ -272,26 +267,7 @@ export default function App() {
     return Array.from(map.entries()).map(([name, value]) => ({ name, value: Number(value.toFixed(1)) }));
   }, [currentPortfolio]);
 
-const synthesisData = useMemo(() => {
-    const regions = Array.from(new Set(sortedPortfolios.flatMap(p => p.holdings?.map(h => h.region) || []))) as string[];
-    return sortedPortfolios.map(p => {
-      const regionWeights: Record<string, number> = {};
-      regions.forEach(r => {
-        regionWeights[r] = 0;
-      });
-      p.holdings?.forEach(h => {
-        regionWeights[h.region] = (regionWeights[h.region] || 0) + h.weight;
-      });
-      return {
-        name: p.name,
-        type: p.type,
-        ...regionWeights
-      };
-    });
-  }, [allPortfolios]);
-
   const instrumentsSynthesis = useMemo(() => {
-    // Group by asset_name to ensure uniqueness even if ISIN is empty
     const instrumentMap = new Map<string, { name: string, originalName: string, isin: string, weights: Record<string, number>, details: Partial<Holding> }>();
     const portfolioNames = allPortfolios.map(p => p.name);
     
@@ -311,7 +287,6 @@ const synthesisData = useMemo(() => {
         }
         const entry = instrumentMap.get(key)!;
         entry.weights[p.name] = h.weight;
-        // Keep the most complete details
         if (h.isin && !entry.isin) entry.isin = h.isin;
       });
     });
@@ -329,7 +304,19 @@ const synthesisData = useMemo(() => {
       return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
     });
   }, [allPortfolios]);
-  
+
+  const synthesisData = useMemo(() => {
+    const regions = Array.from(new Set(sortedPortfolios.flatMap(p => p.holdings?.map(h => h.region) || []))) as string[];
+    return sortedPortfolios.map(p => {
+      const regionWeights: Record<string, number> = {};
+      regions.forEach(r => { regionWeights[r] = 0; });
+      p.holdings?.forEach(h => {
+        regionWeights[h.region] = (regionWeights[h.region] || 0) + h.weight;
+      });
+      return { name: p.name, type: p.type, ...regionWeights };
+    });
+  }, [sortedPortfolios]);
+
   const filteredPortfolios = useMemo(() => {
     return portfolios.filter(p => p.type === activeTab);
   }, [portfolios, activeTab]);
@@ -343,88 +330,87 @@ const synthesisData = useMemo(() => {
     });
   }, [currentPortfolio, drillDownFilter]);
 
-const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-  const file = event.target.files?.[0];
-  if (!file) return;
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-  setUploading(true);
-  setUploadSuccess(false);
+    setUploading(true);
+    setUploadSuccess(false);
 
-  Papa.parse(file, {
-    header: false,
-    skipEmptyLines: true,
-    complete: async (results) => {
-      try {
-        const portfolioMap = new Map<string, any>();
-        
-        results.data.forEach((row: any, index: number) => {
-          if (index < 4) return; // ignorer les lignes de header
+    Papa.parse(file, {
+      header: false,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        try {
+          const portfolioMap = new Map<string, any>();
+          
+          results.data.forEach((row: any, index: number) => {
+            if (index < 4) return;
 
-          const rawRow = row as string[];
+            const rawRow = row as string[];
 
-          // Colonne B = index 1 → nom du portefeuille
-          const rawPortfolioName = rawRow[1]?.trim() || "";
-          if (!rawPortfolioName) return;
-          const portfolioCode = rawPortfolioName.replace("TECHNICAL.MPF.", "").trim();
-          const portfolioType = portfolioCode.startsWith("MIX") ? "Mixed" : "Sicav";
-          const portfolioName = `${portfolioType} - ${portfolioCode}`;
+            const rawPortfolioName = rawRow[1]?.trim() || "";
+            if (!rawPortfolioName) return;
+            const portfolioCode = rawPortfolioName.replace("TECHNICAL.MPF.", "").trim();
+            const portfolioType = portfolioCode.startsWith("MIX") ? "Mixed" : "Sicav";
+            const portfolioName = `${portfolioType} - ${portfolioCode}`;
 
-          // Colonne E = index 4 → nom instrument, enlever 20 derniers caractères
-          const rawInstrument = rawRow[4]?.trim() || "";
-          const assetName = rawInstrument.length > 20 ? rawInstrument.slice(0, -20).trim() : rawInstrument;
-          if (!assetName) return;
+            const rawInstrument = rawRow[4]?.trim() || "";
+            const assetName = rawInstrument.length > 20 ? rawInstrument.slice(0, -20).trim() : rawInstrument;
+            if (!assetName) return;
 
-          const weight = parseFloat(rawRow[12]?.replace(",", ".") || "0"); // Colonne M
-          const currency = rawRow[11]?.trim() || "EUR"; // Colonne L
-          const isin = rawRow[20]?.trim() || ""; // Colonne U
-          const instrument = rawRow[21]?.trim() || "Other"; // Colonne V
-          const category = rawRow[23]?.trim() || "Unknown"; // Colonne X
-          const region = rawRow[26]?.trim() || "Global"; // Colonne AA
+            const weight = parseFloat(rawRow[12]?.replace(",", ".") || "0");
+            const currency = rawRow[11]?.trim() || "EUR";
+            const isin = rawRow[20]?.trim() || "";
+            const instrument = rawRow[21]?.trim() || "Other";
+            const category = rawRow[23]?.trim() || "Unknown";
+            const region = rawRow[26]?.trim() || "Global";
 
-          if (!portfolioMap.has(portfolioName)) {
-            portfolioMap.set(portfolioName, {
-              name: portfolioName,
-              type: portfolioType,
-              description: "",
-              holdings: []
+            if (!portfolioMap.has(portfolioName)) {
+              portfolioMap.set(portfolioName, {
+                name: portfolioName,
+                type: portfolioType,
+                description: "",
+                holdings: []
+              });
+            }
+
+            portfolioMap.get(portfolioName).holdings.push({
+              asset_name: assetName,
+              isin,
+              category,
+              region,
+              instrument,
+              weight,
+              currency
             });
-          }
-
-          portfolioMap.get(portfolioName).holdings.push({
-            asset_name: assetName,
-            isin,
-            category,
-            region,
-            instrument,
-            weight,
-            currency
           });
-        });
 
-        const portfoliosToUpload = Array.from(portfolioMap.values());
-        const response = await fetch("/api/upload-data", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ portfolios: portfoliosToUpload })
-        });
+          const portfoliosToUpload = Array.from(portfolioMap.values());
+          const response = await fetch("/api/upload-data", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ portfolios: portfoliosToUpload })
+          });
 
-        if (response.ok) {
-          setUploadSuccess(true);
-          await refreshData();
-          setTimeout(() => setUploadSuccess(false), 3000);
-        } else {
-          const err = await response.text();
-          alert(`Erreur ${err}`);
+          if (response.ok) {
+            setUploadSuccess(true);
+            await refreshData();
+            setTimeout(() => setUploadSuccess(false), 3000);
+          } else {
+            const err = await response.text();
+            alert(`Erreur ${err}`);
+          }
+        } catch (error) {
+          console.error("CSV processing error", error);
+          alert("Erreur lors du traitement du fichier CSV.");
+        } finally {
+          setUploading(false);
         }
-      } catch (error) {
-        console.error("CSV processing error", error);
-        alert("Erreur lors du traitement du fichier CSV.");
-      } finally {
-        setUploading(false);
       }
-    }
-  });
-};
+    });
+  };
+
   if (loading && !currentPortfolio && allPortfolios.length === 0) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50">
@@ -435,7 +421,6 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 font-sans text-slate-900">
-      {/* Top Navigation Bar */}
       <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between z-20 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="bg-sky-600 p-1.5 rounded-lg">
@@ -447,46 +432,31 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         <div className="flex items-center bg-slate-100 p-1 rounded-xl">
           <button
             onClick={() => setActiveTab('SYNTHESE')}
-            className={cn(
-              "px-4 py-1.5 rounded-lg text-sm font-medium transition-all",
-              activeTab === 'SYNTHESE' ? "bg-white text-sky-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
-            )}
+            className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition-all", activeTab === 'SYNTHESE' ? "bg-white text-sky-700 shadow-sm" : "text-slate-500 hover:text-slate-700")}
           >
             Synthèse Géo
           </button>
           <button
             onClick={() => setActiveTab('INSTRUMENTS')}
-            className={cn(
-              "px-4 py-1.5 rounded-lg text-sm font-medium transition-all",
-              activeTab === 'INSTRUMENTS' ? "bg-white text-sky-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
-            )}
+            className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition-all", activeTab === 'INSTRUMENTS' ? "bg-white text-sky-700 shadow-sm" : "text-slate-500 hover:text-slate-700")}
           >
             Synthèse Instruments
           </button>
           <button
             onClick={() => setActiveTab('Sicav')}
-            className={cn(
-              "px-4 py-1.5 rounded-lg text-sm font-medium transition-all",
-              activeTab === 'Sicav' ? "bg-white text-sky-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
-            )}
+            className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition-all", activeTab === 'Sicav' ? "bg-white text-sky-700 shadow-sm" : "text-slate-500 hover:text-slate-700")}
           >
             Sicav
           </button>
           <button
             onClick={() => setActiveTab('Mixed')}
-            className={cn(
-              "px-4 py-1.5 rounded-lg text-sm font-medium transition-all",
-              activeTab === 'Mixed' ? "bg-white text-sky-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
-            )}
+            className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition-all", activeTab === 'Mixed' ? "bg-white text-sky-700 shadow-sm" : "text-slate-500 hover:text-slate-700")}
           >
             Mixed
           </button>
           <button
             onClick={() => setActiveTab('MANUALS')}
-            className={cn(
-              "px-4 py-1.5 rounded-lg text-sm font-medium transition-all",
-              activeTab === 'MANUALS' ? "bg-white text-sky-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
-            )}
+            className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition-all", activeTab === 'MANUALS' ? "bg-white text-sky-700 shadow-sm" : "text-slate-500 hover:text-slate-700")}
           >
             Manuals
           </button>
@@ -564,8 +534,7 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50">
-{synthesisData.map((row, i) => (
-  <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                        {synthesisData.map((row, i) => (
                           <tr key={i} className="hover:bg-slate-50/50 transition-colors">
                             <td className="px-8 py-5 font-bold text-slate-900 sticky left-0 bg-white group-hover:bg-slate-50">{row.name}</td>
                             <td className="px-8 py-5">
@@ -581,10 +550,7 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
                                 <div className="flex flex-col items-end">
                                   <span>{Number(weight).toFixed(1)}%</span>
                                   <div className="w-16 h-1 bg-slate-100 rounded-full mt-1 overflow-hidden">
-                                    <div 
-                                      className="h-full bg-sky-500" 
-                                      style={{ width: `${Math.min(100, Number(weight))}%` }}
-                                    />
+                                    <div className="h-full bg-sky-500" style={{ width: `${Math.min(100, Number(weight))}%` }} />
                                   </div>
                                 </div>
                               </td>
@@ -596,6 +562,7 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
                   </div>
                 </div>
               </motion.div>
+
             ) : activeTab === 'INSTRUMENTS' ? (
               <motion.div
                 key="instruments"
@@ -625,43 +592,37 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
                   </div>
                 </div>
 
-{/* Upload Zone - Compact version */}
-<div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-  <label className="flex items-center justify-between border border-dashed border-slate-200 rounded-xl p-3 hover:border-sky-400 transition-all group cursor-pointer">
-    <input 
-      type="file" 
-      accept=".csv" 
-      onChange={handleFileUpload}
-      className="hidden"
-    />
-    <div className="flex items-center gap-4">
-      <div className="bg-slate-50 p-2 rounded-lg group-hover:bg-sky-50 transition-colors">
-        <Upload className="h-5 w-5 text-slate-400 group-hover:text-sky-600" />
-      </div>
-      <div>
-        <h3 className="text-sm font-bold text-slate-900 leading-tight">Importer CSV</h3>
-        <p className="text-[11px] text-slate-500 leading-tight">Remplace toutes les données (Col E: Nom, Col U: ISIN)</p>
-      </div>
-    </div>
-    
-    {uploading ? (
-      <div className="flex items-center gap-2 bg-sky-50 px-3 py-1.5 rounded-lg">
-        <Loader2 className="h-4 w-4 text-sky-600 animate-spin" />
-        <span className="text-xs font-bold text-sky-700">Importation...</span>
-      </div>
-    ) : uploadSuccess ? (
-      <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-lg">
-        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-        <span className="text-xs font-bold text-emerald-700">Succès !</span>
-      </div>
-    ) : (
-      <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1.5 rounded-lg">
-        <FileText className="h-3 w-3" />
-        CSV
-      </div>
-    )}
-  </label>
-</div>
+                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                  <label className="flex items-center justify-between border border-dashed border-slate-200 rounded-xl p-3 hover:border-sky-400 transition-all group cursor-pointer">
+                    <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
+                    <div className="flex items-center gap-4">
+                      <div className="bg-slate-50 p-2 rounded-lg group-hover:bg-sky-50 transition-colors">
+                        <Upload className="h-5 w-5 text-slate-400 group-hover:text-sky-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900 leading-tight">Importer CSV</h3>
+                        <p className="text-[11px] text-slate-500 leading-tight">Remplace toutes les données (Col E: Nom, Col U: ISIN)</p>
+                      </div>
+                    </div>
+                    {uploading ? (
+                      <div className="flex items-center gap-2 bg-sky-50 px-3 py-1.5 rounded-lg">
+                        <Loader2 className="h-4 w-4 text-sky-600 animate-spin" />
+                        <span className="text-xs font-bold text-sky-700">Importation...</span>
+                      </div>
+                    ) : uploadSuccess ? (
+                      <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-lg">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                        <span className="text-xs font-bold text-emerald-700">Succès !</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1.5 rounded-lg">
+                        <FileText className="h-3 w-3" />
+                        CSV
+                      </div>
+                    )}
+                  </label>
+                </div>
+
                 <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
@@ -695,8 +656,8 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
                               </button>
                             </td>
                             <td className="px-8 py-5 text-xs font-mono text-slate-500">{row.isin}</td>
-{sortedPortfolios.map(p => (
-  <td key={p.id} className="px-4 py-5 text-right font-medium text-slate-600 text-sm">
+                            {sortedPortfolios.map(p => (
+                              <td key={p.id} className="px-4 py-5 text-right font-medium text-slate-600 text-sm">
                                 {row.weights[p.name] > 0 ? `${row.weights[p.name].toFixed(1)}%` : "-"}
                               </td>
                             ))}
@@ -707,6 +668,7 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
                   </div>
                 </div>
               </motion.div>
+
             ) : activeTab === 'MANUALS' ? (
               <motion.div
                 key="manuals"
@@ -801,6 +763,7 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
                   </div>
                 </div>
               </motion.div>
+
             ) : (
               currentPortfolio && (
                 <motion.div
@@ -811,7 +774,6 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
                   transition={{ duration: 0.3 }}
                   className="max-w-6xl mx-auto space-y-8"
                 >
-                  {/* Header */}
                   <div className="flex items-end justify-between">
                     <div>
                       <div className="flex items-center gap-3 mb-2">
@@ -830,33 +792,23 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
                       disabled={analyzing}
                       className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-2xl font-medium hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 disabled:opacity-50"
                     >
-                      {analyzing ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Sparkles className="h-4 w-4" />
-                      )}
+                      {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                       Analyse IA
                     </button>
                   </div>
 
-                  {/* Stats Grid */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
                       <div className="flex items-center gap-3 mb-4">
-                        <div className="bg-sky-100 p-2 rounded-xl">
-                          <LayoutDashboard className="h-5 w-5 text-sky-600" />
-                        </div>
+                        <div className="bg-sky-100 p-2 rounded-xl"><LayoutDashboard className="h-5 w-5 text-sky-600" /></div>
                         <span className="text-sm font-semibold text-slate-500">Actifs</span>
                       </div>
                       <div className="text-3xl font-bold text-slate-900">{currentPortfolio.holdings?.length || 0}</div>
                       <div className="text-xs text-slate-400 mt-1">Instruments individuels</div>
                     </div>
-
                     <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
                       <div className="flex items-center gap-3 mb-4">
-                        <div className="bg-emerald-100 p-2 rounded-xl">
-                          <PieChartIcon className="h-5 w-5 text-emerald-600" />
-                        </div>
+                        <div className="bg-emerald-100 p-2 rounded-xl"><PieChartIcon className="h-5 w-5 text-emerald-600" /></div>
                         <span className="text-sm font-semibold text-slate-500">Catégorie Principale</span>
                       </div>
                       <div className="text-3xl font-bold text-slate-900">
@@ -864,12 +816,9 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
                       </div>
                       <div className="text-xs text-slate-400 mt-1">Plus grande exposition</div>
                     </div>
-
                     <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
                       <div className="flex items-center gap-3 mb-4">
-                        <div className="bg-amber-100 p-2 rounded-xl">
-                          <Globe className="h-5 w-5 text-amber-600" />
-                        </div>
+                        <div className="bg-amber-100 p-2 rounded-xl"><Globe className="h-5 w-5 text-amber-600" /></div>
                         <span className="text-sm font-semibold text-slate-500">Région Principale</span>
                       </div>
                       <div className="text-3xl font-bold text-slate-900">
@@ -879,7 +828,6 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
                     </div>
                   </div>
 
-                  {/* Charts Section */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
                       <h3 className="text-lg font-bold mb-8 flex items-center gap-2">
@@ -891,12 +839,9 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
                           <PieChart>
                             <Pie
                               data={categoryData}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={60}
-                              outerRadius={100}
-                              paddingAngle={5}
-                              dataKey="value"
+                              cx="50%" cy="50%"
+                              innerRadius={60} outerRadius={100}
+                              paddingAngle={5} dataKey="value"
                               onClick={(data) => setDrillDownFilter({ type: 'category', value: data.name })}
                               className="cursor-pointer"
                             >
@@ -905,10 +850,7 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
                               ))}
                               <LabelList dataKey="value" position="outside" formatter={(v: number) => `${v}%`} fill="#64748b" fontSize={12} />
                             </Pie>
-                            <Tooltip 
-                              contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                              formatter={(v: number) => `${v}%`}
-                            />
+                            <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} formatter={(v: number) => `${v}%`} />
                             <Legend verticalAlign="bottom" height={36}/>
                           </PieChart>
                         </ResponsiveContainer>
@@ -923,17 +865,10 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
                       </h3>
                       <div className="h-[350px]">
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart 
-                            data={regionData}
-                            onClick={(data: any) => data && data.activeLabel && setDrillDownFilter({ type: 'region', value: data.activeLabel })}
-                          >
+                          <BarChart data={regionData} onClick={(data: any) => data && data.activeLabel && setDrillDownFilter({ type: 'region', value: data.activeLabel })}>
                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
                             <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
-                            <Tooltip 
-                              cursor={{ fill: '#f8fafc' }}
-                              contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                              formatter={(v: number) => `${v}%`}
-                            />
+                            <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} formatter={(v: number) => `${v}%`} />
                             <Bar dataKey="value" fill="#0ea5e9" radius={[8, 8, 0, 0]} className="cursor-pointer">
                               <LabelList dataKey="value" position="top" formatter={(v: number) => `${v}%`} fill="#64748b" fontSize={12} />
                             </Bar>
@@ -944,23 +879,17 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
                     </div>
                   </div>
 
-                  {/* Drill-down Detail Section */}
                   <AnimatePresence>
                     {drillDownFilter && (
                       <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 20 }}
+                        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
                         className="bg-sky-50 p-8 rounded-3xl border border-sky-100"
                       >
                         <div className="flex items-center justify-between mb-6">
                           <h3 className="text-lg font-bold text-sky-900">
                             Détail {drillDownFilter.type === 'category' ? 'Catégorie' : 'Région'} : {drillDownFilter.value}
                           </h3>
-                          <button 
-                            onClick={() => setDrillDownFilter(null)}
-                            className="text-sky-600 hover:text-sky-800 text-sm font-medium flex items-center gap-1"
-                          >
+                          <button onClick={() => setDrillDownFilter(null)} className="text-sky-600 hover:text-sky-800 text-sm font-medium flex items-center gap-1">
                             Fermer le détail <X className="h-4 w-4" />
                           </button>
                         </div>
@@ -979,13 +908,10 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
                     )}
                   </AnimatePresence>
 
-                  {/* AI Analysis Section */}
                   <AnimatePresence>
                     {analysis && (
                       <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
+                        initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
                         className="bg-slate-900 text-white p-8 rounded-3xl shadow-2xl relative overflow-hidden"
                       >
                         <div className="absolute top-0 right-0 p-10 opacity-10 pointer-events-none">
@@ -998,10 +924,7 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
                             </div>
                             <h3 className="text-xl font-bold">Analyse IA Insight</h3>
                           </div>
-                          <p className="text-slate-300 leading-relaxed text-lg mb-8">
-                            {analysis.commentary}
-                          </p>
-                          
+                          <p className="text-slate-300 leading-relaxed text-lg mb-8">{analysis.commentary}</p>
                           {analysis.differences.length > 0 && (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                               {analysis.differences.map((diff, i) => (
@@ -1013,10 +936,7 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
                                     <div className="text-xl font-bold">
                                       {diff.current}% <span className="text-xs font-normal text-slate-400">vs {diff.target}%</span>
                                     </div>
-                                    <div className={cn(
-                                      "text-sm font-medium px-2 py-0.5 rounded-lg",
-                                      diff.diff > 0 ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
-                                    )}>
+                                    <div className={cn("text-sm font-medium px-2 py-0.5 rounded-lg", diff.diff > 0 ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400")}>
                                       {diff.diff > 0 ? "+" : ""}{diff.diff}%
                                     </div>
                                   </div>
@@ -1029,9 +949,8 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
                     )}
                   </AnimatePresence>
 
-                  {/* Holdings Table */}
                   <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-                    <div className="p-8 border-bottom border-slate-100 flex items-center justify-between">
+                    <div className="p-8 flex items-center justify-between">
                       <h3 className="text-lg font-bold">Détails des Positions</h3>
                       <div className="text-xs text-slate-400 font-medium bg-slate-50 px-3 py-1 rounded-full">
                         {currentPortfolio.holdings?.length} Positions
@@ -1053,10 +972,7 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
                           {currentPortfolio.holdings?.map((h) => (
                             <tr key={h.id} className="hover:bg-slate-50/50 transition-colors group">
                               <td className="px-8 py-5">
-                                <button 
-                                  onClick={() => setSelectedInstrument(h)}
-                                  className="font-medium text-slate-900 hover:text-sky-600 hover:underline text-left"
-                                >
+                                <button onClick={() => setSelectedInstrument(h)} className="font-medium text-slate-900 hover:text-sky-600 hover:underline text-left">
                                   {h.asset_name}
                                 </button>
                               </td>
@@ -1082,12 +998,7 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         </main>
       </div>
 
-      {/* Instrument Detail Modal */}
-      <Modal 
-        isOpen={!!selectedInstrument} 
-        onClose={() => setSelectedInstrument(null)}
-        title="Fiche Instrument"
-      >
+      <Modal isOpen={!!selectedInstrument} onClose={() => setSelectedInstrument(null)} title="Fiche Instrument">
         {selectedInstrument && (
           <div className="space-y-6">
             <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
@@ -1119,7 +1030,6 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
                 Modifier
               </button>
             </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div className="p-4 border border-slate-100 rounded-2xl">
                 <div className="flex items-center gap-2 text-slate-400 mb-1">
@@ -1157,7 +1067,6 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
                 <div className="font-bold text-slate-900">{selectedInstrument.instrument}</div>
               </div>
             </div>
-
             <div className="p-6 bg-sky-50 rounded-2xl border border-sky-100">
               <p className="text-sm text-sky-800 leading-relaxed">
                 Cet instrument est utilisé dans vos portefeuilles modèles pour assurer une exposition diversifiée à la classe d'actifs <strong>{selectedInstrument.category}</strong> dans la zone <strong>{selectedInstrument.region}</strong>.
@@ -1167,103 +1076,48 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         )}
       </Modal>
 
-      {/* Instrument Edit Modal */}
-      <Modal 
-        isOpen={!!editingOverride} 
-        onClose={() => setEditingOverride(null)}
-        title="Modifier l'instrument"
-      >
+      <Modal isOpen={!!editingOverride} onClose={() => setEditingOverride(null)} title="Modifier l'instrument">
         {editingOverride && (
           <div className="space-y-6">
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Instrument Original</p>
               <p className="text-slate-900 font-bold">{editingOverride.original_asset_name}</p>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Nouveau Nom</label>
-                <input 
-                  type="text"
-                  value={editingOverride.manual_asset_name}
-                  onChange={(e) => setEditingOverride({ ...editingOverride, manual_asset_name: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all"
-                  placeholder="Entrez le nom de l'instrument"
-                />
+                <input type="text" value={editingOverride.manual_asset_name} onChange={(e) => setEditingOverride({ ...editingOverride, manual_asset_name: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all" placeholder="Entrez le nom de l'instrument" />
               </div>
-
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Nouvel ISIN</label>
-                <input 
-                  type="text"
-                  value={editingOverride.manual_isin}
-                  onChange={(e) => setEditingOverride({ ...editingOverride, manual_isin: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all font-mono"
-                  placeholder="Ex: LU0123456789"
-                />
+                <input type="text" value={editingOverride.manual_isin} onChange={(e) => setEditingOverride({ ...editingOverride, manual_isin: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all font-mono" placeholder="Ex: LU0123456789" />
               </div>
-
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Région</label>
-                <input 
-                  type="text"
-                  value={editingOverride.manual_region}
-                  onChange={(e) => setEditingOverride({ ...editingOverride, manual_region: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all"
-                  placeholder="Ex: Europe, US, Global"
-                />
+                <input type="text" value={editingOverride.manual_region} onChange={(e) => setEditingOverride({ ...editingOverride, manual_region: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all" placeholder="Ex: Europe, US, Global" />
               </div>
-
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Devise</label>
-                <input 
-                  type="text"
-                  value={editingOverride.manual_currency}
-                  onChange={(e) => setEditingOverride({ ...editingOverride, manual_currency: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all"
-                  placeholder="Ex: EUR, USD, CHF"
-                />
+                <input type="text" value={editingOverride.manual_currency} onChange={(e) => setEditingOverride({ ...editingOverride, manual_currency: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all" placeholder="Ex: EUR, USD, CHF" />
               </div>
-
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Catégorie</label>
-                <input 
-                  type="text"
-                  value={editingOverride.manual_category}
-                  onChange={(e) => setEditingOverride({ ...editingOverride, manual_category: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all"
-                  placeholder="Ex: Equity, Fixed Income, Cash"
-                />
+                <input type="text" value={editingOverride.manual_category} onChange={(e) => setEditingOverride({ ...editingOverride, manual_category: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all" placeholder="Ex: Equity, Fixed Income, Cash" />
               </div>
-
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Type d'Instrument</label>
-                <input 
-                  type="text"
-                  value={editingOverride.manual_instrument}
-                  onChange={(e) => setEditingOverride({ ...editingOverride, manual_instrument: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all"
-                  placeholder="Ex: ETF, Fund, Stock, Bond"
-                />
+                <input type="text" value={editingOverride.manual_instrument} onChange={(e) => setEditingOverride({ ...editingOverride, manual_instrument: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all" placeholder="Ex: ETF, Fund, Stock, Bond" />
               </div>
             </div>
-
             <div className="flex gap-3 pt-4">
-              <button 
-                onClick={() => setEditingOverride(null)}
-                className="flex-1 px-6 py-3 rounded-2xl font-bold text-slate-600 hover:bg-slate-100 transition-all"
-              >
+              <button onClick={() => setEditingOverride(null)} className="flex-1 px-6 py-3 rounded-2xl font-bold text-slate-600 hover:bg-slate-100 transition-all">
                 Annuler
               </button>
-              <button 
-                onClick={handleSaveOverride}
-                className="flex-1 flex items-center justify-center gap-2 bg-sky-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-sky-700 transition-all shadow-lg shadow-sky-100"
-              >
+              <button onClick={handleSaveOverride} className="flex-1 flex items-center justify-center gap-2 bg-sky-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-sky-700 transition-all shadow-lg shadow-sky-100">
                 <Save className="h-4 w-4" />
                 Sauvegarder
               </button>
             </div>
-            
             <p className="text-[10px] text-slate-400 text-center italic">
               Ce changement sera conservé même après un nouvel import CSV.
             </p>
