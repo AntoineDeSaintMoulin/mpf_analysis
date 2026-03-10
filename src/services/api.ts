@@ -6,7 +6,7 @@ export async function fetchAllPortfolios(): Promise<Portfolio[]> {
 }
 
 export async function fetchPortfolios(): Promise<Portfolio[]> {
-  const res = await fetch("/api/portfolios");
+const res = await fetch("/api/portfolios-list");
   return res.json();
 }
 
