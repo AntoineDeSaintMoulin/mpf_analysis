@@ -26,6 +26,7 @@ import {
   ChevronDown,
   ChevronsUpDown,
   AlertTriangle,
+  Search,
 } from "lucide-react";
 import Papa from "papaparse";
 import {
@@ -143,6 +144,9 @@ export default function App() {
   const [uploading, setUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
+  const [holdingsSortConfig, setHoldingsSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
+  const [holdingsSearch, setHoldingsSearch] = useState("");
+  const [instrumentsSearch, setInstrumentsSearch] = useState("");
   const [manualOverrides, setManualOverrides] = useState<ManualOverride[]>([]);
   const [editingOverride, setEditingOverride] = useState<{
     original_asset_name: string; manual_asset_name: string; manual_isin: string;
@@ -201,6 +205,8 @@ export default function App() {
       setDetailLoading(true);
       setAnalysis(null);
       setDrillDownFilter(null);
+      setHoldingsSearch("");
+      setHoldingsSortConfig(null);
       try {
         const details = await fetchPortfolioDetails(selectedId);
         if (details && typeof details === "object" && (details as any).name) {
@@ -286,6 +292,16 @@ export default function App() {
 
   const handleSort = (key: string) => {
     setSortConfig((prev) => {
+      if (prev?.key === key) {
+        if (prev.direction === "asc") return { key, direction: "desc" };
+        return null;
+      }
+      return { key, direction: "asc" };
+    });
+  };
+
+  const handleHoldingsSort = (key: string) => {
+    setHoldingsSortConfig((prev) => {
       if (prev?.key === key) {
         if (prev.direction === "asc") return { key, direction: "desc" };
         return null;
@@ -423,6 +439,41 @@ export default function App() {
       if (!h || !drillDownFilter) return false;
       return drillDownFilter.type === "category" ? h.category === drillDownFilter.value : h.region === drillDownFilter.value;
     }), [currentPortfolio, drillDownFilter]);
+
+  const sortedFilteredHoldings = useMemo(() => {
+    let list = (currentPortfolio?.holdings ?? []).filter((h) => {
+      if (!h) return false;
+      if (!holdingsSearch) return true;
+      const q = holdingsSearch.toLowerCase();
+      return (
+        (h.asset_name ?? "").toLowerCase().includes(q) ||
+        (h.isin ?? "").toLowerCase().includes(q) ||
+        (h.category ?? "").toLowerCase().includes(q) ||
+        (h.region ?? "").toLowerCase().includes(q) ||
+        (h.currency ?? "").toLowerCase().includes(q)
+      );
+    });
+    if (holdingsSortConfig) {
+      const { key, direction } = holdingsSortConfig;
+      const dir = direction === "asc" ? 1 : -1;
+      list = [...list].sort((a, b) => {
+        if (key === "weight") return ((a.weight ?? 0) - (b.weight ?? 0)) * dir;
+        const av = (a[key as keyof Holding] ?? "") as string;
+        const bv = (b[key as keyof Holding] ?? "") as string;
+        return String(av).localeCompare(String(bv)) * dir;
+      });
+    }
+    return list;
+  }, [currentPortfolio, holdingsSearch, holdingsSortConfig]);
+
+  const filteredInstruments = useMemo(() => {
+    if (!instrumentsSearch) return sortedInstruments;
+    const q = instrumentsSearch.toLowerCase();
+    return sortedInstruments.filter((row) =>
+      (row.name ?? "").toLowerCase().includes(q) ||
+      (row.isin ?? "").toLowerCase().includes(q)
+    );
+  }, [sortedInstruments, instrumentsSearch]);
 
   // ── Loading screen ────────────────────────────────────────────────────────
 
@@ -598,6 +649,23 @@ export default function App() {
                   ? <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">Aucun instrument. Importez un CSV.</div>
                   : (
                     <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                      {/* Search bar */}
+                      <div className="px-8 py-4 border-b border-slate-50 flex items-center gap-3">
+                        <Search className="h-4 w-4 text-slate-400 shrink-0" />
+                        <input
+                          type="text"
+                          value={instrumentsSearch}
+                          onChange={(e) => setInstrumentsSearch(e.target.value)}
+                          placeholder="Rechercher un instrument ou ISIN…"
+                          className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400"
+                        />
+                        {instrumentsSearch && (
+                          <button onClick={() => setInstrumentsSearch("")} className="p-1 hover:bg-slate-100 rounded-lg transition-colors">
+                            <X className="h-3.5 w-3.5 text-slate-400" />
+                          </button>
+                        )}
+                        <span className="text-xs text-slate-400 shrink-0">{filteredInstruments.length} résultat{filteredInstruments.length !== 1 ? "s" : ""}</span>
+                      </div>
                       <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                           <thead>
@@ -626,7 +694,7 @@ export default function App() {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-50">
-                            {sortedInstruments.map((row, i) => (
+                            {filteredInstruments.map((row, i) => (
                               <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
                                 <td className="px-8 py-4 sticky left-0 bg-white group-hover:bg-slate-50">
                                   <button onClick={() => setSelectedInstrument(row.details as Holding)} className="flex items-center gap-2 text-sky-600 font-bold hover:underline text-left">
@@ -767,7 +835,7 @@ export default function App() {
                         <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
                           <h3 className="text-lg font-bold mb-8 flex items-center gap-2"><PieChartIcon className="h-5 w-5 text-sky-600" />Allocation par Catégorie</h3>
                           <div className="h-[320px]">
-                            <ResponsiveContainer width="100%" height="100%" minHeight={0}>
+                            <ResponsiveContainer width="100%" height="100%">
                               <PieChart>
                                 <Pie data={categoryData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value"
                                   onClick={(d) => setDrillDownFilter({ type: "category", value: d.name })} className="cursor-pointer">
@@ -784,7 +852,7 @@ export default function App() {
                         <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
                           <h3 className="text-lg font-bold mb-8 flex items-center gap-2"><Globe className="h-5 w-5 text-amber-600" />Exposition Régionale</h3>
                           <div className="h-[320px]">
-                            <ResponsiveContainer width="100%" height="100%" minHeight={0}>
+                            <ResponsiveContainer width="100%" height="100%">
                               <BarChart data={regionData} onClick={(d: any) => d?.activeLabel && setDrillDownFilter({ type: "region", value: d.activeLabel })}>
                                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
                                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
@@ -859,34 +927,68 @@ export default function App() {
                     {/* Holdings table */}
                     {(currentPortfolio.holdings?.length ?? 0) > 0 && (
                       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-                        <div className="p-8 flex items-center justify-between">
-                          <h3 className="text-lg font-bold">Détails des Positions</h3>
-                          <div className="text-xs text-slate-400 font-medium bg-slate-50 px-3 py-1 rounded-full">{currentPortfolio.holdings?.length ?? 0} positions</div>
+                        <div className="px-8 py-5 flex items-center justify-between gap-4 border-b border-slate-50">
+                          <h3 className="text-lg font-bold shrink-0">Détails des Positions</h3>
+                          {/* Search */}
+                          <div className="flex items-center gap-2 flex-1 max-w-sm bg-slate-50 rounded-xl px-4 py-2 border border-slate-100">
+                            <Search className="h-4 w-4 text-slate-400 shrink-0" />
+                            <input
+                              type="text"
+                              value={holdingsSearch}
+                              onChange={(e) => setHoldingsSearch(e.target.value)}
+                              placeholder="Rechercher…"
+                              className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400"
+                            />
+                            {holdingsSearch && (
+                              <button onClick={() => setHoldingsSearch("")} className="p-0.5 hover:bg-slate-200 rounded transition-colors">
+                                <X className="h-3.5 w-3.5 text-slate-400" />
+                              </button>
+                            )}
+                          </div>
+                          <div className="text-xs text-slate-400 font-medium bg-slate-50 px-3 py-1 rounded-full shrink-0 border border-slate-100">
+                            {sortedFilteredHoldings.length} / {currentPortfolio.holdings?.length ?? 0}
+                          </div>
                         </div>
                         <div className="overflow-x-auto">
                           <table className="w-full text-left border-collapse">
                             <thead>
                               <tr className="bg-slate-50/50">
-                                {["Instrument", "ISIN", "Catégorie", "Région", "Devise", "Poids"].map((h) => (
-                                  <th key={h} className={cn("px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider", h === "Poids" && "text-right")}>{h}</th>
+                                {([
+                                  { key: "asset_name", label: "Instrument", align: "left" },
+                                  { key: "isin", label: "ISIN", align: "left" },
+                                  { key: "category", label: "Catégorie", align: "left" },
+                                  { key: "region", label: "Région", align: "left" },
+                                  { key: "currency", label: "Devise", align: "left" },
+                                  { key: "weight", label: "Poids", align: "right" },
+                                ] as const).map(({ key, label, align }) => (
+                                  <th key={key} className={cn("px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider", align === "right" && "text-right")}>
+                                    <button onClick={() => handleHoldingsSort(key)} className={cn("flex items-center gap-1 hover:text-slate-900 transition-colors", align === "right" && "ml-auto")}>
+                                      {label}
+                                      <SortIcon active={holdingsSortConfig?.key === key} direction={holdingsSortConfig?.key === key ? holdingsSortConfig.direction : undefined} />
+                                    </button>
+                                  </th>
                                 ))}
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
-                              {(currentPortfolio.holdings ?? []).map((h, idx) => (
-                                <tr key={h?.id ?? idx} className="hover:bg-slate-50/50 transition-colors">
-                                  <td className="px-8 py-5">
-                                    <button onClick={() => setSelectedInstrument(h)} className="font-medium text-slate-900 hover:text-sky-600 hover:underline text-left">{h?.asset_name ?? "—"}</button>
-                                  </td>
-                                  <td className="px-8 py-5 text-xs font-mono text-slate-400">{h?.isin || "—"}</td>
-                                  <td className="px-8 py-5">
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-50 text-sky-700">{h?.category ?? "—"}</span>
-                                  </td>
-                                  <td className="px-8 py-5 text-slate-600">{h?.region ?? "—"}</td>
-                                  <td className="px-8 py-5 text-slate-500 text-sm">{h?.currency ?? "—"}</td>
-                                  <td className="px-8 py-5 text-right font-bold text-slate-900">{h?.weight ?? 0}%</td>
-                                </tr>
-                              ))}
+                              {sortedFilteredHoldings.length === 0 ? (
+                                <tr><td colSpan={6} className="px-8 py-10 text-center text-slate-400 italic">Aucun résultat pour "{holdingsSearch}"</td></tr>
+                              ) : (
+                                sortedFilteredHoldings.map((h, idx) => (
+                                  <tr key={h?.id ?? idx} className="hover:bg-slate-50/50 transition-colors">
+                                    <td className="px-8 py-4">
+                                      <button onClick={() => setSelectedInstrument(h)} className="font-medium text-slate-900 hover:text-sky-600 hover:underline text-left">{h?.asset_name ?? "—"}</button>
+                                    </td>
+                                    <td className="px-8 py-4 text-xs font-mono text-slate-400">{h?.isin || "—"}</td>
+                                    <td className="px-8 py-4">
+                                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-50 text-sky-700">{h?.category ?? "—"}</span>
+                                    </td>
+                                    <td className="px-8 py-4 text-slate-600">{h?.region ?? "—"}</td>
+                                    <td className="px-8 py-4 text-slate-500 text-sm">{h?.currency ?? "—"}</td>
+                                    <td className="px-8 py-4 text-right font-bold text-slate-900">{Number(h?.weight ?? 0).toFixed(2)}%</td>
+                                  </tr>
+                                ))
+                              )}
                             </tbody>
                           </table>
                         </div>
