@@ -61,6 +61,23 @@ function cn(...inputs: ClassValue[]) {
 
 const COLORS = ["#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
+const PORTFOLIO_ORDER = [
+  "Sicav - SCV_BDS",
+  "Sicav - SCV_LOW",
+  "Sicav - SCV_ML",
+  "Sicav - SCV_MED",
+  "Sicav - SCV_MH",
+  "Sicav - SCV_HIGH",
+  "Sicav - SCV_VH",
+  "Mixed - MIX_BDS",
+  "Mixed - MIX_LOW",
+  "Mixed - MIX_ML",
+  "Mixed - MIX_MED",
+  "Mixed - MIX_MH",
+  "Mixed - MIX_HIGH",
+  "Mixed - MIX_VH",
+];
+
 type Tab = 'SYNTHESE' | 'Sicav' | 'Mixed' | 'INSTRUMENTS' | 'MANUALS';
 
 interface ModalProps {
@@ -255,9 +272,9 @@ export default function App() {
     return Array.from(map.entries()).map(([name, value]) => ({ name, value: Number(value.toFixed(1)) }));
   }, [currentPortfolio]);
 
-  const synthesisData = useMemo(() => {
-    const regions = Array.from(new Set(allPortfolios.flatMap(p => p.holdings?.map(h => h.region) || []))) as string[];
-    return allPortfolios.map(p => {
+const synthesisData = useMemo(() => {
+    const regions = Array.from(new Set(sortedPortfolios.flatMap(p => p.holdings?.map(h => h.region) || []))) as string[];
+    return sortedPortfolios.map(p => {
       const regionWeights: Record<string, number> = {};
       regions.forEach(r => {
         regionWeights[r] = 0;
@@ -305,6 +322,14 @@ export default function App() {
     }));
   }, [allPortfolios]);
 
+  const sortedPortfolios = useMemo(() => {
+    return [...allPortfolios].sort((a, b) => {
+      const ai = PORTFOLIO_ORDER.indexOf(a.name);
+      const bi = PORTFOLIO_ORDER.indexOf(b.name);
+      return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+    });
+  }, [allPortfolios]);
+  
   const filteredPortfolios = useMemo(() => {
     return portfolios.filter(p => p.type === activeTab);
   }, [portfolios, activeTab]);
@@ -533,13 +558,14 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
                         <tr className="bg-slate-50/50">
                           <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10">Portefeuille</th>
                           <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
-                          {Array.from(new Set(allPortfolios.flatMap(p => p.holdings?.map(h => h.region) || []))).map(region => (
+                          {Array.from(new Set(sortedPortfolios.flatMap(p => p.holdings?.map(h => h.region) || []))).map(region => (
                             <th key={region} className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">{region}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50">
-                        {synthesisData.map((row, i) => (
+{synthesisData.map((row, i) => (
+  <tr key={i} className="hover:bg-slate-50/50 transition-colors">
                           <tr key={i} className="hover:bg-slate-50/50 transition-colors">
                             <td className="px-8 py-5 font-bold text-slate-900 sticky left-0 bg-white group-hover:bg-slate-50">{row.name}</td>
                             <td className="px-8 py-5">
@@ -643,7 +669,7 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
                         <tr className="bg-slate-50/50">
                           <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10">Instrument</th>
                           <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">ISIN</th>
-                          {allPortfolios.map(p => {
+                          {sortedPortfolios.map(p => {
                             const [type, profile] = p.name.split(' - ');
                             return (
                               <th key={p.id} className="px-4 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right min-w-[100px]" title={p.name}>
@@ -669,8 +695,8 @@ const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
                               </button>
                             </td>
                             <td className="px-8 py-5 text-xs font-mono text-slate-500">{row.isin}</td>
-                            {allPortfolios.map(p => (
-                              <td key={p.id} className="px-4 py-5 text-right font-medium text-slate-600 text-sm">
+{sortedPortfolios.map(p => (
+  <td key={p.id} className="px-4 py-5 text-right font-medium text-slate-600 text-sm">
                                 {row.weights[p.name] > 0 ? `${row.weights[p.name].toFixed(1)}%` : "-"}
                               </td>
                             ))}
