@@ -1,9 +1,7 @@
 import pool from "./_db.js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS portfolios (
@@ -13,7 +11,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         description TEXT
       )
     `);
-
     await pool.query(`
       CREATE TABLE IF NOT EXISTS holdings (
         id SERIAL PRIMARY KEY,
@@ -28,7 +25,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         isin TEXT NOT NULL
       )
     `);
-
     await pool.query(`
       CREATE TABLE IF NOT EXISTS model_grid (
         id SERIAL PRIMARY KEY,
@@ -37,7 +33,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         target_weight REAL NOT NULL
       )
     `);
-
     await pool.query(`
       CREATE TABLE IF NOT EXISTS manual_overrides (
         id SERIAL PRIMARY KEY,
@@ -51,7 +46,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
-
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS import_log (
+        id SERIAL PRIMARY KEY,
+        filename TEXT NOT NULL,
+        imported_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
     const existing = await pool.query("SELECT COUNT(*) FROM model_grid");
     if (Number(existing.rows[0].count) === 0) {
       await pool.query("INSERT INTO model_grid (category, region, target_weight) VALUES ($1, $2, $3)", ["Equity", "US", 40]);
@@ -60,7 +61,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await pool.query("INSERT INTO model_grid (category, region, target_weight) VALUES ($1, $2, $3)", ["Fixed Income", "US", 30]);
       await pool.query("INSERT INTO model_grid (category, region, target_weight) VALUES ($1, $2, $3)", ["Cash", "Global", 5]);
     }
-
     res.json({ success: true, message: "Base de données initialisée avec succès" });
   } catch (error) {
     console.error("Init DB error:", error);
