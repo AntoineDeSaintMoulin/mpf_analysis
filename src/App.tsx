@@ -143,6 +143,7 @@ export default function App() {
   const [selectedInstrument, setSelectedInstrument] = useState<Holding | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [importLog, setImportLog] = useState<{ filename: string; imported_at: string } | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
   const [holdingsSortConfig, setHoldingsSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
   const [holdingsSearch, setHoldingsSearch] = useState("");
@@ -188,6 +189,17 @@ export default function App() {
         const pList = await loadBaseData();
         const scv = pList.filter((p) => p?.type === "Sicav");
         if (scv.length > 0 && scv[0]?.id != null) setSelectedId(scv[0].id);
+
+        // Load last import log
+        try {
+          const logRes = await fetch("/api/import-log");
+          if (logRes.ok) {
+            const log = await logRes.json();
+            setImportLog(log);
+          }
+        } catch (e) {
+          console.warn("Could not load import log", e);
+        }
       } catch (e) {
         console.error("Init failed", e);
         setErrorMsg("Erreur lors du chargement initial.");
@@ -349,6 +361,20 @@ export default function App() {
           });
           if (res.ok) {
             setUploadSuccess(true);
+            // Save import log
+            try {
+              const logRes = await fetch("/api/import-log", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ filename: file.name }),
+              });
+              if (logRes.ok) {
+                const logCheck = await fetch("/api/import-log");
+                if (logCheck.ok) setImportLog(await logCheck.json());
+              }
+            } catch (e) {
+              console.warn("Could not save import log", e);
+            }
             await refreshData();
             setTimeout(() => setUploadSuccess(false), 3000);
           } else {
@@ -631,26 +657,51 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Upload */}
-                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                  <label className="flex items-center justify-between border border-dashed border-slate-200 rounded-xl p-3 hover:border-sky-400 transition-all group cursor-pointer">
-                    <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
-                    <div className="flex items-center gap-4">
-                      <div className="bg-slate-50 p-2 rounded-lg group-hover:bg-sky-50 transition-colors">
-                        <Upload className="h-5 w-5 text-slate-400 group-hover:text-sky-600" />
+                {/* Upload + Last import */}
+                <div className="flex gap-4">
+                  {/* Upload — left, smaller */}
+                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex-1">
+                    <label className="flex items-center justify-between border border-dashed border-slate-200 rounded-xl p-3 hover:border-sky-400 transition-all group cursor-pointer">
+                      <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
+                      <div className="flex items-center gap-3">
+                        <div className="bg-slate-50 p-2 rounded-lg group-hover:bg-sky-50 transition-colors">
+                          <Upload className="h-5 w-5 text-slate-400 group-hover:text-sky-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-900 leading-tight">Importer CSV</h3>
+                          <p className="text-[11px] text-slate-500 leading-tight">Remplace toutes les données</p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="text-sm font-bold text-slate-900 leading-tight">Importer CSV</h3>
-                        <p className="text-[11px] text-slate-500 leading-tight">Remplace toutes les données</p>
-                      </div>
+                      {uploading
+                        ? <div className="flex items-center gap-2 bg-sky-50 px-3 py-1.5 rounded-lg"><Loader2 className="h-4 w-4 text-sky-600 animate-spin" /><span className="text-xs font-bold text-sky-700">Importation…</span></div>
+                        : uploadSuccess
+                          ? <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-lg"><CheckCircle2 className="h-4 w-4 text-emerald-500" /><span className="text-xs font-bold text-emerald-700">Succès !</span></div>
+                          : <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase bg-slate-50 px-3 py-1.5 rounded-lg"><FileText className="h-3 w-3" />CSV</div>
+                      }
+                    </label>
+                  </div>
+
+                  {/* Last import info — right */}
+                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm w-72 flex items-center gap-4">
+                    <div className={cn("p-2.5 rounded-xl shrink-0", importLog ? "bg-emerald-50" : "bg-slate-50")}>
+                      <FileText className={cn("h-5 w-5", importLog ? "text-emerald-500" : "text-slate-300")} />
                     </div>
-                    {uploading
-                      ? <div className="flex items-center gap-2 bg-sky-50 px-3 py-1.5 rounded-lg"><Loader2 className="h-4 w-4 text-sky-600 animate-spin" /><span className="text-xs font-bold text-sky-700">Importation…</span></div>
-                      : uploadSuccess
-                        ? <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-lg"><CheckCircle2 className="h-4 w-4 text-emerald-500" /><span className="text-xs font-bold text-emerald-700">Succès !</span></div>
-                        : <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase bg-slate-50 px-3 py-1.5 rounded-lg"><FileText className="h-3 w-3" />CSV</div>
-                    }
-                  </label>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Dernier import</p>
+                      {importLog ? (
+                        <>
+                          <p className="text-sm font-bold text-slate-900 truncate" title={importLog.filename}>{importLog.filename}</p>
+                          <p className="text-xs text-slate-400">
+                            {new Date(importLog.imported_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                            {" à "}
+                            {new Date(importLog.imported_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-sm text-slate-400 italic">Aucun import</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {sortedInstruments.length === 0
