@@ -432,7 +432,15 @@ export default function App() {
     });
   }, [instrumentsSynthesis, sortConfig]);
 
-  const filteredPortfolios = useMemo(() => portfolios.filter((p) => p?.type === activeTab), [portfolios, activeTab]);
+  const filteredPortfolios = useMemo(() => 
+    portfolios
+      .filter((p) => p?.type === activeTab)
+      .sort((a, b) => {
+        const ai = PORTFOLIO_ORDER.indexOf(a.name);
+        const bi = PORTFOLIO_ORDER.indexOf(b.name);
+        return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+      }),
+    [portfolios, activeTab]);
 
   const drillDownHoldings = useMemo(() =>
     (currentPortfolio?.holdings ?? []).filter((h) => {
@@ -587,7 +595,7 @@ export default function App() {
                                   return (
                                     <td key={r} className="px-6 py-5 text-right font-medium text-slate-600">
                                       <div className="flex flex-col items-end gap-1">
-                                        <span>{w > 0 ? `${w.toFixed(2)}%` : "—"}</span>
+                                        <span>{w > 0 ? `${w.toFixed(1)}%` : "—"}</span>
                                         {w > 0 && <div className="w-16 h-1 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-sky-500" style={{ width: `${Math.min(100, w)}%` }} /></div>}
                                       </div>
                                     </td>
