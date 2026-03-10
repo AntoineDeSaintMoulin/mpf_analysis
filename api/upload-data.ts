@@ -13,8 +13,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const overrides = await pool.query("SELECT * FROM manual_overrides");
     const overrideMap = new Map(overrides.rows.map((o: any) => [o.original_asset_name, o]));
 
-    await pool.query("DELETE FROM holdings");
-    await pool.query("DELETE FROM portfolios");
+await pool.query("TRUNCATE TABLE holdings, portfolios RESTART IDENTITY CASCADE");
 
     for (const p of portfolios) {
       const result = await pool.query(
