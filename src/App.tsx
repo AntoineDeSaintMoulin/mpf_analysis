@@ -582,60 +582,62 @@ export default function App() {
           <AnimatePresence mode="wait">
 
             {/* ── SYNTHESE GEO ── */}
-            {activeTab === "SYNTHESE" && (
-              <motion.div key="synthese" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-7xl mx-auto space-y-8">
-                <div className="flex items-center justify-between mb-8">
-                  <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Synthèse Géographique</h2>
-                    <p className="text-slate-500">Vue d'ensemble de l'exposition régionale pour tous les portefeuilles modèles.</p>
-                  </div>
-                  <div className="bg-sky-100 p-3 rounded-2xl"><Globe className="h-6 w-6 text-sky-600" /></div>
-                </div>
-                {sortedPortfolios.length === 0
-                  ? <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">Aucune donnée. Importez un CSV.</div>
-                  : (
-                    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-                      <div className="overflow-x-auto [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-slate-50 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300 flex flex-col-reverse">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="bg-slate-50/50">
-                              <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 min-w-[180px]">Portefeuille</th>
-                              <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
-                              {synthesisRegions.map((r) => (
-                                <th key={r} className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right whitespace-nowrap">{r}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-50">
-                            {synthesisData.map((row, i) => (
-                              <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                                <td className="px-8 py-5 font-bold text-slate-900 sticky left-0 bg-white">{row.name}</td>
-                                <td className="px-8 py-5">
-                                  <span className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
-                                    row.type === "Sicav" ? "bg-purple-50 text-purple-700" : "bg-amber-50 text-amber-700")}>
-                                    {row.type}
-                                  </span>
-                                </td>
-                                {synthesisRegions.map((r) => {
-                                  const w = Number(row[r] ?? 0);
-                                  return (
-                                    <td key={r} className="px-6 py-5 text-right font-medium text-slate-600">
-                                      <div className="flex flex-col items-end gap-1">
-                                        <span>{w > 0 ? `${w.toFixed(1)}%` : "—"}</span>
-                                        {w > 0 && <div className="w-16 h-1 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-sky-500" style={{ width: `${Math.min(100, w)}%` }} /></div>}
-                                      </div>
-                                    </td>
-                                  );
-                                })}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-              </motion.div>
-            )}
+{activeTab === "SYNTHESE" && (
+  <motion.div key="synthese" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-7xl mx-auto space-y-8">
+    <div className="flex items-center justify-between mb-8">
+      <div>
+        <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Synthèse Géographique</h2>
+        <p className="text-slate-500">Vue d'ensemble de l'exposition régionale pour tous les portefeuilles modèles.</p>
+      </div>
+      <div className="bg-sky-100 p-3 rounded-2xl"><Globe className="h-6 w-6 text-sky-600" /></div>
+    </div>
+    {sortedPortfolios.length === 0
+      ? <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">Aucune donnée. Importez un CSV.</div>
+      : (
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+          <div style={{ transform: 'rotateX(180deg)', overflowX: 'auto' }} className="[&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-slate-50 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300">
+            <div style={{ transform: 'rotateX(180deg)' }}>
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/50">
+                    <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 min-w-[180px]">Portefeuille</th>
+                    <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
+                    {synthesisRegions.map((r) => (
+                      <th key={r} className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right whitespace-nowrap">{r}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {synthesisData.map((row, i) => (
+                    <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-8 py-5 font-bold text-slate-900 sticky left-0 bg-white">{row.name}</td>
+                      <td className="px-8 py-5">
+                        <span className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                          row.type === "Sicav" ? "bg-purple-50 text-purple-700" : "bg-amber-50 text-amber-700")}>
+                          {row.type}
+                        </span>
+                      </td>
+                      {synthesisRegions.map((r) => {
+                        const w = Number(row[r] ?? 0);
+                        return (
+                          <td key={r} className="px-6 py-5 text-right font-medium text-slate-600">
+                            <div className="flex flex-col items-end gap-1">
+                              <span>{w > 0 ? `${w.toFixed(2)}%` : "—"}</span>
+                              {w > 0 && <div className="w-16 h-1 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-sky-500" style={{ width: `${Math.min(100, w)}%` }} /></div>}
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>  {/* ferme rotateX intérieur */}
+          </div>    {/* ferme rotateX extérieur */}
+        </div>      {/* ferme bg-white rounded-3xl */}
+      )}
+  </motion.div>
+)}
 
             {/* ── INSTRUMENTS ── */}
             {activeTab === "INSTRUMENTS" && (
