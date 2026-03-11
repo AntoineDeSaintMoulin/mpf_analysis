@@ -595,7 +595,7 @@ export default function App() {
                   ? <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">Aucune donnée. Importez un CSV.</div>
                   : (
                     <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-                      <div className="overflow-x-auto">
+                      <div className="overflow-x-auto [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-slate-50 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300 flex flex-col-reverse">
                         <table className="w-full text-left border-collapse">
                           <thead>
                             <tr className="bg-slate-50/50">
@@ -934,19 +934,30 @@ export default function App() {
                       {drillDownFilter && (
                         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="bg-sky-50 p-8 rounded-3xl border border-sky-100">
                           <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-lg font-bold text-sky-900">Détail {drillDownFilter.type === "category" ? "Catégorie" : "Région"} : {drillDownFilter.value}</h3>
+                            <h3 className="text-lg font-bold text-sky-900">
+                              Détail {drillDownFilter.type === "category" ? "Catégorie" : "Région"} : {drillDownFilter.value}
+                            </h3>
                             <button onClick={() => setDrillDownFilter(null)} className="text-sky-600 hover:text-sky-800 text-sm font-medium flex items-center gap-1">Fermer <X className="h-4 w-4" /></button>
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {drillDownHoldings.map((h, i) => (
-                              <div key={i} className="bg-white p-4 rounded-2xl shadow-sm border border-sky-100 flex justify-between items-center">
-                                <div>
-                                  <div className="font-bold text-slate-900">{h.asset_name ?? "—"}</div>
-                                  <div className="text-xs text-slate-500">{h.instrument ?? "—"} • {h.currency ?? "—"}</div>
-                                </div>
-                                <div className="text-lg font-bold text-sky-600">{h.weight ?? 0}%</div>
-                              </div>
-                            ))}
+                            {[...drillDownHoldings]
+                              .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0))
+                              .map((h, i) => (
+                                <button
+                                  key={i}
+                                  onClick={() => setSelectedInstrument(h)}
+                                  className="bg-white p-4 rounded-2xl shadow-sm border border-sky-100 flex justify-between items-center hover:border-sky-300 hover:shadow-md transition-all text-left group"
+                                >
+                                  <div className="min-w-0">
+                                    <div className="font-bold text-slate-900 group-hover:text-sky-700 transition-colors truncate">{h.asset_name ?? "—"}</div>
+                                    <div className="text-xs text-slate-500">{h.instrument ?? "—"} • {h.currency ?? "—"}</div>
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0 ml-3">
+                                    <span className="text-lg font-bold text-sky-600">{Number(h.weight ?? 0).toFixed(2)}%</span>
+                                    <ArrowRight className="h-3.5 w-3.5 text-sky-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  </div>
+                                </button>
+                              ))}
                           </div>
                         </motion.div>
                       )}
