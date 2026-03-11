@@ -143,7 +143,12 @@ export default function App() {
   const [selectedInstrument, setSelectedInstrument] = useState<Holding | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
-  const [importLog, setImportLog] = useState<{ filename: string; imported_at: string } | null>(null);
+  const [importLog, setImportLog] = useState<{
+    quick_valuation: { filename: string; imported_at: string } | null;
+    samdp: { filename: string; imported_at: string }[];
+    target_grid: { filename: string; imported_at: string } | null;
+    other: { filename: string; imported_at: string } | null;
+  }>({ quick_valuation: null, samdp: [], target_grid: null, other: null });
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
   const [holdingsSortConfig, setHoldingsSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
   const [holdingsSearch, setHoldingsSearch] = useState("");
@@ -195,7 +200,7 @@ export default function App() {
           const logRes = await fetch("/api/import-log");
           if (logRes.ok) {
             const log = await logRes.json();
-            setImportLog(log);
+            if (log) setImportLog(log);
           }
         } catch (e) {
           console.warn("Could not load import log", e);
@@ -370,7 +375,10 @@ export default function App() {
               });
               if (logRes.ok) {
                 const logCheck = await fetch("/api/import-log");
-                if (logCheck.ok) setImportLog(await logCheck.json());
+                if (logCheck.ok) {
+                  const log = await logCheck.json();
+                  if (log) setImportLog(log);
+                }
               }
             } catch (e) {
               console.warn("Could not save import log", e);
@@ -537,33 +545,36 @@ export default function App() {
       )}
 
       {/* Header */}
-<header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between z-20 shadow-sm">
-  <div className="flex items-center gap-3">
-    <div className="bg-sky-600 p-1.5 rounded-lg"><TrendingUp className="text-white h-4 w-4" /></div>
-    <h1 className="text-lg font-bold tracking-tight">Portfolio Insight</h1>
-  </div>
-  <div className="flex items-center bg-slate-100 p-1 rounded-xl">
-    {(["SYNTHESE", "INSTRUMENTS", "Sicav", "Mixed", "MANUALS"] as Tab[]).map((tab) => {
-      const labels: Record<Tab, string> = { SYNTHESE: "Synthèse Géo", INSTRUMENTS: "Synthèse Instruments", Sicav: "Sicav", Mixed: "Mixed", MANUALS: "Manuals" };
-      return (
-        <button key={tab} onClick={() => setActiveTab(tab)}
-          className={cn(
-            "px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex flex-col items-center",
-            activeTab === tab ? "bg-white text-sky-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
-          )}
-        >
-          <span>{labels[tab]}</span>
-          {["SYNTHESE", "Sicav", "Mixed"].includes(tab) && importLog && (
-            <span className="text-[9px] italic font-normal opacity-60 leading-none">
-              {new Date(importLog.imported_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" })}
-            </span>
-          )}
-        </button>
-      );
-    })}
-  </div>
-  <div className="w-32" />
-</header>
+      <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between z-20 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="bg-sky-600 p-1.5 rounded-lg"><TrendingUp className="text-white h-4 w-4" /></div>
+          <h1 className="text-lg font-bold tracking-tight">Portfolio Insight</h1>
+        </div>
+        <div className="flex items-center bg-slate-100 p-1 rounded-xl">
+          {(["SYNTHESE", "INSTRUMENTS", "Sicav", "Mixed", "MANUALS"] as Tab[]).map((tab) => {
+            const labels: Record<Tab, string> = { SYNTHESE: "Synthèse Géo", INSTRUMENTS: "Synthèse Instruments", Sicav: "Sicav", Mixed: "Mixed", MANUALS: "Manuals" };
+            const showDate = ["SYNTHESE", "Sicav", "Mixed"].includes(tab);
+            const latestDate = (() => {
+              if (!showDate) return null;
+              const all = [importLog.quick_valuation, ...importLog.samdp, importLog.target_grid, importLog.other]
+                .filter(Boolean).map(e => new Date(e!.imported_at).getTime());
+              return all.length > 0 ? new Date(Math.max(...all)) : null;
+            })();
+            return (
+              <button key={tab} onClick={() => setActiveTab(tab)}
+                className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex flex-col items-center", activeTab === tab ? "bg-white text-sky-700 shadow-sm" : "text-slate-500 hover:text-slate-700")}>
+                <span>{labels[tab]}</span>
+                {showDate && latestDate && (
+                  <span className="text-[9px] italic font-normal opacity-60 leading-none">
+                    {latestDate.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <div className="w-32" />
+      </header>
 
       <div className="flex flex-1 overflow-hidden">
 
@@ -591,202 +602,211 @@ export default function App() {
           <AnimatePresence mode="wait">
 
             {/* ── SYNTHESE GEO ── */}
-{activeTab === "SYNTHESE" && (
-  <motion.div key="synthese" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-7xl mx-auto space-y-8">
-    <div className="flex items-center justify-between mb-8">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Synthèse Géographique</h2>
-        <p className="text-slate-500">Vue d'ensemble de l'exposition régionale pour tous les portefeuilles modèles.</p>
-      </div>
-      <div className="bg-sky-100 p-3 rounded-2xl"><Globe className="h-6 w-6 text-sky-600" /></div>
-    </div>
-    {sortedPortfolios.length === 0
-      ? <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">Aucune donnée. Importez un CSV.</div>
-      : (
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-          <div style={{ transform: 'rotateX(180deg)', overflowX: 'auto' }} className="[&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-slate-50 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300">
-            <div style={{ transform: 'rotateX(180deg)' }}>
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/50">
-                    <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 min-w-[180px]">Portefeuille</th>
-                    <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
-                    {synthesisRegions.map((r) => (
-                      <th key={r} className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right whitespace-nowrap">{r}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {synthesisData.map((row, i) => (
-                    <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-8 py-5 font-bold text-slate-900 sticky left-0 bg-white">{row.name}</td>
-                      <td className="px-8 py-5">
-                        <span className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
-                          row.type === "Sicav" ? "bg-purple-50 text-purple-700" : "bg-amber-50 text-amber-700")}>
-                          {row.type}
-                        </span>
-                      </td>
-                      {synthesisRegions.map((r) => {
-                        const w = Number(row[r] ?? 0);
-                        return (
-                          <td key={r} className="px-6 py-5 text-right font-medium text-slate-600">
-                            <div className="flex flex-col items-end gap-1">
-                              <span>{w > 0 ? `${w.toFixed(2)}%` : "—"}</span>
-                              {w > 0 && <div className="w-16 h-1 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-sky-500" style={{ width: `${Math.min(100, w)}%` }} /></div>}
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>  
-          </div>    
-        </div>      
-      )}
-  </motion.div>
-)}
+            {activeTab === "SYNTHESE" && (
+              <motion.div key="synthese" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-7xl mx-auto space-y-8">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Synthèse Géographique</h2>
+                    <p className="text-slate-500">Vue d'ensemble de l'exposition régionale pour tous les portefeuilles modèles.</p>
+                  </div>
+                  <div className="bg-sky-100 p-3 rounded-2xl"><Globe className="h-6 w-6 text-sky-600" /></div>
+                </div>
+                {sortedPortfolios.length === 0
+                  ? <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">Aucune donnée. Importez un CSV.</div>
+                  : (
+                    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                      <div className="overflow-x-auto [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-slate-50 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300 flex flex-col-reverse">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50/50">
+                              <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 min-w-[180px]">Portefeuille</th>
+                              <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
+                              {synthesisRegions.map((r) => (
+                                <th key={r} className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right whitespace-nowrap">{r}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-50">
+                            {synthesisData.map((row, i) => (
+                              <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="px-8 py-5 font-bold text-slate-900 sticky left-0 bg-white">{row.name}</td>
+                                <td className="px-8 py-5">
+                                  <span className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                                    row.type === "Sicav" ? "bg-purple-50 text-purple-700" : "bg-amber-50 text-amber-700")}>
+                                    {row.type}
+                                  </span>
+                                </td>
+                                {synthesisRegions.map((r) => {
+                                  const w = Number(row[r] ?? 0);
+                                  return (
+                                    <td key={r} className="px-6 py-5 text-right font-medium text-slate-600">
+                                      <div className="flex flex-col items-end gap-1">
+                                        <span>{w > 0 ? `${w.toFixed(1)}%` : "—"}</span>
+                                        {w > 0 && <div className="w-16 h-1 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-sky-500" style={{ width: `${Math.min(100, w)}%` }} /></div>}
+                                      </div>
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+              </motion.div>
+            )}
 
             {/* ── INSTRUMENTS ── */}
-{/* ── INSTRUMENTS ── */}
-{activeTab === "INSTRUMENTS" && (
-  <motion.div key="instruments" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-7xl mx-auto space-y-8">
-    <div className="flex items-center justify-between mb-8">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Synthèse des Instruments</h2>
-        <p className="text-slate-500">Détail de chaque instrument et son poids au sein de tous les portefeuilles.</p>
-      </div>
-      <div className="flex items-center gap-4">
-        <div className="bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
-          <div className="bg-emerald-50 p-2 rounded-lg"><TableIcon className="h-5 w-5 text-emerald-600" /></div>
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Instruments</p>
-            <p className="text-xl font-bold text-slate-900 leading-none">{instrumentsSynthesis.length}</p>
-          </div>
-        </div>
-        <div className="bg-emerald-100 p-3 rounded-2xl"><Layers className="h-6 w-6 text-emerald-600" /></div>
-      </div>
-    </div>
+            {activeTab === "INSTRUMENTS" && (
+              <motion.div key="instruments" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-7xl mx-auto space-y-8">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Synthèse des Instruments</h2>
+                    <p className="text-slate-500">Détail de chaque instrument et son poids au sein de tous les portefeuilles.</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
+                      <div className="bg-emerald-50 p-2 rounded-lg"><TableIcon className="h-5 w-5 text-emerald-600" /></div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Instruments</p>
+                        <p className="text-xl font-bold text-slate-900 leading-none">{instrumentsSynthesis.length}</p>
+                      </div>
+                    </div>
+                    <div className="bg-emerald-100 p-3 rounded-2xl"><Layers className="h-6 w-6 text-emerald-600" /></div>
+                  </div>
+                </div>
 
-    {/* Upload + Last import */}
-    <div className="flex gap-4">
-      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex-1">
-        <label className="flex items-center justify-between border border-dashed border-slate-200 rounded-xl p-3 hover:border-sky-400 transition-all group cursor-pointer">
-          <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
-          <div className="flex items-center gap-3">
-            <div className="bg-slate-50 p-2 rounded-lg group-hover:bg-sky-50 transition-colors">
-              <Upload className="h-5 w-5 text-slate-400 group-hover:text-sky-600" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 leading-tight">Importer CSV</h3>
-              <p className="text-[11px] text-slate-500 leading-tight">Remplace toutes les données</p>
-            </div>
-          </div>
-          {uploading
-            ? <div className="flex items-center gap-2 bg-sky-50 px-3 py-1.5 rounded-lg"><Loader2 className="h-4 w-4 text-sky-600 animate-spin" /><span className="text-xs font-bold text-sky-700">Importation…</span></div>
-            : uploadSuccess
-              ? <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-lg"><CheckCircle2 className="h-4 w-4 text-emerald-500" /><span className="text-xs font-bold text-emerald-700">Succès !</span></div>
-              : <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase bg-slate-50 px-3 py-1.5 rounded-lg"><FileText className="h-3 w-3" />CSV</div>
-          }
-        </label>
-      </div>
+                {/* Upload + Import log cards */}
+                <div className="flex gap-3 items-stretch">
+                  {/* Upload — compact */}
+                  <div className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm w-52 shrink-0">
+                    <label className="flex flex-col items-center justify-center border border-dashed border-slate-200 rounded-xl p-4 hover:border-sky-400 transition-all group cursor-pointer h-full gap-2">
+                      <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
+                      <div className="bg-slate-50 p-2 rounded-lg group-hover:bg-sky-50 transition-colors">
+                        <Upload className="h-5 w-5 text-slate-400 group-hover:text-sky-600" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-bold text-slate-900 leading-tight">Importer CSV</p>
+                        <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Remplace les données</p>
+                      </div>
+                      {uploading
+                        ? <div className="flex items-center gap-1.5 bg-sky-50 px-2.5 py-1 rounded-lg"><Loader2 className="h-3.5 w-3.5 text-sky-600 animate-spin" /><span className="text-xs font-bold text-sky-700">Import…</span></div>
+                        : uploadSuccess
+                          ? <div className="flex items-center gap-1.5 bg-emerald-50 px-2.5 py-1 rounded-lg"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /><span className="text-xs font-bold text-emerald-700">Succès !</span></div>
+                          : <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase bg-slate-50 px-2.5 py-1 rounded-lg"><FileText className="h-3 w-3" />CSV</div>
+                      }
+                    </label>
+                  </div>
 
-      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm w-72 flex items-center gap-4">
-        <div className={cn("p-2.5 rounded-xl shrink-0", importLog ? "bg-emerald-50" : "bg-slate-50")}>
-          <FileText className={cn("h-5 w-5", importLog ? "text-emerald-500" : "text-slate-300")} />
-        </div>
-        <div className="min-w-0">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Dernier import</p>
-          {importLog ? (
-            <>
-              <p className="text-sm font-bold text-slate-900 truncate" title={importLog.filename}>{importLog.filename}</p>
-              <p className="text-xs text-slate-400">
-                {new Date(importLog.imported_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })}
-                {" à "}
-                {new Date(importLog.imported_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-              </p>
-            </>
-          ) : (
-            <p className="text-sm text-slate-400 italic">Aucun import</p>
-          )}
-        </div>
-      </div>
-    </div>
-
-    {sortedInstruments.length === 0
-      ? <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">Aucun instrument. Importez un CSV.</div>
-      : (
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-          {/* Search bar */}
-          <div className="px-8 py-4 border-b border-slate-50 flex items-center gap-3">
-            <Search className="h-4 w-4 text-slate-400 shrink-0" />
-            <input
-              type="text"
-              value={instrumentsSearch}
-              onChange={(e) => setInstrumentsSearch(e.target.value)}
-              placeholder="Rechercher un instrument ou ISIN…"
-              className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400"
-            />
-            {instrumentsSearch && (
-              <button onClick={() => setInstrumentsSearch("")} className="p-1 hover:bg-slate-100 rounded-lg transition-colors">
-                <X className="h-3.5 w-3.5 text-slate-400" />
-              </button>
-            )}
-            <span className="text-xs text-slate-400 shrink-0">{filteredInstruments.length} résultat{filteredInstruments.length !== 1 ? "s" : ""}</span>
-          </div>
-          <div style={{ transform: 'rotateX(180deg)', overflowX: 'auto' }} className="[&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-slate-50 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300">
-            <div style={{ transform: 'rotateX(180deg)' }}>
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/50">
-                    <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 min-w-[200px]">
-                      <button onClick={() => handleSort("name")} className="flex items-center gap-1 hover:text-slate-900 transition-colors">
-                        Instrument
-                        <SortIcon active={sortConfig?.key === "name"} direction={sortConfig?.key === "name" ? sortConfig.direction : undefined} />
-                      </button>
-                    </th>
-                    <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">ISIN</th>
-                    {sortedPortfolios.map((p) => {
-                      const isActive = sortConfig?.key === p.name;
-                      return (
-                        <th key={p.id} className="px-4 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right min-w-[90px]" title={p.name}>
-                          <button onClick={() => handleSort(p.name)} className="flex flex-col items-end w-full hover:text-slate-900 transition-colors">
-                            <span className="opacity-60 leading-tight">{portfolioTypePart(p.name)}</span>
-                            <span className={cn("leading-tight flex items-center gap-1", isActive ? "text-sky-600" : "text-slate-900")}>
-                              {portfolioLabel(p.name)}
-                              <SortIcon active={isActive} direction={isActive ? sortConfig!.direction : undefined} />
-                            </span>
-                          </button>
-                        </th>
-                      );
-                    })}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {filteredInstruments.map((row, i) => (
-                    <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
-                      <td className="px-8 py-4 sticky left-0 bg-white group-hover:bg-slate-50">
-                        <button onClick={() => setSelectedInstrument(row.details as Holding)} className="flex items-center gap-2 text-sky-600 font-bold hover:underline text-left">
-                          {row.name}
-                          <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </button>
-                      </td>
-                      <td className="px-8 py-4 text-xs font-mono text-slate-400">{row.isin || "—"}</td>
-                      {sortedPortfolios.map((p) => {
-                        const w = row.weights[p.name] ?? 0;
-                        return <td key={p.id} className="px-4 py-4 text-right font-medium text-slate-600 text-sm">{w > 0 ? `${w.toFixed(2)}%` : "—"}</td>;
-                      })}
-                    </tr>
+                  {/* 4 import log cards */}
+                  {([
+                    { key: "quick_valuation", label: "Quick Valuation", color: "sky", entries: importLog.quick_valuation ? [importLog.quick_valuation] : [] },
+                    { key: "samdp", label: "SAMDP", color: "violet", entries: importLog.samdp },
+                    { key: "target_grid", label: "Target Grid", color: "emerald", entries: importLog.target_grid ? [importLog.target_grid] : [] },
+                    { key: "other", label: "Autres", color: "amber", entries: importLog.other ? [importLog.other] : [] },
+                  ] as const).map(({ key, label, color, entries }) => (
+                    <div key={key} className={cn(
+                      "flex-1 bg-white p-4 rounded-2xl border shadow-sm flex flex-col gap-2",
+                      entries.length > 0 ? "border-slate-100" : "border-slate-100 opacity-70"
+                    )}>
+                      <div className="flex items-center gap-2">
+                        <div className={cn("w-2 h-2 rounded-full shrink-0", {
+                          "bg-sky-400": color === "sky",
+                          "bg-violet-400": color === "violet",
+                          "bg-emerald-400": color === "emerald",
+                          "bg-amber-400": color === "amber",
+                        })} />
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{label}</p>
+                      </div>
+                      {entries.length === 0
+                        ? <p className="text-xs text-slate-300 italic">Aucun import</p>
+                        : entries.map((e, i) => (
+                          <div key={i} className={cn("flex flex-col", i > 0 && "border-t border-slate-50 pt-2")}>
+                            <p className="text-xs font-bold text-slate-800 truncate leading-tight" title={e.filename}>{e.filename}</p>
+                            <p className="text-[10px] text-slate-400 leading-tight mt-0.5">
+                              {new Date(e.imported_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+                              {" "}
+                              {new Date(e.imported_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                            </p>
+                          </div>
+                        ))
+                      }
+                    </div>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-  </motion.div>
-)}
+                </div>
+
+                {sortedInstruments.length === 0
+                  ? <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">Aucun instrument. Importez un CSV.</div>
+                  : (
+                    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                      {/* Search bar */}
+                      <div className="px-8 py-4 border-b border-slate-50 flex items-center gap-3">
+                        <Search className="h-4 w-4 text-slate-400 shrink-0" />
+                        <input
+                          type="text"
+                          value={instrumentsSearch}
+                          onChange={(e) => setInstrumentsSearch(e.target.value)}
+                          placeholder="Rechercher un instrument ou ISIN…"
+                          className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400"
+                        />
+                        {instrumentsSearch && (
+                          <button onClick={() => setInstrumentsSearch("")} className="p-1 hover:bg-slate-100 rounded-lg transition-colors">
+                            <X className="h-3.5 w-3.5 text-slate-400" />
+                          </button>
+                        )}
+                        <span className="text-xs text-slate-400 shrink-0">{filteredInstruments.length} résultat{filteredInstruments.length !== 1 ? "s" : ""}</span>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50/50">
+                              <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 min-w-[200px]">
+                                <button onClick={() => handleSort("name")} className="flex items-center gap-1 hover:text-slate-900 transition-colors">
+                                  Instrument
+                                  <SortIcon active={sortConfig?.key === "name"} direction={sortConfig?.key === "name" ? sortConfig.direction : undefined} />
+                                </button>
+                              </th>
+                              <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">ISIN</th>
+                              {sortedPortfolios.map((p) => {
+                                const isActive = sortConfig?.key === p.name;
+                                return (
+                                  <th key={p.id} className="px-4 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right min-w-[90px]" title={p.name}>
+                                    <button onClick={() => handleSort(p.name)} className="flex flex-col items-end w-full hover:text-slate-900 transition-colors">
+                                      <span className="opacity-60 leading-tight">{portfolioTypePart(p.name)}</span>
+                                      <span className={cn("leading-tight flex items-center gap-1", isActive ? "text-sky-600" : "text-slate-900")}>
+                                        {portfolioLabel(p.name)}
+                                        <SortIcon active={isActive} direction={isActive ? sortConfig!.direction : undefined} />
+                                      </span>
+                                    </button>
+                                  </th>
+                                );
+                              })}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-50">
+                            {filteredInstruments.map((row, i) => (
+                              <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
+                                <td className="px-8 py-4 sticky left-0 bg-white group-hover:bg-slate-50">
+                                  <button onClick={() => setSelectedInstrument(row.details as Holding)} className="flex items-center gap-2 text-sky-600 font-bold hover:underline text-left">
+                                    {row.name}
+                                    <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  </button>
+                                </td>
+                                <td className="px-8 py-4 text-xs font-mono text-slate-400">{row.isin || "—"}</td>
+                                {sortedPortfolios.map((p) => {
+                                  const w = row.weights[p.name] ?? 0;
+                                  return <td key={p.id} className="px-4 py-4 text-right font-medium text-slate-600 text-sm">{w > 0 ? `${w.toFixed(1)}%` : "—"}</td>;
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+              </motion.div>
+            )}
 
             {/* ── MANUALS ── */}
             {activeTab === "MANUALS" && (
