@@ -537,24 +537,33 @@ export default function App() {
       )}
 
       {/* Header */}
-      <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between z-20 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="bg-sky-600 p-1.5 rounded-lg"><TrendingUp className="text-white h-4 w-4" /></div>
-          <h1 className="text-lg font-bold tracking-tight">Portfolio Insight</h1>
-        </div>
-        <div className="flex items-center bg-slate-100 p-1 rounded-xl">
-          {(["SYNTHESE", "INSTRUMENTS", "Sicav", "Mixed", "MANUALS"] as Tab[]).map((tab) => {
-            const labels: Record<Tab, string> = { SYNTHESE: "Synthèse Géo", INSTRUMENTS: "Synthèse Instruments", Sicav: "Sicav", Mixed: "Mixed", MANUALS: "Manuals" };
-            return (
-              <button key={tab} onClick={() => setActiveTab(tab)}
-                className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition-all", activeTab === tab ? "bg-white text-sky-700 shadow-sm" : "text-slate-500 hover:text-slate-700")}>
-                {labels[tab]}
-              </button>
-            );
-          })}
-        </div>
-        <div className="w-32" />
-      </header>
+<header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between z-20 shadow-sm">
+  <div className="flex items-center gap-3">
+    <div className="bg-sky-600 p-1.5 rounded-lg"><TrendingUp className="text-white h-4 w-4" /></div>
+    <h1 className="text-lg font-bold tracking-tight">Portfolio Insight</h1>
+  </div>
+  <div className="flex items-center bg-slate-100 p-1 rounded-xl">
+    {(["SYNTHESE", "INSTRUMENTS", "Sicav", "Mixed", "MANUALS"] as Tab[]).map((tab) => {
+      const labels: Record<Tab, string> = { SYNTHESE: "Synthèse Géo", INSTRUMENTS: "Synthèse Instruments", Sicav: "Sicav", Mixed: "Mixed", MANUALS: "Manuals" };
+      return (
+        <button key={tab} onClick={() => setActiveTab(tab)}
+          className={cn(
+            "px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex flex-col items-center",
+            activeTab === tab ? "bg-white text-sky-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+          )}
+        >
+          <span>{labels[tab]}</span>
+          {["SYNTHESE", "Sicav", "Mixed"].includes(tab) && importLog && (
+            <span className="text-[9px] italic font-normal opacity-60 leading-none">
+              {new Date(importLog.imported_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+            </span>
+          )}
+        </button>
+      );
+    })}
+  </div>
+  <div className="w-32" />
+</header>
 
       <div className="flex flex-1 overflow-hidden">
 
