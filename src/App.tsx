@@ -632,9 +632,9 @@ export default function App() {
                   ))}
                 </tbody>
               </table>
-            </div>  {/* ferme rotateX intérieur */}
-          </div>    {/* ferme rotateX extérieur */}
-        </div>      {/* ferme bg-white rounded-3xl */}
+            </div>  
+          </div>    
+        </div>      
       )}
   </motion.div>
 )}
