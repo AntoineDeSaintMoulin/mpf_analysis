@@ -553,6 +553,24 @@ function normalizeRegion(region: string): string {
     return r;
   }
   
+function detectRiskProfile(portfolioName: string | null | undefined): RiskProfile | null {
+    if (!portfolioName) return null;
+    if (portfolioName.includes("_LOW")) return "LOW";
+    if (portfolioName.includes("_ML")) return "MEDLOW";
+    if (portfolioName.includes("_MED")) return "MEDIUM";
+    if (portfolioName.includes("_MH")) return "MEDHIGH";
+    if (portfolioName.includes("_HIGH")) return "HIGH";
+    return null;
+  }
+
+  const REGION_TO_GRID: Record<string, string> = {
+    "Europe": "eq_europe",
+    "US": "eq_us",
+    "EM": "eq_em",
+    "Japan": "eq_japan",
+    "Others": "eq_other",
+  };
+  
   // ── Look-through helper ───────────────────────────────────────────────────
 
   function applyLookThrough(holdings: Holding[]): { region: string; weight: number }[] {
@@ -570,8 +588,6 @@ function normalizeRegion(region: string): string {
     }
     return result;
   }
-  
-  // ── Derived data ──────────────────────────────────────────────────────────
 
   // ── Derived data ──────────────────────────────────────────────────────────
 
@@ -584,15 +600,22 @@ function normalizeRegion(region: string): string {
     return Array.from(m.entries()).map(([name, value]) => ({ name, value: +value.toFixed(1) }));
   }, [currentPortfolio]);
 
-  const regionData = useMemo(() => {
+const regionData = useMemo(() => {
     const m = new Map<string, number>();
     const equityHoldings = (currentPortfolio?.holdings ?? []).filter(h => h?.category === "Equities");
     applyLookThrough(equityHoldings).forEach(({ region, weight }) => {
       if (normalizeRegion(region) === "Cash") return;
       m.set(region, (m.get(region) ?? 0) + weight);
     });
-    return Array.from(m.entries()).map(([name, value]) => ({ name, value: +value.toFixed(1) }));
-  }, [currentPortfolio, breakdowns]);
+
+    const profile = detectRiskProfile(currentPortfolio?.name);
+
+    return Array.from(m.entries()).map(([name, value]) => {
+      const gridId = REGION_TO_GRID[name];
+      const target = profile && gridId ? targetGridData[gridId]?.[profile]?.["target"] ?? null : null;
+      return { name, value: +value.toFixed(1), target };
+    });
+  }, [currentPortfolio, breakdowns, targetGridData]);
 
   const instrumentsSynthesis = useMemo(() => {
     const im = new Map<string, { name: string; isin: string; weights: Record<string, number>; details: Partial<Holding> }>();
@@ -1357,13 +1380,16 @@ function normalizeRegion(region: string): string {
                           <div className="h-[320px]">
                             <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={regionData} margin={{ top: 20, right: 10, left: 0, bottom: 0 }} onClick={(d: any) => d?.activeLabel && setDrillDownFilter({ type: "region", value: d.activeLabel })}>
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
-                                <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "16px", border: "none" }} formatter={(v: number) => `${v}%`} />
-                                <Bar dataKey="value" fill="#0ea5e9" radius={[8, 8, 0, 0]} className="cursor-pointer">
-                                  <LabelList dataKey="value" position="top" formatter={(v: number) => `${v}%`} fill="#64748b" fontSize={11} />
-                                </Bar>
-                              </BarChart>
+  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
+  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
+  <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "16px", border: "none" }} formatter={(v: number) => `${v}%`} />
+  <Bar dataKey="value" fill="#0ea5e9" radius={[8, 8, 0, 0]} className="cursor-pointer">
+    <LabelList dataKey="value" position="top" formatter={(v: number) => `${v}%`} fill="#64748b" fontSize={11} />
+  </Bar>
+  <Bar dataKey="target" fill="transparent" radius={[0, 0, 0, 0]}>
+    <LabelList dataKey="target" position="insideTop" formatter={(v: number) => v != null ? `▬ ${v}%` : ""} fill="#f59e0b" fontSize={10} fontWeight="bold" />
+  </Bar>
+</BarChart>
                             </ResponsiveContainer>
                           </div>
                           <p className="text-center text-xs text-slate-400 mt-2 italic">Cliquez pour filtrer</p>
