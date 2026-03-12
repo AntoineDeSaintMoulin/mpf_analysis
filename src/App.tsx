@@ -1387,26 +1387,9 @@ const regionData = useMemo(() => {
   <Bar dataKey="value" fill="#0ea5e9" radius={[8, 8, 0, 0]} className="cursor-pointer">
     <LabelList dataKey="value" position="top" formatter={(v: number) => `${v}%`} fill="#64748b" fontSize={11} />
   </Bar>
-  <Bar dataKey="target" fill="transparent" shape={(props: any) => {
-    const { x, y, width, height, value } = props;
-    if (value == null) return <g />;
-    return (
-      <g>
-        <line
-          x1={x - 4}
-          x2={x + width + 4}
-          y1={y}
-          y2={y}
-          stroke="#f59e0b"
-          strokeWidth={2.5}
-          strokeDasharray="none"
-        />
-        <text x={x + width / 2} y={y - 6} textAnchor="middle" fill="#f59e0b" fontSize={10} fontWeight="bold">
-          {`${value}%`}
-        </text>
-      </g>
-    );
-  }} />
+  <Bar dataKey="target" fill="#f59e0b" fillOpacity={0.3} radius={[4, 4, 0, 0]} barSize={8}>
+    <LabelList dataKey="target" position="top" formatter={(v: number) => v != null ? `${v}%` : ""} fill="#f59e0b" fontSize={10} fontWeight="bold" />
+  </Bar>
 </BarChart>
                             </ResponsiveContainer>
                           </div>
