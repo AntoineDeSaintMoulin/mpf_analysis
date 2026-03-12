@@ -212,6 +212,8 @@ export default function App() {
     manual_region: string; manual_currency: string; manual_category: string; manual_instrument: string;
   } | null>(null);
   const [breakdowns, setBreakdowns] = useState<BreakdownMap>({});
+  const [editingBreakdown, setEditingBreakdown] = useState<{ isin: string; name: string; rows: BreakdownEntry[] } | null>(null);
+  const [breakdownSaving, setBreakdownSaving] = useState(false);
   
   // ── Safe fetch ────────────────────────────────────────────────────────────
 
@@ -970,60 +972,154 @@ const synthesisData = useMemo(() =>
               </motion.div>
             )}
 
-            {/* ── MANUALS ── */}
-            {activeTab === "MANUALS" && (
-              <motion.div key="manuals" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-7xl mx-auto space-y-8">
-                <div className="flex items-center justify-between mb-8">
-                  <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Changements Manuels</h2>
-                    <p className="text-slate-500">Ces données sont prioritaires sur les imports CSV.</p>
-                  </div>
-                  <div className="bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
-                    <div className="bg-amber-50 p-2 rounded-lg"><Edit2 className="h-5 w-5 text-amber-600" /></div>
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Modifications</p>
-                      <p className="text-xl font-bold text-slate-900 leading-none">{manualOverrides.length}</p>
+           {/* ── MANUALS ── */}
+  {activeTab === "MANUALS" && (
+    <motion.div key="manuals" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-7xl mx-auto space-y-8">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Changements Manuels</h2>
+          <p className="text-slate-500">Ces données sont prioritaires sur les imports CSV.</p>
+        </div>
+        <div className="bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
+          <div className="bg-amber-50 p-2 rounded-lg"><Edit2 className="h-5 w-5 text-amber-600" /></div>
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Modifications</p>
+            <p className="text-xl font-bold text-slate-900 leading-none">{manualOverrides.length}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Overrides table */}
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50/50">
+                {["Nom Original", "Nouveau Nom", "ISIN", "Région", "Devise", "Catégorie", "Type", "Date", "Actions"].map((h) => (
+                  <th key={h} className={cn("px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider", h === "Actions" && "text-right")}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {manualOverrides.length === 0
+                ? <tr><td colSpan={9} className="px-8 py-12 text-center text-slate-400 italic">Aucun changement manuel.</td></tr>
+                : manualOverrides.map((ov) => (
+                  <tr key={ov.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-6 py-4 text-slate-500 font-medium">{ov.original_asset_name ?? "—"}</td>
+                    <td className="px-6 py-4 font-bold text-slate-900">{ov.manual_asset_name || "—"}</td>
+                    <td className="px-6 py-4 text-xs font-mono text-sky-600 font-bold">{ov.manual_isin || "—"}</td>
+                    <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_region || "—"}</td>
+                    <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_currency || "—"}</td>
+                    <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_category || "—"}</td>
+                    <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_instrument || "—"}</td>
+                    <td className="px-6 py-4 text-xs text-slate-400">{ov.updated_at ? new Date(ov.updated_at).toLocaleDateString() : "—"}</td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button onClick={() => setEditingOverride({ original_asset_name: ov.original_asset_name ?? "", manual_asset_name: ov.manual_asset_name ?? "", manual_isin: ov.manual_isin ?? "", manual_region: ov.manual_region ?? "", manual_currency: ov.manual_currency ?? "", manual_category: ov.manual_category ?? "", manual_instrument: ov.manual_instrument ?? "" })}
+                          className="p-2 hover:bg-sky-50 text-slate-400 hover:text-sky-600 rounded-lg transition-colors"><Edit2 className="h-4 w-4" /></button>
+                        <button onClick={() => handleDeleteOverride(ov.id)} className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"><Trash2 className="h-4 w-4" /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Look-through section ── */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-xl font-bold text-slate-900">Look-through géographique</h3>
+          <p className="text-slate-500 text-sm mt-1">Décomposition régionale des instruments multi-zones.</p>
+        </div>
+        <div className="bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
+          <div className="bg-violet-50 p-2 rounded-lg"><Globe className="h-5 w-5 text-violet-600" /></div>
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Instruments</p>
+            <p className="text-xl font-bold text-slate-900 leading-none">{Object.keys(breakdowns).length}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Look-through table */}
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+        {/* Header avec bouton Ajouter */}
+        <div className="px-8 py-5 border-b border-slate-50 flex items-center justify-between">
+          <p className="text-sm font-semibold text-slate-500">
+            {Object.keys(breakdowns).length === 0 ? "Aucun breakdown enregistré." : `${Object.keys(breakdowns).length} instrument${Object.keys(breakdowns).length > 1 ? "s" : ""} configuré${Object.keys(breakdowns).length > 1 ? "s" : ""}`}
+          </p>
+          <button
+            onClick={() => setEditingBreakdown({ isin: "", name: "", rows: [{ region: "", weight: 0 }] })}
+            className="flex items-center gap-2 bg-violet-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-violet-700 transition-all"
+          >
+            <span>+</span> Ajouter
+          </button>
+        </div>
+
+        {Object.keys(breakdowns).length === 0 ? (
+          <div className="px-8 py-12 text-center text-slate-400 italic">
+            Aucun look-through configuré.
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-50">
+            {Object.entries(breakdowns).map(([isin, entries]) => {
+              // Trouver le nom de l'instrument depuis allPortfolios
+              const holding = allPortfolios
+                .flatMap(p => p.holdings ?? [])
+                .find(h => h.isin === isin);
+              const name = holding?.asset_name ?? isin;
+              const total = entries.reduce((s, e) => s + e.weight, 0);
+              return (
+                <div key={isin} className="px-8 py-5 hover:bg-slate-50/50 transition-colors">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-3">
+                        <span className="font-bold text-slate-900 truncate">{name}</span>
+                        <span className="text-xs font-mono text-sky-600 bg-sky-50 px-2 py-0.5 rounded-lg shrink-0">{isin}</span>
+                        <span className={cn(
+                          "text-xs font-bold px-2 py-0.5 rounded-lg shrink-0",
+                          Math.abs(total - 100) < 0.1 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
+                        )}>
+                          {total.toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {entries.map((e, i) => (
+                          <span key={i} className="inline-flex items-center gap-1.5 bg-slate-100 px-3 py-1 rounded-full text-xs font-medium text-slate-700">
+                            <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />
+                            {e.region} <span className="font-bold text-slate-900">{e.weight}%</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => setEditingBreakdown({ isin, name, rows: [...entries] })}
+                        className="p-2 hover:bg-sky-50 text-slate-400 hover:text-sky-600 rounded-lg transition-colors"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={async () => {
+                          await deleteBreakdown(isin);
+                          const bd = await fetchBreakdowns();
+                          setBreakdowns(bd);
+                        }}
+                        className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   </div>
                 </div>
-                <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-slate-50/50">
-                          {["Nom Original", "Nouveau Nom", "ISIN", "Région", "Devise", "Catégorie", "Type", "Date", "Actions"].map((h) => (
-                            <th key={h} className={cn("px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider", h === "Actions" && "text-right")}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-50">
-                        {manualOverrides.length === 0
-                          ? <tr><td colSpan={9} className="px-8 py-12 text-center text-slate-400 italic">Aucun changement manuel.</td></tr>
-                          : manualOverrides.map((ov) => (
-                            <tr key={ov.id} className="hover:bg-slate-50/50 transition-colors">
-                              <td className="px-6 py-4 text-slate-500 font-medium">{ov.original_asset_name ?? "—"}</td>
-                              <td className="px-6 py-4 font-bold text-slate-900">{ov.manual_asset_name || "—"}</td>
-                              <td className="px-6 py-4 text-xs font-mono text-sky-600 font-bold">{ov.manual_isin || "—"}</td>
-                              <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_region || "—"}</td>
-                              <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_currency || "—"}</td>
-                              <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_category || "—"}</td>
-                              <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_instrument || "—"}</td>
-                              <td className="px-6 py-4 text-xs text-slate-400">{ov.updated_at ? new Date(ov.updated_at).toLocaleDateString() : "—"}</td>
-                              <td className="px-6 py-4 text-right">
-                                <div className="flex items-center justify-end gap-2">
-                                  <button onClick={() => setEditingOverride({ original_asset_name: ov.original_asset_name ?? "", manual_asset_name: ov.manual_asset_name ?? "", manual_isin: ov.manual_isin ?? "", manual_region: ov.manual_region ?? "", manual_currency: ov.manual_currency ?? "", manual_category: ov.manual_category ?? "", manual_instrument: ov.manual_instrument ?? "" })}
-                                    className="p-2 hover:bg-sky-50 text-slate-400 hover:text-sky-600 rounded-lg transition-colors"><Edit2 className="h-4 w-4" /></button>
-                                  <button onClick={() => handleDeleteOverride(ov.id)} className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"><Trash2 className="h-4 w-4" /></button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </motion.div>
-            )}
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  )}
 
             {/* ── TARGET GRID ── */}
             {activeTab === "TARGET_GRID" && (
@@ -1442,5 +1538,106 @@ const synthesisData = useMemo(() =>
         )}
       </Modal>
     </div>
+
+    {/* ── Breakdown modal ── */}
+  <Modal isOpen={!!editingBreakdown} onClose={() => setEditingBreakdown(null)} title="Look-through géographique">
+    {editingBreakdown && (
+      <div className="space-y-5">
+        {/* ISIN */}
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-2">ISIN</label>
+          <input
+            type="text"
+            value={editingBreakdown.isin}
+            onChange={(e) => setEditingBreakdown({ ...editingBreakdown, isin: e.target.value })}
+            className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none font-mono"
+            placeholder="Ex: BE6299468940"
+          />
+        </div>
+
+        {/* Lignes région / poids */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-bold text-slate-700">Décomposition régionale</label>
+            <span className={cn(
+              "text-xs font-bold px-2 py-0.5 rounded-lg",
+              Math.abs(editingBreakdown.rows.reduce((s, r) => s + (Number(r.weight) || 0), 0) - 100) < 0.1
+                ? "bg-emerald-50 text-emerald-600"
+                : "bg-rose-50 text-rose-600"
+            )}>
+              Total : {editingBreakdown.rows.reduce((s, r) => s + (Number(r.weight) || 0), 0).toFixed(1)}%
+            </span>
+          </div>
+          <div className="space-y-2">
+            {editingBreakdown.rows.map((row, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={row.region}
+                  onChange={(e) => {
+                    const rows = [...editingBreakdown.rows];
+                    rows[i] = { ...rows[i], region: e.target.value };
+                    setEditingBreakdown({ ...editingBreakdown, rows });
+                  }}
+                  className="flex-1 px-3 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-violet-500 outline-none text-sm"
+                  placeholder="Région (ex: US, Europe…)"
+                />
+                <input
+                  type="number"
+                  value={row.weight}
+                  onChange={(e) => {
+                    const rows = [...editingBreakdown.rows];
+                    rows[i] = { ...rows[i], weight: Number(e.target.value) };
+                    setEditingBreakdown({ ...editingBreakdown, rows });
+                  }}
+                  className="w-24 px-3 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-violet-500 outline-none text-sm text-right"
+                  placeholder="%"
+                  min={0} max={100} step={0.1}
+                />
+                <button
+                  onClick={() => setEditingBreakdown({ ...editingBreakdown, rows: editingBreakdown.rows.filter((_, j) => j !== i) })}
+                  className="p-2 hover:bg-rose-50 text-slate-300 hover:text-rose-500 rounded-lg transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={() => setEditingBreakdown({ ...editingBreakdown, rows: [...editingBreakdown.rows, { region: "", weight: 0 }] })}
+            className="mt-3 text-sm text-violet-600 hover:text-violet-800 font-bold flex items-center gap-1"
+          >
+            + Ajouter une région
+          </button>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3 pt-2">
+          <button onClick={() => setEditingBreakdown(null)} className="flex-1 px-6 py-3 rounded-2xl font-bold text-slate-600 hover:bg-slate-100 transition-all">
+            Annuler
+          </button>
+          <button
+            disabled={breakdownSaving || !editingBreakdown.isin}
+            onClick={async () => {
+              setBreakdownSaving(true);
+              try {
+                await saveBreakdown(editingBreakdown.isin, editingBreakdown.rows.filter(r => r.region && r.weight > 0));
+                const bd = await fetchBreakdowns();
+                setBreakdowns(bd);
+                setEditingBreakdown(null);
+              } finally {
+                setBreakdownSaving(false);
+              }
+            }}
+            className="flex-1 flex items-center justify-center gap-2 bg-violet-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-violet-700 transition-all disabled:opacity-50"
+          >
+            {breakdownSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Sauvegarder
+          </button>
+        </div>
+      </div>
+    )}
+  </Modal>
+  
   );
 }
