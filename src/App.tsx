@@ -1312,7 +1312,7 @@ const drillDownHoldings = useMemo(() => {
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
                         <div className="flex items-center gap-3 mb-4"><div className="bg-sky-100 p-2 rounded-xl"><LayoutDashboard className="h-5 w-5 text-sky-600" /></div><span className="text-sm font-semibold text-slate-500">Actifs</span></div>
                         <div className="text-3xl font-bold text-slate-900">{currentPortfolio.holdings?.length ?? 0}</div>
@@ -1322,11 +1322,6 @@ const drillDownHoldings = useMemo(() => {
                         <div className="flex items-center gap-3 mb-4"><div className="bg-emerald-100 p-2 rounded-xl"><PieChartIcon className="h-5 w-5 text-emerald-600" /></div><span className="text-sm font-semibold text-slate-500">Catégorie Principale</span></div>
                         <div className="text-3xl font-bold text-slate-900 truncate">{[...categoryData].sort((a, b) => b.value - a.value)[0]?.name ?? "N/A"}</div>
                         <div className="text-xs text-slate-400 mt-1">Plus grande exposition</div>
-                      </div>
-                      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                        <div className="flex items-center gap-3 mb-4"><div className="bg-amber-100 p-2 rounded-xl"><Globe className="h-5 w-5 text-amber-600" /></div><span className="text-sm font-semibold text-slate-500">Région Principale</span></div>
-                        <div className="text-3xl font-bold text-slate-900 truncate">{[...regionData].sort((a, b) => b.value - a.value)[0]?.name ?? "N/A"}</div>
-                        <div className="text-xs text-slate-400 mt-1">Concentration géographique</div>
                       </div>
                     </div>
 
@@ -1353,7 +1348,7 @@ const drillDownHoldings = useMemo(() => {
                           <h3 className="text-lg font-bold mb-8 flex items-center gap-2"><Globe className="h-5 w-5 text-amber-600" />Exposition Régionale</h3>
                           <div className="h-[320px]">
                             <ResponsiveContainer width="100%" height="100%">
-                              <BarChart data={regionData} onClick={(d: any) => d?.activeLabel && setDrillDownFilter({ type: "region", value: d.activeLabel })}>
+                            <BarChart data={regionData} margin={{ top: 20, right: 10, left: 0, bottom: 0 }} onClick={(d: any) => d?.activeLabel && setDrillDownFilter({ type: "region", value: d.activeLabel })}>
                                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
                                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
                                 <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "16px", border: "none" }} formatter={(v: number) => `${v}%`} />
