@@ -97,7 +97,53 @@ const PORTFOLIO_ORDER = [
   "Mixed - MIX_VH",
 ];
 
-type Tab = "SYNTHESE" | "Sicav" | "Mixed" | "INSTRUMENTS" | "MANUALS";
+type Tab = "SYNTHESE" | "Sicav" | "Mixed" | "INSTRUMENTS" | "MANUALS" | "TARGET_GRID";
+
+// ─── Target Grid hierarchy ────────────────────────────────────────────────────
+
+const RISK_PROFILES = ["LOW", "MEDLOW", "MEDIUM", "MEDHIGH", "HIGH"] as const;
+type RiskProfile = typeof RISK_PROFILES[number];
+
+interface TargetGridRow {
+  id: string;
+  label: string;
+  level: 0 | 1 | 2;
+  parent?: string;
+  bench?: Record<RiskProfile, number | null>;
+  target?: Record<RiskProfile, number | null>;
+  active?: Record<RiskProfile, number | null>;
+}
+
+const TARGET_GRID_STRUCTURE: { id: string; label: string; level: 0 | 1 | 2; parent?: string }[] = [
+  { id: "equities", label: "Equities", level: 0 },
+    { id: "eq_europe", label: "Europe", level: 1, parent: "equities" },
+    { id: "eq_us", label: "United States", level: 1, parent: "equities" },
+    { id: "eq_em", label: "Emerging Markets", level: 1, parent: "equities" },
+    { id: "eq_japan", label: "Japan", level: 1, parent: "equities" },
+    { id: "eq_other", label: "Other", level: 1, parent: "equities" },
+  { id: "alternatives", label: "Alternatives", level: 0 },
+    { id: "alt_conv", label: "Convertible Bonds", level: 1, parent: "alternatives" },
+    { id: "alt_gold", label: "Gold", level: 1, parent: "alternatives" },
+    { id: "alt_other", label: "Other Alternatives", level: 1, parent: "alternatives" },
+  { id: "fixed_income", label: "Fixed Income", level: 0 },
+    { id: "fi_eur", label: "Bonds EUR Exposure", level: 1, parent: "fixed_income" },
+      { id: "fi_eur_gov", label: "EUR Govies", level: 2, parent: "fi_eur" },
+      { id: "fi_eur_gov_infl", label: "EUR Govies Inflation Linked", level: 2, parent: "fi_eur" },
+      { id: "fi_eur_ig", label: "EUR IG Credit", level: 2, parent: "fi_eur" },
+      { id: "fi_eur_hy", label: "EUR High Yield", level: 2, parent: "fi_eur" },
+    { id: "fi_usd", label: "Bonds USD Exposure", level: 1, parent: "fixed_income" },
+      { id: "fi_usd_gov", label: "USD Govies", level: 2, parent: "fi_usd" },
+      { id: "fi_usd_gov_infl", label: "USD Govies Infl Linked", level: 2, parent: "fi_usd" },
+      { id: "fi_usd_ig", label: "USD IG Credit", level: 2, parent: "fi_usd" },
+      { id: "fi_usd_hy", label: "USD High Yield", level: 2, parent: "fi_usd" },
+    { id: "fi_em_local", label: "Emerging Market Debt (Local Currency)", level: 1, parent: "fixed_income" },
+    { id: "fi_em_hard", label: "Emerging Market Debt (Hard Currency)", level: 1, parent: "fixed_income" },
+    { id: "fi_global", label: "Global Fixed Income", level: 1, parent: "fixed_income" },
+  { id: "short_term", label: "Short Term", level: 0 },
+    { id: "st_eur", label: "EUR", level: 1, parent: "short_term" },
+    { id: "st_usd", label: "USD", level: 1, parent: "short_term" },
+    { id: "st_other", label: "Other FX", level: 1, parent: "short_term" },
+];
 
 // ─── Modal ───────────────────────────────────────────────────────────────────
 
@@ -149,6 +195,20 @@ export default function App() {
     target_grid: { filename: string; imported_at: string } | null;
     other: { filename: string; imported_at: string } | null;
   }>({ quick_valuation: null, samdp: [], target_grid: null, other: null });
+  const [targetGridData, setTargetGridData] = useState<Record<string, { bench: Record<RiskProfile, number | null>; target: Record<RiskProfile, number | null>; active: Record<RiskProfile, number | null> }>>({});
+  const [collapsedRows, setCollapsedRows] = useState<Set<string>>(new Set());
+
+  const loadTargetGrid = async () => {
+    try {
+      const res = await fetch("/api/target-grid");
+      if (res.ok) {
+        const data = await res.json();
+        setTargetGridData(data);
+      }
+    } catch (e) {
+      console.warn("Could not load target grid", e);
+    }
+  };
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
   const [holdingsSortConfig, setHoldingsSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
   const [holdingsSearch, setHoldingsSearch] = useState("");
@@ -205,6 +265,9 @@ export default function App() {
         } catch (e) {
           console.warn("Could not load import log", e);
         }
+
+        // Load target grid
+        await loadTargetGrid();
       } catch (e) {
         console.error("Init failed", e);
         setErrorMsg("Erreur lors du chargement initial.");
@@ -327,74 +390,138 @@ export default function App() {
     });
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const saveImportLog = async (filename: string) => {
+    try {
+      await fetch("/api/import-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename }),
+      });
+      const logCheck = await fetch("/api/import-log");
+      if (logCheck.ok) {
+        const log = await logCheck.json();
+        if (log) setImportLog(log);
+      }
+    } catch (e) {
+      console.warn("Could not save import log", e);
+    }
+  };
+
+  const isTargetGridFile = (filename: string) =>
+    filename.toLowerCase().startsWith("fullgrid") || filename.toLowerCase().startsWith("target grid");
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
     setUploading(true);
     setUploadSuccess(false);
-    Papa.parse(file, {
-      header: false,
-      skipEmptyLines: true,
-      complete: async (results) => {
-        try {
-          const map = new Map<string, any>();
-          (results.data as string[][]).forEach((row, idx) => {
-            if (idx < 4) return;
-            const rawName = row[1]?.trim() ?? "";
-            if (!rawName) return;
-            const code = rawName.replace("TECHNICAL.MPF.", "").trim();
-            const type = code.startsWith("MIX") ? "Mixed" : "Sicav";
-            const name = `${type} - ${code}`;
-            const raw = row[4]?.trim() ?? "";
-            const asset = raw.length > 20 ? raw.slice(0, -20).trim() : raw;
-            if (!asset) return;
-            if (!map.has(name)) map.set(name, { name, type, description: "", holdings: [] });
-            map.get(name).holdings.push({
-              asset_name: asset,
-              isin: row[20]?.trim() || "",
-              category: row[23]?.trim() || "Unknown",
-              region: row[26]?.trim() || "Global",
-              instrument: row[21]?.trim() || "Other",
-              weight: parseFloat((row[12] ?? "0").replace(",", ".")) || 0,
-              currency: row[11]?.trim() || "EUR",
-            });
-          });
-          const res = await fetch("/api/upload-data", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ portfolios: Array.from(map.values()) }),
-          });
-          if (res.ok) {
-            setUploadSuccess(true);
-            // Save import log
+
+    try {
+      if (isTargetGridFile(file.name)) {
+        // ── XLSX Target Grid import ──
+        const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs" as any);
+        const buffer = await file.arrayBuffer();
+        const wb = XLSX.read(buffer, { type: "array" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const raw: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+
+        const PROFILE_COLS: Record<string, [number, number, number]> = {
+          LOW:     [2, 4, 6],
+          MEDLOW:  [9, 11, 13],
+          MEDIUM:  [17, 19, 21],
+          MEDHIGH: [24, 26, 28],
+          HIGH:    [31, 33, 35],
+        };
+        const ROW_MAP: Record<number, string> = {
+          8: "equities", 9: "eq_europe", 10: "eq_us", 11: "eq_em", 12: "eq_japan", 13: "eq_other",
+          14: "alternatives", 15: "alt_conv", 16: "alt_gold", 17: "alt_other",
+          18: "fixed_income", 19: "fi_eur", 20: "fi_eur_gov", 21: "fi_eur_gov_infl", 22: "fi_eur_ig", 23: "fi_eur_hy",
+          24: "fi_usd", 25: "fi_usd_gov", 26: "fi_usd_gov_infl", 27: "fi_usd_ig", 28: "fi_usd_hy",
+          29: "fi_em_local", 30: "fi_em_hard", 31: "fi_global",
+          32: "short_term", 33: "st_eur", 34: "st_usd", 35: "st_other",
+        };
+
+        const rows: { grid_id: string; profile: string; bench: number | null; target: number | null; active: number | null }[] = [];
+        for (const [rowIdx, gridId] of Object.entries(ROW_MAP)) {
+          const r = raw[Number(rowIdx)];
+          if (!r) continue;
+          for (const [profile, [b, t, a]] of Object.entries(PROFILE_COLS)) {
+            const round2 = (v: any) => v != null && typeof v === "number" ? Math.round(v * 10000) / 100 : null;
+            rows.push({ grid_id: gridId, profile, bench: round2(r[b]), target: round2(r[t]), active: round2(r[a]) });
+          }
+        }
+
+        const res = await fetch("/api/target-grid", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rows }),
+        });
+        if (res.ok) {
+          setUploadSuccess(true);
+          await saveImportLog(file.name);
+          await loadTargetGrid();
+          setActiveTab("TARGET_GRID");
+          setTimeout(() => setUploadSuccess(false), 3000);
+        } else {
+          setErrorMsg(`Erreur upload Target Grid: ${await res.text()}`);
+        }
+      } else {
+        // ── CSV Quick Valuation / other import ──
+        Papa.parse(file, {
+          header: false,
+          skipEmptyLines: true,
+          complete: async (results) => {
             try {
-              const logRes = await fetch("/api/import-log", {
+              const map = new Map<string, any>();
+              (results.data as string[][]).forEach((row, idx) => {
+                if (idx < 4) return;
+                const rawName = row[1]?.trim() ?? "";
+                if (!rawName) return;
+                const code = rawName.replace("TECHNICAL.MPF.", "").trim();
+                const type = code.startsWith("MIX") ? "Mixed" : "Sicav";
+                const name = `${type} - ${code}`;
+                const raw = row[4]?.trim() ?? "";
+                const asset = raw.length > 20 ? raw.slice(0, -20).trim() : raw;
+                if (!asset) return;
+                if (!map.has(name)) map.set(name, { name, type, description: "", holdings: [] });
+                map.get(name).holdings.push({
+                  asset_name: asset,
+                  isin: row[20]?.trim() || "",
+                  category: row[23]?.trim() || "Unknown",
+                  region: row[26]?.trim() || "Global",
+                  instrument: row[21]?.trim() || "Other",
+                  weight: parseFloat((row[12] ?? "0").replace(",", ".")) || 0,
+                  currency: row[11]?.trim() || "EUR",
+                });
+              });
+              const res = await fetch("/api/upload-data", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ filename: file.name }),
+                body: JSON.stringify({ portfolios: Array.from(map.values()) }),
               });
-              if (logRes.ok) {
-                const logCheck = await fetch("/api/import-log");
-                if (logCheck.ok) {
-                  const log = await logCheck.json();
-                  if (log) setImportLog(log);
-                }
+              if (res.ok) {
+                setUploadSuccess(true);
+                await saveImportLog(file.name);
+                await refreshData();
+                setTimeout(() => setUploadSuccess(false), 3000);
+              } else {
+                setErrorMsg(`Erreur upload: ${await res.text()}`);
               }
             } catch (e) {
-              console.warn("Could not save import log", e);
+              setErrorMsg("Erreur lors du traitement du CSV.");
+            } finally {
+              setUploading(false);
             }
-            await refreshData();
-            setTimeout(() => setUploadSuccess(false), 3000);
-          } else {
-            setErrorMsg(`Erreur upload: ${await res.text()}`);
-          }
-        } catch (e) {
-          setErrorMsg("Erreur lors du traitement du CSV.");
-        } finally {
-          setUploading(false);
-        }
-      },
-    });
+          },
+        });
+        return; // Papa.parse handles its own finally
+      }
+    } catch (e) {
+      console.error(e);
+      setErrorMsg("Erreur lors du traitement du fichier.");
+    } finally {
+      setUploading(false);
+    }
   };
 
   // ── Derived data ──────────────────────────────────────────────────────────
@@ -551,11 +678,14 @@ export default function App() {
           <h1 className="text-lg font-bold tracking-tight">Portfolio Insight</h1>
         </div>
         <div className="flex items-center bg-slate-100 p-1 rounded-xl">
-          {(["SYNTHESE", "INSTRUMENTS", "Sicav", "Mixed", "MANUALS"] as Tab[]).map((tab) => {
-            const labels: Record<Tab, string> = { SYNTHESE: "Synthèse Géo", INSTRUMENTS: "Synthèse Instruments", Sicav: "Sicav", Mixed: "Mixed", MANUALS: "Manuals" };
-            const showDate = ["SYNTHESE", "Sicav", "Mixed"].includes(tab);
+          {(["SYNTHESE", "INSTRUMENTS", "TARGET_GRID", "Sicav", "Mixed", "MANUALS"] as Tab[]).map((tab) => {
+            const labels: Record<Tab, string> = { SYNTHESE: "Synthèse Géo", INSTRUMENTS: "Synthèse Instruments", TARGET_GRID: "Target Grid", Sicav: "Sicav", Mixed: "Mixed", MANUALS: "Manuals" };
+            const showDate = ["SYNTHESE", "Sicav", "Mixed", "TARGET_GRID"].includes(tab);
             const latestDate = (() => {
               if (!showDate) return null;
+              if (tab === "TARGET_GRID") {
+                return importLog.target_grid ? new Date(importLog.target_grid.imported_at) : null;
+              }
               const all = [importLog.quick_valuation, ...importLog.samdp, importLog.target_grid, importLog.other]
                 .filter(Boolean).map(e => new Date(e!.imported_at).getTime());
               return all.length > 0 ? new Date(Math.max(...all)) : null;
@@ -682,7 +812,7 @@ export default function App() {
                   {/* Upload — compact */}
                   <div className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm w-52 shrink-0">
                     <label className="flex flex-col items-center justify-center border border-dashed border-slate-200 rounded-xl p-4 hover:border-sky-400 transition-all group cursor-pointer h-full gap-2">
-                      <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
+                      <input type="file" accept=".csv,.xlsx" onChange={handleFileUpload} className="hidden" />
                       <div className="bg-slate-50 p-2 rounded-lg group-hover:bg-sky-50 transition-colors">
                         <Upload className="h-5 w-5 text-slate-400 group-hover:text-sky-600" />
                       </div>
@@ -860,6 +990,124 @@ export default function App() {
                     </table>
                   </div>
                 </div>
+              </motion.div>
+            )}
+
+            {/* ── TARGET GRID ── */}
+            {activeTab === "TARGET_GRID" && (
+              <motion.div key="target_grid" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-7xl mx-auto space-y-8">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Target Grid</h2>
+                    <p className="text-slate-500">Allocation cible vs benchmark par profil de risque.</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {importLog.target_grid && (
+                      <div className="bg-white px-4 py-2 rounded-xl border border-slate-100 shadow-sm text-xs text-slate-500">
+                        <span className="font-bold text-slate-700 block truncate max-w-[220px]">{importLog.target_grid.filename}</span>
+                        <span>{new Date(importLog.target_grid.imported_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })} à {new Date(importLog.target_grid.imported_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+                      </div>
+                    )}
+                    <div className="bg-emerald-100 p-3 rounded-2xl"><TableIcon className="h-6 w-6 text-emerald-600" /></div>
+                  </div>
+                </div>
+
+                {Object.keys(targetGridData).length === 0 ? (
+                  <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">
+                    <TableIcon className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                    <p className="text-lg">Aucune donnée. Importez un fichier Target Grid.</p>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                    <div style={{ transform: 'rotateX(180deg)', overflowX: 'auto' }} className="[&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-slate-50 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300">
+                      <div style={{ transform: 'rotateX(180deg)' }}>
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50/50">
+                              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 min-w-[280px]">Catégorie</th>
+                              {RISK_PROFILES.map((profile) => (
+                                <th key={profile} colSpan={3} className="px-2 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center border-l border-slate-100">
+                                  {profile}
+                                </th>
+                              ))}
+                            </tr>
+                            <tr className="bg-slate-50/30 border-b border-slate-100">
+                              <th className="px-6 py-2 sticky left-0 bg-slate-50/30 z-10" />
+                              {RISK_PROFILES.map((profile) => (
+                                ["Bench", "Target", "Active"].map((col) => (
+                                  <th key={`${profile}-${col}`} className={cn(
+                                    "px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-center min-w-[72px]",
+                                    col === "Bench" && "border-l border-slate-100",
+                                    col === "Active" ? "text-violet-500" : "text-slate-400"
+                                  )}>{col}</th>
+                                ))
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-50">
+                            {TARGET_GRID_STRUCTURE.map((row) => {
+                              // Check if parent is collapsed
+                              if (row.parent && collapsedRows.has(row.parent)) return null;
+                              if (row.level === 2 && row.parent) {
+                                const grandParent = TARGET_GRID_STRUCTURE.find(r => r.id === row.parent)?.parent;
+                                if (grandParent && collapsedRows.has(grandParent)) return null;
+                              }
+                              const isCollapsed = collapsedRows.has(row.id);
+                              const hasChildren = TARGET_GRID_STRUCTURE.some(r => r.parent === row.id);
+                              const data = targetGridData[row.id];
+                              const bgColor = row.level === 0 ? "bg-slate-800" : row.level === 1 ? "bg-slate-50/80" : "bg-white";
+                              const textColor = row.level === 0 ? "text-white" : "text-slate-900";
+                              const indent = row.level === 1 ? "pl-10" : row.level === 2 ? "pl-16" : "pl-6";
+                              return (
+                                <tr key={row.id} className={cn("transition-colors", row.level === 0 ? bgColor : "hover:bg-slate-50/50")}>
+                                  <td className={cn("px-6 py-3 sticky left-0 z-10 font-medium", bgColor, textColor, indent)}>
+                                    <div className="flex items-center gap-2">
+                                      {hasChildren && (
+                                        <button
+                                          onClick={() => setCollapsedRows(prev => {
+                                            const next = new Set(prev);
+                                            next.has(row.id) ? next.delete(row.id) : next.add(row.id);
+                                            return next;
+                                          })}
+                                          className={cn("p-0.5 rounded transition-colors", row.level === 0 ? "hover:bg-white/20" : "hover:bg-slate-200")}
+                                        >
+                                          {isCollapsed
+                                            ? <ChevronRight className={cn("h-3.5 w-3.5", row.level === 0 ? "text-white/70" : "text-slate-400")} />
+                                            : <ChevronDown className={cn("h-3.5 w-3.5", row.level === 0 ? "text-white/70" : "text-slate-400")} />
+                                          }
+                                        </button>
+                                      )}
+                                      <span className={cn(
+                                        row.level === 0 ? "text-sm font-bold tracking-wide uppercase" : row.level === 1 ? "text-sm font-semibold" : "text-xs text-slate-600"
+                                      )}>{row.label}</span>
+                                    </div>
+                                  </td>
+                                  {RISK_PROFILES.map((profile) => (
+                                    ["bench", "target", "active"].map((col) => {
+                                      const val = data?.[col as "bench" | "target" | "active"]?.[profile];
+                                      const isActive = col === "active";
+                                      const isPos = (val ?? 0) > 0;
+                                      const isNeg = (val ?? 0) < 0;
+                                      return (
+                                        <td key={`${profile}-${col}`} className={cn(
+                                          "px-3 py-3 text-right text-xs font-medium min-w-[72px]",
+                                          col === "bench" && "border-l border-slate-100",
+                                          row.level === 0 ? "text-white/80" : isActive ? (isPos ? "text-emerald-600 font-bold" : isNeg ? "text-rose-600 font-bold" : "text-slate-400") : "text-slate-600"
+                                        )}>
+                                          {val != null ? `${val.toFixed(1)}%` : "—"}
+                                        </td>
+                                      );
+                                    })
+                                  ))}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </motion.div>
             )}
 
