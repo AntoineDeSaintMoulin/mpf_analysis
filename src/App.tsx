@@ -559,10 +559,10 @@ export default function App() {
       const bd = h.isin ? breakdowns[h.isin] : null;
       if (bd && bd.length > 0) {
         for (const entry of bd) {
-          result.push({ region: entry.region, weight: (h.weight ?? 0) * entry.weight / 100 });
+          result.push({ region: normalizeRegion(entry.region), weight: (h.weight ?? 0) * entry.weight / 100 });
         }
       } else {
-        result.push({ region: h.region ?? "Other", weight: h.weight ?? 0 });
+        result.push({ region: normalizeRegion(h.region ?? "Other"), weight: h.weight ?? 0 });
       }
     }
     return result;
