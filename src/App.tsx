@@ -174,7 +174,7 @@ function SortIcon({ active, direction }: { active: boolean; direction?: "asc" | 
 // ─── App ──────────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<Tab>("Sicav");
+  const [activeTab, setActiveTab] = useState<Tab>("INSTRUMENTS");
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [allPortfolios, setAllPortfolios] = useState<Portfolio[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
