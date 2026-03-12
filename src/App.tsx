@@ -647,13 +647,33 @@ const synthesisData = useMemo(() =>
       }),
     [portfolios, activeTab]);
 
- const drillDownHoldings = useMemo(() => {
+const drillDownHoldings = useMemo(() => {
     if (!drillDownFilter) return [];
     const holdings = currentPortfolio?.holdings ?? [];
 
     if (drillDownFilter.type === "category") {
       return holdings.filter(h => h?.category === drillDownFilter.value);
     }
+
+    // Région : utiliser le look-through + normalizeRegion
+    return holdings
+      .filter(h => {
+        if (!h) return false;
+        const bd = h.isin ? breakdowns[h.isin] : null;
+        if (bd && bd.length > 0) {
+          return bd.some(e => normalizeRegion(e.region) === drillDownFilter.value);
+        }
+        return normalizeRegion(h.region ?? "Other") === drillDownFilter.value;
+      })
+      .map(h => {
+        const bd = h.isin ? breakdowns[h.isin] : null;
+        if (bd && bd.length > 0) {
+          const entry = bd.find(e => normalizeRegion(e.region) === drillDownFilter.value);
+          if (entry) return { ...h, weight: (h.weight ?? 0) * entry.weight / 100 };
+        }
+        return h;
+      });
+  }, [currentPortfolio, drillDownFilter, breakdowns]);
 
     // Région : retourner le poids look-through
     return holdings
