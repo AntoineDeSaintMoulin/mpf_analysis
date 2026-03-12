@@ -573,6 +573,8 @@ function normalizeRegion(region: string): string {
   
   // ── Derived data ──────────────────────────────────────────────────────────
 
+  // ── Derived data ──────────────────────────────────────────────────────────
+
   const categoryData = useMemo(() => {
     const m = new Map<string, number>();
     (currentPortfolio?.holdings ?? []).forEach((h) => {
@@ -581,8 +583,8 @@ function normalizeRegion(region: string): string {
     });
     return Array.from(m.entries()).map(([name, value]) => ({ name, value: +value.toFixed(1) }));
   }, [currentPortfolio]);
-  
-const regionData = useMemo(() => {
+
+  const regionData = useMemo(() => {
     const m = new Map<string, number>();
     const equityHoldings = (currentPortfolio?.holdings ?? []).filter(h => h?.category === "Equities");
     applyLookThrough(equityHoldings).forEach(({ region, weight }) => {
@@ -619,12 +621,12 @@ const regionData = useMemo(() => {
       return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
     }), [allPortfolios]);
 
-const synthesisRegions = useMemo(() =>
+  const synthesisRegions = useMemo(() =>
     Array.from(new Set(sortedPortfolios.flatMap((p) =>
       applyLookThrough(p.holdings ?? []).map(({ region }) => region).filter(Boolean)
     ))), [sortedPortfolios, breakdowns]);
 
-const synthesisData = useMemo(() =>
+  const synthesisData = useMemo(() =>
     sortedPortfolios.map((p) => {
       const rw: Record<string, number> = {};
       synthesisRegions.forEach((r) => (rw[r] = 0));
@@ -633,6 +635,7 @@ const synthesisData = useMemo(() =>
       });
       return { name: p.name ?? "—", type: p.type ?? "—", ...rw };
     }), [sortedPortfolios, synthesisRegions, breakdowns]);
+
   const sortedInstruments = useMemo(() => {
     if (!sortConfig) return instrumentsSynthesis;
     return [...instrumentsSynthesis].sort((a, b) => {
@@ -652,7 +655,7 @@ const synthesisData = useMemo(() =>
       }),
     [portfolios, activeTab]);
 
-const drillDownHoldings = useMemo(() => {
+  const drillDownHoldings = useMemo(() => {
     if (!drillDownFilter) return [];
     const holdings = currentPortfolio?.holdings ?? [];
 
@@ -661,30 +664,6 @@ const drillDownHoldings = useMemo(() => {
     }
 
     return holdings
-      .filter(h => {
-        if (!h) return false;
-        if (h.category !== "Equities") return false;
-        const bd = h.isin ? breakdowns[h.isin] : null;
-        if (bd && bd.length > 0) {
-          return bd.some(e => normalizeRegion(e.region) === drillDownFilter.value && normalizeRegion(e.region) !== "Cash");
-        }
-        return normalizeRegion(h.region ?? "Others") === drillDownFilter.value;
-      })
-      .map(h => {
-        const bd = h.isin ? breakdowns[h.isin] : null;
-        if (bd && bd.length > 0) {
-          // Sommer uniquement les entrées non-Cash qui matchent la région
-          const totalWeight = bd
-            .filter(e => normalizeRegion(e.region) === drillDownFilter.value && e.region !== "Cash")
-            .reduce((s, e) => s + (h.weight ?? 0) * e.weight / 100, 0);
-          return { ...h, weight: totalWeight };
-        }
-        return h;
-      })
-      .filter(h => (h.weight ?? 0) > 0);
-  }, [currentPortfolio, drillDownFilter, breakdowns]);
-  
-return holdings
       .filter(h => {
         if (!h) return false;
         if (h.category !== "Equities") return false;
@@ -741,7 +720,7 @@ return holdings
       (row.isin ?? "").toLowerCase().includes(q)
     );
   }, [sortedInstruments, instrumentsSearch]);
-
+ 
   // ── Loading screen ────────────────────────────────────────────────────────
 
   if (loading) {
