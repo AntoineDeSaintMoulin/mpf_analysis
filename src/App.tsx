@@ -1404,12 +1404,12 @@ const regionData = useMemo(() => {
   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
   <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "16px", border: "none" }}
-    formatter={(v: number, name: string) => name === "target" ? null : [`${v}%`, "Actuel"]} />
+    formatter={(v: number, name: string) => name === "target" ? null : [v + "%", "Actuel"]} />
   <Bar dataKey="value" fill="#0ea5e9" radius={[8, 8, 0, 0]} className="cursor-pointer">
-    <LabelList dataKey="value" position="top" formatter={(v: number) => `${v}%`} fill="#64748b" fontSize={11} />
+    <LabelList dataKey="value" position="top" formatter={(v: number) => v + "%"} fill="#64748b" fontSize={11} />
   </Bar>
   <Bar dataKey="target" fill="#f59e0b" fillOpacity={0.3} radius={[4, 4, 0, 0]} barSize={3}>
-    <LabelList dataKey="target" position="top" formatter={(v: number) => v != null ? `${v}%` : ""} fill="#f59e0b" fontSize={10} fontWeight="bold" />
+    <LabelList dataKey="target" position="top" formatter={(v: number) => v != null ? v + "%" : ""} fill="#f59e0b" fontSize={10} fontWeight="bold" />
   </Bar>
 </BarChart>
                             </ResponsiveContainer>
