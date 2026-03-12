@@ -581,7 +581,8 @@ export default function App() {
 
 const regionData = useMemo(() => {
     const m = new Map<string, number>();
-    applyLookThrough(currentPortfolio?.holdings ?? []).forEach(({ region, weight }) => {
+    const equityHoldings = (currentPortfolio?.holdings ?? []).filter(h => h?.category === "Equities");
+    applyLookThrough(equityHoldings).forEach(({ region, weight }) => {
       m.set(region, (m.get(region) ?? 0) + weight);
     });
     return Array.from(m.entries()).map(([name, value]) => ({ name, value: +value.toFixed(1) }));
