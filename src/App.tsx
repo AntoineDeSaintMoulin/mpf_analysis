@@ -1502,7 +1502,7 @@ const synthesisData = useMemo(() =>
         )}
       </Modal>
 
-      {/* ── Edit override modal ── */}
+{/* ── Edit override modal ── */}
       <Modal isOpen={!!editingOverride} onClose={() => setEditingOverride(null)} title="Modifier l'instrument">
         {editingOverride && (
           <div className="space-y-6">
@@ -1537,107 +1537,102 @@ const synthesisData = useMemo(() =>
           </div>
         )}
       </Modal>
-    </div>
 
-    {/* ── Breakdown modal ── */}
-  <Modal isOpen={!!editingBreakdown} onClose={() => setEditingBreakdown(null)} title="Look-through géographique">
-    {editingBreakdown && (
-      <div className="space-y-5">
-        {/* ISIN */}
-        <div>
-          <label className="block text-sm font-bold text-slate-700 mb-2">ISIN</label>
-          <input
-            type="text"
-            value={editingBreakdown.isin}
-            onChange={(e) => setEditingBreakdown({ ...editingBreakdown, isin: e.target.value })}
-            className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none font-mono"
-            placeholder="Ex: BE6299468940"
-          />
-        </div>
-
-        {/* Lignes région / poids */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-bold text-slate-700">Décomposition régionale</label>
-            <span className={cn(
-              "text-xs font-bold px-2 py-0.5 rounded-lg",
-              Math.abs(editingBreakdown.rows.reduce((s, r) => s + (Number(r.weight) || 0), 0) - 100) < 0.1
-                ? "bg-emerald-50 text-emerald-600"
-                : "bg-rose-50 text-rose-600"
-            )}>
-              Total : {editingBreakdown.rows.reduce((s, r) => s + (Number(r.weight) || 0), 0).toFixed(1)}%
-            </span>
-          </div>
-          <div className="space-y-2">
-            {editingBreakdown.rows.map((row, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={row.region}
-                  onChange={(e) => {
-                    const rows = [...editingBreakdown.rows];
-                    rows[i] = { ...rows[i], region: e.target.value };
-                    setEditingBreakdown({ ...editingBreakdown, rows });
-                  }}
-                  className="flex-1 px-3 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-violet-500 outline-none text-sm"
-                  placeholder="Région (ex: US, Europe…)"
-                />
-                <input
-                  type="number"
-                  value={row.weight}
-                  onChange={(e) => {
-                    const rows = [...editingBreakdown.rows];
-                    rows[i] = { ...rows[i], weight: Number(e.target.value) };
-                    setEditingBreakdown({ ...editingBreakdown, rows });
-                  }}
-                  className="w-24 px-3 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-violet-500 outline-none text-sm text-right"
-                  placeholder="%"
-                  min={0} max={100} step={0.1}
-                />
-                <button
-                  onClick={() => setEditingBreakdown({ ...editingBreakdown, rows: editingBreakdown.rows.filter((_, j) => j !== i) })}
-                  className="p-2 hover:bg-rose-50 text-slate-300 hover:text-rose-500 rounded-lg transition-colors"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+      {/* ── Breakdown modal ── */}
+      <Modal isOpen={!!editingBreakdown} onClose={() => setEditingBreakdown(null)} title="Look-through géographique">
+        {editingBreakdown && (
+          <div className="space-y-5">
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">ISIN</label>
+              <input
+                type="text"
+                value={editingBreakdown.isin}
+                onChange={(e) => setEditingBreakdown({ ...editingBreakdown, isin: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none font-mono"
+                placeholder="Ex: BE6299468940"
+              />
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-bold text-slate-700">Décomposition régionale</label>
+                <span className={cn(
+                  "text-xs font-bold px-2 py-0.5 rounded-lg",
+                  Math.abs(editingBreakdown.rows.reduce((s, r) => s + (Number(r.weight) || 0), 0) - 100) < 0.1
+                    ? "bg-emerald-50 text-emerald-600"
+                    : "bg-rose-50 text-rose-600"
+                )}>
+                  Total : {editingBreakdown.rows.reduce((s, r) => s + (Number(r.weight) || 0), 0).toFixed(1)}%
+                </span>
               </div>
-            ))}
+              <div className="space-y-2">
+                {editingBreakdown.rows.map((row, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={row.region}
+                      onChange={(e) => {
+                        const rows = [...editingBreakdown.rows];
+                        rows[i] = { ...rows[i], region: e.target.value };
+                        setEditingBreakdown({ ...editingBreakdown, rows });
+                      }}
+                      className="flex-1 px-3 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-violet-500 outline-none text-sm"
+                      placeholder="Région (ex: US, Europe…)"
+                    />
+                    <input
+                      type="number"
+                      value={row.weight}
+                      onChange={(e) => {
+                        const rows = [...editingBreakdown.rows];
+                        rows[i] = { ...rows[i], weight: Number(e.target.value) };
+                        setEditingBreakdown({ ...editingBreakdown, rows });
+                      }}
+                      className="w-24 px-3 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-violet-500 outline-none text-sm text-right"
+                      placeholder="%"
+                      min={0} max={100} step={0.1}
+                    />
+                    <button
+                      onClick={() => setEditingBreakdown({ ...editingBreakdown, rows: editingBreakdown.rows.filter((_, j) => j !== i) })}
+                      className="p-2 hover:bg-rose-50 text-slate-300 hover:text-rose-500 rounded-lg transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => setEditingBreakdown({ ...editingBreakdown, rows: [...editingBreakdown.rows, { region: "", weight: 0 }] })}
+                className="mt-3 text-sm text-violet-600 hover:text-violet-800 font-bold flex items-center gap-1"
+              >
+                + Ajouter une région
+              </button>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => setEditingBreakdown(null)} className="flex-1 px-6 py-3 rounded-2xl font-bold text-slate-600 hover:bg-slate-100 transition-all">
+                Annuler
+              </button>
+              <button
+                disabled={breakdownSaving || !editingBreakdown.isin}
+                onClick={async () => {
+                  setBreakdownSaving(true);
+                  try {
+                    await saveBreakdown(editingBreakdown.isin, editingBreakdown.rows.filter(r => r.region && r.weight > 0));
+                    const bd = await fetchBreakdowns();
+                    setBreakdowns(bd);
+                    setEditingBreakdown(null);
+                  } finally {
+                    setBreakdownSaving(false);
+                  }
+                }}
+                className="flex-1 flex items-center justify-center gap-2 bg-violet-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-violet-700 transition-all disabled:opacity-50"
+              >
+                {breakdownSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Sauvegarder
+              </button>
+            </div>
           </div>
-          <button
-            onClick={() => setEditingBreakdown({ ...editingBreakdown, rows: [...editingBreakdown.rows, { region: "", weight: 0 }] })}
-            className="mt-3 text-sm text-violet-600 hover:text-violet-800 font-bold flex items-center gap-1"
-          >
-            + Ajouter une région
-          </button>
-        </div>
+        )}
+      </Modal>
 
-        {/* Actions */}
-        <div className="flex gap-3 pt-2">
-          <button onClick={() => setEditingBreakdown(null)} className="flex-1 px-6 py-3 rounded-2xl font-bold text-slate-600 hover:bg-slate-100 transition-all">
-            Annuler
-          </button>
-          <button
-            disabled={breakdownSaving || !editingBreakdown.isin}
-            onClick={async () => {
-              setBreakdownSaving(true);
-              try {
-                await saveBreakdown(editingBreakdown.isin, editingBreakdown.rows.filter(r => r.region && r.weight > 0));
-                const bd = await fetchBreakdowns();
-                setBreakdowns(bd);
-                setEditingBreakdown(null);
-              } finally {
-                setBreakdownSaving(false);
-              }
-            }}
-            className="flex-1 flex items-center justify-center gap-2 bg-violet-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-violet-700 transition-all disabled:opacity-50"
-          >
-            {breakdownSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Sauvegarder
-          </button>
-        </div>
-      </div>
-    )}
-  </Modal>
-  
+    </div>
   );
 }
