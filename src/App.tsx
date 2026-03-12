@@ -666,18 +666,6 @@ const synthesisData = useMemo(() =>
       });
   }, [currentPortfolio, drillDownFilter, breakdowns]);
 
-    // Pour les régions : utiliser le look-through
-    return holdings.filter(h => {
-      if (!h) return false;
-      const bd = h.isin ? breakdowns[h.isin] : null;
-      if (bd && bd.length > 0) {
-        // L'instrument apparaît si une de ses régions look-through correspond
-        return bd.some(entry => entry.region === drillDownFilter.value);
-      }
-      return h.region === drillDownFilter.value;
-    });
-  }, [currentPortfolio, drillDownFilter, breakdowns]);
-
   const sortedFilteredHoldings = useMemo(() => {
     let list = (currentPortfolio?.holdings ?? []).filter((h) => {
       if (!h) return false;
