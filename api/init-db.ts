@@ -53,6 +53,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         imported_at TIMESTAMP DEFAULT NOW()
       )
     `);
+    
+    // ── NOUVEAU ──
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS instrument_breakdown (
+        id SERIAL PRIMARY KEY,
+        isin TEXT NOT NULL,
+        region TEXT NOT NULL,
+        weight REAL NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    
     const existing = await pool.query("SELECT COUNT(*) FROM model_grid");
     if (Number(existing.rows[0].count) === 0) {
       await pool.query("INSERT INTO model_grid (category, region, target_weight) VALUES ($1, $2, $3)", ["Equity", "US", 40]);
