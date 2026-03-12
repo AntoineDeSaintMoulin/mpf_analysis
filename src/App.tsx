@@ -1356,21 +1356,22 @@ const regionData = useMemo(() => {
                       </div>
                     </div>
 
-                    {(currentPortfolio.holdings?.length ?? 0) > 0 ? (
+{(currentPortfolio.holdings?.length ?? 0) > 0 ? (
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
-                          <h3 className="text-lg font-bold mb-8 flex items-center gap-2"><PieChartIcon className="h-5 w-5 text-sky-600" />Allocation par Catégorie</h3>
+                          <h3 className="text-lg font-bold mb-6 flex items-center gap-2"><PieChartIcon className="h-5 w-5 text-sky-600" />Allocation par Catégorie</h3>
                           <div className="h-[320px]">
                             <ResponsiveContainer width="100%" height="100%">
-                              <PieChart>
-                                <Pie data={categoryData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value"
-                                  onClick={(d) => setDrillDownFilter({ type: "category", value: d.name })} className="cursor-pointer">
+                              <BarChart data={categoryData} layout="vertical" margin={{ top: 0, right: 60, left: 20, bottom: 0 }}
+                                onClick={(d: any) => d?.activeLabel && setDrillDownFilter({ type: "category", value: d.activeLabel })}>
+                                <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} tickFormatter={(v) => `${v}%`} />
+                                <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} width={90} />
+                                <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "16px", border: "none" }} formatter={(v: number) => `${v}%`} />
+                                <Bar dataKey="value" radius={[0, 8, 8, 0]} className="cursor-pointer">
                                   {categoryData.map((_, idx) => <Cell key={idx} fill={COLORS[idx % COLORS.length]} />)}
-                                  <LabelList dataKey="value" position="outside" formatter={(v: number) => `${v}%`} fill="#64748b" fontSize={11} />
-                                </Pie>
-                                <Tooltip contentStyle={{ borderRadius: "16px", border: "none" }} formatter={(v: number) => `${v}%`} />
-                                <Legend verticalAlign="bottom" height={36} />
-                              </PieChart>
+                                  <LabelList dataKey="value" position="right" formatter={(v: number) => `${v}%`} fill="#64748b" fontSize={11} />
+                                </Bar>
+                              </BarChart>
                             </ResponsiveContainer>
                           </div>
                           <p className="text-center text-xs text-slate-400 mt-2 italic">Cliquez pour filtrer</p>
@@ -1379,6 +1380,26 @@ const regionData = useMemo(() => {
                           <h3 className="text-lg font-bold mb-8 flex items-center gap-2"><Globe className="h-5 w-5 text-amber-600" />Exposition Régionale</h3>
                           <div className="h-[320px]">
                             <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={regionData} margin={{ top: 20, right: 10, left: 0, bottom: 0 }} onClick={(d: any) => d?.activeLabel && setDrillDownFilter({ type: "region", value: d.activeLabel })}>
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
+                                <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "16px", border: "none" }}
+                                  formatter={(v: number, name: string) => name === "target" ? null : [`${v}%`, "Actuel"]} />
+                                <Bar dataKey="value" fill="#0ea5e9" radius={[8, 8, 0, 0]} className="cursor-pointer">
+                                  <LabelList dataKey="value" position="top" formatter={(v: number) => `${v}%`} fill="#64748b" fontSize={11} />
+                                </Bar>
+                                <Bar dataKey="target" fill="#f59e0b" fillOpacity={0.3} radius={[4, 4, 0, 0]} barSize={4}>
+                                  <LabelList dataKey="target" position="top" formatter={(v: number) => v != null ? `${v}%` : ""} fill="#f59e0b" fontSize={10} fontWeight="bold" />
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                          <p className="text-center text-xs text-slate-400 mt-2 italic">Cliquez pour filtrer</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-white rounded-3xl border border-slate-100 p-12 text-center text-slate-400">Aucune position pour ce portefeuille.</div>
+                    )}
 <BarChart data={regionData} margin={{ top: 20, right: 10, left: 0, bottom: 0 }} onClick={(d: any) => d?.activeLabel && setDrillDownFilter({ type: "region", value: d.activeLabel })}>
   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
@@ -1387,7 +1408,7 @@ const regionData = useMemo(() => {
   <Bar dataKey="value" fill="#0ea5e9" radius={[8, 8, 0, 0]} className="cursor-pointer">
     <LabelList dataKey="value" position="top" formatter={(v: number) => `${v}%`} fill="#64748b" fontSize={11} />
   </Bar>
-  <Bar dataKey="target" fill="#f59e0b" fillOpacity={0.3} radius={[4, 4, 0, 0]} barSize={8}>
+  <Bar dataKey="target" fill="#f59e0b" fillOpacity={0.3} radius={[4, 4, 0, 0]} barSize={3}>
     <LabelList dataKey="target" position="top" formatter={(v: number) => v != null ? `${v}%` : ""} fill="#f59e0b" fontSize={10} fontWeight="bold" />
   </Bar>
 </BarChart>
