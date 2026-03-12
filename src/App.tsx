@@ -1403,8 +1403,8 @@ const regionData = useMemo(() => {
 <BarChart data={regionData} margin={{ top: 20, right: 10, left: 0, bottom: 0 }} onClick={(d: any) => d?.activeLabel && setDrillDownFilter({ type: "region", value: d.activeLabel })}>
   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
-  <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "16px", border: "none" }}
-    formatter={(v: number, name: string) => name === "target" ? null : [v + "%", "Actuel"]} />
+<Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "16px", border: "none" }}
+    formatter={(v: number, name: string) => name === "target" ? ["", ""] : [v + "%", "Actuel"]} />
   <Bar dataKey="value" fill="#0ea5e9" radius={[8, 8, 0, 0]} className="cursor-pointer">
     <LabelList dataKey="value" position="top" formatter={(v: number) => v + "%"} fill="#64748b" fontSize={11} />
   </Bar>
