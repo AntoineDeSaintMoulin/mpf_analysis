@@ -544,9 +544,10 @@ export default function App() {
   };
 
   // ── Region normalizer ─────────────────────────────────────────────────────
-  function normalizeRegion(region: string): string {
+function normalizeRegion(region: string): string {
     const r = region?.trim() ?? "Other";
     if (["Europe", "Europe ex-Euroland", "Euroland"].includes(r)) return "Europe";
+    if (["US", "North America"].includes(r)) return "US";
     return r;
   }
   
