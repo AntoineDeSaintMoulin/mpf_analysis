@@ -1379,16 +1379,34 @@ const regionData = useMemo(() => {
                           <h3 className="text-lg font-bold mb-8 flex items-center gap-2"><Globe className="h-5 w-5 text-amber-600" />Exposition Régionale</h3>
                           <div className="h-[320px]">
                             <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={regionData} margin={{ top: 20, right: 10, left: 0, bottom: 0 }} onClick={(d: any) => d?.activeLabel && setDrillDownFilter({ type: "region", value: d.activeLabel })}>
+<BarChart data={regionData} margin={{ top: 20, right: 10, left: 0, bottom: 0 }} onClick={(d: any) => d?.activeLabel && setDrillDownFilter({ type: "region", value: d.activeLabel })}>
   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
-  <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "16px", border: "none" }} formatter={(v: number) => `${v}%`} />
+  <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "16px", border: "none" }}
+    formatter={(v: number, name: string) => name === "target" ? null : [`${v}%`, "Actuel"]} />
   <Bar dataKey="value" fill="#0ea5e9" radius={[8, 8, 0, 0]} className="cursor-pointer">
     <LabelList dataKey="value" position="top" formatter={(v: number) => `${v}%`} fill="#64748b" fontSize={11} />
   </Bar>
-  <Bar dataKey="target" fill="transparent" radius={[0, 0, 0, 0]}>
-    <LabelList dataKey="target" position="insideTop" formatter={(v: number) => v != null ? `▬ ${v}%` : ""} fill="#f59e0b" fontSize={10} fontWeight="bold" />
-  </Bar>
+  <Bar dataKey="target" fill="transparent" shape={(props: any) => {
+    const { x, y, width, height, value } = props;
+    if (value == null) return <g />;
+    return (
+      <g>
+        <line
+          x1={x - 4}
+          x2={x + width + 4}
+          y1={y}
+          y2={y}
+          stroke="#f59e0b"
+          strokeWidth={2.5}
+          strokeDasharray="none"
+        />
+        <text x={x + width / 2} y={y - 6} textAnchor="middle" fill="#f59e0b" fontSize={10} fontWeight="bold">
+          {`${value}%`}
+        </text>
+      </g>
+    );
+  }} />
 </BarChart>
                             </ResponsiveContainer>
                           </div>
