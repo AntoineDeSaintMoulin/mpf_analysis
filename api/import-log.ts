@@ -5,7 +5,7 @@ function getCategory(filename: string): string {
   const name = filename.toLowerCase();
   if (name.startsWith("quick valuation")) return "quick_valuation";
   if (name.startsWith("samdp")) return "samdp";
-  if (name.startsWith("target grid")) return "target_grid";
+  if (name.startsWith("target grid") || name.startsWith("fullgrid")) return "target_grid";
   return "other";
 }
 
