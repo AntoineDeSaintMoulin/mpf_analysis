@@ -540,7 +540,25 @@ export default function App() {
       setUploading(false);
     }
   };
+  
+  // ── Look-through helper ───────────────────────────────────────────────────
 
+  function applyLookThrough(holdings: Holding[]): { region: string; weight: number }[] {
+    const result: { region: string; weight: number }[] = [];
+    for (const h of holdings) {
+      if (!h) continue;
+      const bd = h.isin ? breakdowns[h.isin] : null;
+      if (bd && bd.length > 0) {
+        for (const entry of bd) {
+          result.push({ region: entry.region, weight: (h.weight ?? 0) * entry.weight / 100 });
+        }
+      } else {
+        result.push({ region: h.region ?? "Other", weight: h.weight ?? 0 });
+      }
+    }
+    return result;
+  }
+  
   // ── Derived data ──────────────────────────────────────────────────────────
 
   const categoryData = useMemo(() => {
@@ -552,14 +570,13 @@ export default function App() {
     return Array.from(m.entries()).map(([name, value]) => ({ name, value: +value.toFixed(1) }));
   }, [currentPortfolio]);
 
-  const regionData = useMemo(() => {
+const regionData = useMemo(() => {
     const m = new Map<string, number>();
-    (currentPortfolio?.holdings ?? []).forEach((h) => {
-      if (!h?.region) return;
-      m.set(h.region, (m.get(h.region) ?? 0) + (h.weight ?? 0));
+    applyLookThrough(currentPortfolio?.holdings ?? []).forEach(({ region, weight }) => {
+      m.set(region, (m.get(region) ?? 0) + weight);
     });
     return Array.from(m.entries()).map(([name, value]) => ({ name, value: +value.toFixed(1) }));
-  }, [currentPortfolio]);
+  }, [currentPortfolio, breakdowns]);
 
   const instrumentsSynthesis = useMemo(() => {
     const im = new Map<string, { name: string; isin: string; weights: Record<string, number>; details: Partial<Holding> }>();
@@ -588,19 +605,20 @@ export default function App() {
       return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
     }), [allPortfolios]);
 
-  const synthesisRegions = useMemo(() =>
+const synthesisRegions = useMemo(() =>
     Array.from(new Set(sortedPortfolios.flatMap((p) =>
-      (p.holdings ?? []).map((h) => h?.region).filter(Boolean) as string[]
-    ))), [sortedPortfolios]);
+      applyLookThrough(p.holdings ?? []).map(({ region }) => region).filter(Boolean)
+    ))), [sortedPortfolios, breakdowns]);
 
-  const synthesisData = useMemo(() =>
+const synthesisData = useMemo(() =>
     sortedPortfolios.map((p) => {
       const rw: Record<string, number> = {};
       synthesisRegions.forEach((r) => (rw[r] = 0));
-      (p.holdings ?? []).forEach((h) => { if (h?.region) rw[h.region] = (rw[h.region] ?? 0) + (h.weight ?? 0); });
+      applyLookThrough(p.holdings ?? []).forEach(({ region, weight }) => {
+        rw[region] = (rw[region] ?? 0) + weight;
+      });
       return { name: p.name ?? "—", type: p.type ?? "—", ...rw };
-    }), [sortedPortfolios, synthesisRegions]);
-
+    }), [sortedPortfolios, synthesisRegions, breakdowns]);
   const sortedInstruments = useMemo(() => {
     if (!sortConfig) return instrumentsSynthesis;
     return [...instrumentsSynthesis].sort((a, b) => {
