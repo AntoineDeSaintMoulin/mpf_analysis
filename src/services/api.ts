@@ -55,3 +55,34 @@ export async function deleteManualOverride(id: number): Promise<{ success: boole
   });
   return data ?? { success: false };
 }
+
+// ── Instrument breakdowns (look-through) ─────────────────────────────────────
+
+export type BreakdownEntry = { region: string; weight: number };
+export type BreakdownMap = Record<string, BreakdownEntry[]>;
+
+export async function fetchBreakdowns(): Promise<BreakdownMap> {
+  const data = await safeFetch<BreakdownMap>("/api/instrument-breakdown");
+  return data && typeof data === "object" ? data : {};
+}
+
+export async function saveBreakdown(
+  isin: string,
+  breakdown: BreakdownEntry[]
+): Promise<{ success: boolean }> {
+  const data = await safeFetch<{ success: boolean }>("/api/instrument-breakdown", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isin, breakdown }),
+  });
+  return data ?? { success: false };
+}
+
+export async function deleteBreakdown(isin: string): Promise<{ success: boolean }> {
+  const data = await safeFetch<{ success: boolean }>("/api/instrument-breakdown", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isin }),
+  });
+  return data ?? { success: false };
+}
