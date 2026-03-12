@@ -542,6 +542,13 @@ export default function App() {
       setUploading(false);
     }
   };
+
+  // ── Region normalizer ─────────────────────────────────────────────────────
+  function normalizeRegion(region: string): string {
+    const r = region?.trim() ?? "Other";
+    if (["Europe", "Europe ex-Euroland", "Euroland"].includes(r)) return "Europe";
+    return r;
+  }
   
   // ── Look-through helper ───────────────────────────────────────────────────
 
