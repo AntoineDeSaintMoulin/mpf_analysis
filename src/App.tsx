@@ -55,6 +55,11 @@ import {
   fetchManualOverrides,
   saveManualOverride,
   deleteManualOverride,
+  fetchBreakdowns,
+  saveBreakdown,
+  deleteBreakdown,
+  type BreakdownMap,
+  type BreakdownEntry,
 } from "./services/api";
 import { analyzePortfolio } from "./services/gemini";
 
