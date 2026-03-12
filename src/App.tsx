@@ -548,6 +548,7 @@ function normalizeRegion(region: string): string {
     const r = region?.trim() ?? "Other";
     if (["Europe", "Europe ex-Euroland", "Euroland"].includes(r)) return "Europe";
     if (["US", "North America"].includes(r)) return "US";
+    if (["Emerging and Frontier Markets", "Emerging Markets"].includes(r)) return "EM";
     return r;
   }
   
