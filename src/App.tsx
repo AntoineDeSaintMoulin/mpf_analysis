@@ -67,8 +67,6 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
 function portfolioLabel(name: string | undefined | null): string {
   if (!name) return "—";
   const parts = name.split(" - ");
@@ -80,8 +78,6 @@ function portfolioTypePart(name: string | undefined | null): string {
   const parts = name.split(" - ");
   return parts[0] ?? name;
 }
-
-// ─── Constants ───────────────────────────────────────────────────────────────
 
 const COLORS = ["#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
@@ -103,8 +99,6 @@ const PORTFOLIO_ORDER = [
 ];
 
 type Tab = "SYNTHESE" | "Sicav" | "Mixed" | "INSTRUMENTS" | "MANUALS" | "TARGET_GRID";
-
-// ─── Target Grid hierarchy ────────────────────────────────────────────────────
 
 const RISK_PROFILES = ["LOW", "MEDLOW", "MEDIUM", "MEDHIGH", "HIGH"] as const;
 type RiskProfile = typeof RISK_PROFILES[number];
@@ -150,8 +144,6 @@ const TARGET_GRID_STRUCTURE: { id: string; label: string; level: 0 | 1 | 2; pare
     { id: "st_other", label: "Other FX", level: 1, parent: "short_term" },
 ];
 
-// ─── Modal ───────────────────────────────────────────────────────────────────
-
 function Modal({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
   if (!isOpen) return null;
   return (
@@ -169,14 +161,10 @@ function Modal({ isOpen, onClose, title, children }: { isOpen: boolean; onClose:
   );
 }
 
-// ─── Sort icon ───────────────────────────────────────────────────────────────
-
 function SortIcon({ active, direction }: { active: boolean; direction?: "asc" | "desc" }) {
   if (!active) return <ChevronsUpDown className="h-3 w-3 opacity-30" />;
   return direction === "asc" ? <ChevronUp className="h-3 w-3 text-sky-600" /> : <ChevronDown className="h-3 w-3 text-sky-600" />;
 }
-
-// ─── App ──────────────────────────────────────────────────────────────────────
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>("INSTRUMENTS");
@@ -214,8 +202,6 @@ export default function App() {
   const [breakdowns, setBreakdowns] = useState<BreakdownMap>({});
   const [editingBreakdown, setEditingBreakdown] = useState<{ isin: string; name: string; rows: BreakdownEntry[] } | null>(null);
   const [breakdownSaving, setBreakdownSaving] = useState(false);
-  
-  // ── Safe fetch ────────────────────────────────────────────────────────────
 
   async function safeArray<T>(fn: () => Promise<T[]>): Promise<T[]> {
     try {
@@ -226,8 +212,6 @@ export default function App() {
       return [];
     }
   }
-
-  // ── FIX: loadTargetGrid défini AVANT loadBaseData ─────────────────────────
 
   const loadTargetGrid = async () => {
     try {
@@ -257,7 +241,6 @@ export default function App() {
     return pList;
   };
 
-// ── Init ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -265,8 +248,6 @@ export default function App() {
         const pList = await loadBaseData();
         const scv = pList.filter((p) => p?.type === "Sicav");
         if (scv.length > 0 && scv[0]?.id != null) setSelectedId(scv[0].id);
-
-        // Load last import log
         try {
           const logRes = await fetch("/api/import-log");
           if (logRes.ok) {
@@ -276,18 +257,13 @@ export default function App() {
         } catch (e) {
           console.warn("Could not load import log", e);
         }
-
-        // Load breakdowns
         try {
           const bd = await fetchBreakdowns();
           setBreakdowns(bd);
         } catch (e) {
           console.warn("Could not load breakdowns", e);
         }
-
-        // Load target grid
         await loadTargetGrid();
-
       } catch (e) {
         console.error("Init failed", e);
         setErrorMsg("Erreur lors du chargement initial.");
@@ -296,8 +272,6 @@ export default function App() {
       }
     })();
   }, []);
-
-  // ── Load detail ───────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (selectedId == null) return;
@@ -330,8 +304,6 @@ export default function App() {
     })();
   }, [selectedId]);
 
-  // ── Auto-select on tab change ─────────────────────────────────────────────
-
   useEffect(() => {
     if (activeTab !== "Sicav" && activeTab !== "Mixed") return;
     const filtered = portfolios.filter((p) => p?.type === activeTab);
@@ -339,8 +311,6 @@ export default function App() {
       setSelectedId(filtered[0].id);
     }
   }, [activeTab, portfolios]);
-
-  // ── Refresh ───────────────────────────────────────────────────────────────
 
   const refreshData = async () => {
     try {
@@ -353,8 +323,6 @@ export default function App() {
       console.error("Refresh failed", e);
     }
   };
-
-  // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleAnalyze = async () => {
     if (!currentPortfolio || analyzing) return;
@@ -437,7 +405,6 @@ export default function App() {
 
     try {
       if (isTargetGridFile(file.name)) {
-        // ── XLSX Target Grid import ──
         const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs" as any);
         const buffer = await file.arrayBuffer();
         const wb = XLSX.read(buffer, { type: "array" });
@@ -482,10 +449,9 @@ export default function App() {
           setActiveTab("TARGET_GRID");
           setTimeout(() => setUploadSuccess(false), 3000);
         } else {
-          setErrorMsg(`Erreur upload Target Grid: ${await res.text()}`);
+          setErrorMsg("Erreur upload Target Grid: " + await res.text());
         }
       } else {
-        // ── CSV Quick Valuation / other import ──
         Papa.parse(file, {
           header: false,
           skipEmptyLines: true,
@@ -524,7 +490,7 @@ export default function App() {
                 await refreshData();
                 setTimeout(() => setUploadSuccess(false), 3000);
               } else {
-                setErrorMsg(`Erreur upload: ${await res.text()}`);
+                setErrorMsg("Erreur upload: " + await res.text());
               }
             } catch (e) {
               setErrorMsg("Erreur lors du traitement du CSV.");
@@ -544,7 +510,7 @@ export default function App() {
   };
 
   // ── Region normalizer ─────────────────────────────────────────────────────
-function normalizeRegion(region: string): string {
+  function normalizeRegion(region: string): string {
     const r = region?.trim() ?? "Other";
     if (["Europe", "Europe ex-Euroland", "Euroland"].includes(r)) return "Europe";
     if (["US", "North America"].includes(r)) return "US";
@@ -552,8 +518,8 @@ function normalizeRegion(region: string): string {
     if (["Other"].includes(r)) return "Others";
     return r;
   }
-  
-function detectRiskProfile(portfolioName: string | null | undefined): RiskProfile | null {
+
+  function detectRiskProfile(portfolioName: string | null | undefined): RiskProfile | null {
     if (!portfolioName) return null;
     if (portfolioName.includes("_LOW")) return "LOW";
     if (portfolioName.includes("_ML")) return "MEDLOW";
@@ -570,9 +536,8 @@ function detectRiskProfile(portfolioName: string | null | undefined): RiskProfil
     "Japan": "eq_japan",
     "Others": "eq_other",
   };
-  
-  // ── Look-through helper ───────────────────────────────────────────────────
 
+  // ── Look-through helper ───────────────────────────────────────────────────
   function applyLookThrough(holdings: Holding[]): { region: string; weight: number }[] {
     const result: { region: string; weight: number }[] = [];
     for (const h of holdings) {
@@ -591,7 +556,7 @@ function detectRiskProfile(portfolioName: string | null | undefined): RiskProfil
 
   // ── Derived data ──────────────────────────────────────────────────────────
 
-const categoryData = useMemo(() => {
+  const categoryData = useMemo(() => {
     const m = new Map<string, number>();
     (currentPortfolio?.holdings ?? []).forEach((h) => {
       if (!h?.category) return;
@@ -615,7 +580,7 @@ const categoryData = useMemo(() => {
     });
   }, [currentPortfolio, targetGridData]);
 
-const regionData = useMemo(() => {
+  const regionData = useMemo(() => {
     const m = new Map<string, number>();
     const equityHoldings = (currentPortfolio?.holdings ?? []).filter(h => h?.category === "Equities");
     applyLookThrough(equityHoldings).forEach(({ region, weight }) => {
@@ -758,8 +723,6 @@ const regionData = useMemo(() => {
       (row.isin ?? "").toLowerCase().includes(q)
     );
   }, [sortedInstruments, instrumentsSearch]);
- 
-  // ── Loading screen ────────────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -772,12 +735,9 @@ const regionData = useMemo(() => {
     );
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────
-
   return (
     <div className="flex flex-col h-screen bg-slate-50 font-sans text-slate-900">
 
-      {/* Error toast */}
       {errorMsg && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-rose-50 border border-rose-200 text-rose-700 px-5 py-3 rounded-2xl shadow-lg max-w-sm">
           <AlertTriangle className="h-5 w-5 shrink-0" />
@@ -786,7 +746,6 @@ const regionData = useMemo(() => {
         </div>
       )}
 
-      {/* Header */}
       <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between z-20 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="bg-sky-600 p-1.5 rounded-lg"><TrendingUp className="text-white h-4 w-4" /></div>
@@ -823,7 +782,6 @@ const regionData = useMemo(() => {
 
       <div className="flex flex-1 overflow-hidden">
 
-        {/* Sidebar */}
         {(activeTab === "Sicav" || activeTab === "Mixed") && (
           <aside className="w-72 border-r border-slate-200 bg-white p-6 flex flex-col overflow-y-auto">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4 px-2">Profils {activeTab}</p>
@@ -842,7 +800,6 @@ const regionData = useMemo(() => {
           </aside>
         )}
 
-        {/* Main */}
         <main className="flex-1 overflow-y-auto p-10 bg-slate-50/50">
           <AnimatePresence mode="wait">
 
@@ -922,7 +879,6 @@ const regionData = useMemo(() => {
                   </div>
                 </div>
 
-                {/* Upload + Import log cards */}
                 <div className="flex gap-3 items-stretch">
                   <div className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm w-52 shrink-0">
                     <label className="flex flex-col items-center justify-center border border-dashed border-slate-200 rounded-xl p-4 hover:border-sky-400 transition-all group cursor-pointer h-full gap-2">
@@ -1050,154 +1006,128 @@ const regionData = useMemo(() => {
               </motion.div>
             )}
 
-           {/* ── MANUALS ── */}
-  {activeTab === "MANUALS" && (
-    <motion.div key="manuals" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-7xl mx-auto space-y-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Changements Manuels</h2>
-          <p className="text-slate-500">Ces données sont prioritaires sur les imports CSV.</p>
-        </div>
-        <div className="bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
-          <div className="bg-amber-50 p-2 rounded-lg"><Edit2 className="h-5 w-5 text-amber-600" /></div>
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Modifications</p>
-            <p className="text-xl font-bold text-slate-900 leading-none">{manualOverrides.length}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Overrides table */}
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50/50">
-                {["Nom Original", "Nouveau Nom", "ISIN", "Région", "Devise", "Catégorie", "Type", "Date", "Actions"].map((h) => (
-                  <th key={h} className={cn("px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider", h === "Actions" && "text-right")}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {manualOverrides.length === 0
-                ? <tr><td colSpan={9} className="px-8 py-12 text-center text-slate-400 italic">Aucun changement manuel.</td></tr>
-                : manualOverrides.map((ov) => (
-                  <tr key={ov.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-6 py-4 text-slate-500 font-medium">{ov.original_asset_name ?? "—"}</td>
-                    <td className="px-6 py-4 font-bold text-slate-900">{ov.manual_asset_name || "—"}</td>
-                    <td className="px-6 py-4 text-xs font-mono text-sky-600 font-bold">{ov.manual_isin || "—"}</td>
-                    <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_region || "—"}</td>
-                    <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_currency || "—"}</td>
-                    <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_category || "—"}</td>
-                    <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_instrument || "—"}</td>
-                    <td className="px-6 py-4 text-xs text-slate-400">{ov.updated_at ? new Date(ov.updated_at).toLocaleDateString() : "—"}</td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => setEditingOverride({ original_asset_name: ov.original_asset_name ?? "", manual_asset_name: ov.manual_asset_name ?? "", manual_isin: ov.manual_isin ?? "", manual_region: ov.manual_region ?? "", manual_currency: ov.manual_currency ?? "", manual_category: ov.manual_category ?? "", manual_instrument: ov.manual_instrument ?? "" })}
-                          className="p-2 hover:bg-sky-50 text-slate-400 hover:text-sky-600 rounded-lg transition-colors"><Edit2 className="h-4 w-4" /></button>
-                        <button onClick={() => handleDeleteOverride(ov.id)} className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"><Trash2 className="h-4 w-4" /></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* ── Look-through section ── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-xl font-bold text-slate-900">Look-through géographique</h3>
-          <p className="text-slate-500 text-sm mt-1">Décomposition régionale des instruments multi-zones.</p>
-        </div>
-        <div className="bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
-          <div className="bg-violet-50 p-2 rounded-lg"><Globe className="h-5 w-5 text-violet-600" /></div>
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Instruments</p>
-            <p className="text-xl font-bold text-slate-900 leading-none">{Object.keys(breakdowns).length}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Look-through table */}
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-        {/* Header avec bouton Ajouter */}
-        <div className="px-8 py-5 border-b border-slate-50 flex items-center justify-between">
-          <p className="text-sm font-semibold text-slate-500">
-            {Object.keys(breakdowns).length === 0 ? "Aucun breakdown enregistré." : `${Object.keys(breakdowns).length} instrument${Object.keys(breakdowns).length > 1 ? "s" : ""} configuré${Object.keys(breakdowns).length > 1 ? "s" : ""}`}
-          </p>
-          <button
-            onClick={() => setEditingBreakdown({ isin: "", name: "", rows: [{ region: "", weight: 0 }] })}
-            className="flex items-center gap-2 bg-violet-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-violet-700 transition-all"
-          >
-            <span>+</span> Ajouter
-          </button>
-        </div>
-
-        {Object.keys(breakdowns).length === 0 ? (
-          <div className="px-8 py-12 text-center text-slate-400 italic">
-            Aucun look-through configuré.
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-50">
-            {Object.entries(breakdowns).map(([isin, entries]) => {
-              // Trouver le nom de l'instrument depuis allPortfolios
-              const holding = allPortfolios
-                .flatMap(p => p.holdings ?? [])
-                .find(h => h.isin === isin);
-              const name = holding?.asset_name ?? isin;
-              const total = entries.reduce((s, e) => s + e.weight, 0);
-              return (
-                <div key={isin} className="px-8 py-5 hover:bg-slate-50/50 transition-colors">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-3">
-                        <span className="font-bold text-slate-900 truncate">{name}</span>
-                        <span className="text-xs font-mono text-sky-600 bg-sky-50 px-2 py-0.5 rounded-lg shrink-0">{isin}</span>
-                        <span className={cn(
-                          "text-xs font-bold px-2 py-0.5 rounded-lg shrink-0",
-                          Math.abs(total - 100) < 0.1 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
-                        )}>
-                          {total.toFixed(1)}%
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {entries.map((e, i) => (
-                          <span key={i} className="inline-flex items-center gap-1.5 bg-slate-100 px-3 py-1 rounded-full text-xs font-medium text-slate-700">
-                            <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />
-                            {e.region} <span className="font-bold text-slate-900">{e.weight}%</span>
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        onClick={() => setEditingBreakdown({ isin, name, rows: [...entries] })}
-                        className="p-2 hover:bg-sky-50 text-slate-400 hover:text-sky-600 rounded-lg transition-colors"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={async () => {
-                          await deleteBreakdown(isin);
-                          const bd = await fetchBreakdowns();
-                          setBreakdowns(bd);
-                        }}
-                        className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+            {/* ── MANUALS ── */}
+            {activeTab === "MANUALS" && (
+              <motion.div key="manuals" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-7xl mx-auto space-y-8">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Changements Manuels</h2>
+                    <p className="text-slate-500">Ces données sont prioritaires sur les imports CSV.</p>
+                  </div>
+                  <div className="bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
+                    <div className="bg-amber-50 p-2 rounded-lg"><Edit2 className="h-5 w-5 text-amber-600" /></div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Modifications</p>
+                      <p className="text-xl font-bold text-slate-900 leading-none">{manualOverrides.length}</p>
                     </div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </motion.div>
-  )}
+
+                <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50/50">
+                          {["Nom Original", "Nouveau Nom", "ISIN", "Région", "Devise", "Catégorie", "Type", "Date", "Actions"].map((h) => (
+                            <th key={h} className={cn("px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider", h === "Actions" && "text-right")}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {manualOverrides.length === 0
+                          ? <tr><td colSpan={9} className="px-8 py-12 text-center text-slate-400 italic">Aucun changement manuel.</td></tr>
+                          : manualOverrides.map((ov) => (
+                            <tr key={ov.id} className="hover:bg-slate-50/50 transition-colors">
+                              <td className="px-6 py-4 text-slate-500 font-medium">{ov.original_asset_name ?? "—"}</td>
+                              <td className="px-6 py-4 font-bold text-slate-900">{ov.manual_asset_name || "—"}</td>
+                              <td className="px-6 py-4 text-xs font-mono text-sky-600 font-bold">{ov.manual_isin || "—"}</td>
+                              <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_region || "—"}</td>
+                              <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_currency || "—"}</td>
+                              <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_category || "—"}</td>
+                              <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_instrument || "—"}</td>
+                              <td className="px-6 py-4 text-xs text-slate-400">{ov.updated_at ? new Date(ov.updated_at).toLocaleDateString() : "—"}</td>
+                              <td className="px-6 py-4 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button onClick={() => setEditingOverride({ original_asset_name: ov.original_asset_name ?? "", manual_asset_name: ov.manual_asset_name ?? "", manual_isin: ov.manual_isin ?? "", manual_region: ov.manual_region ?? "", manual_currency: ov.manual_currency ?? "", manual_category: ov.manual_category ?? "", manual_instrument: ov.manual_instrument ?? "" })}
+                                    className="p-2 hover:bg-sky-50 text-slate-400 hover:text-sky-600 rounded-lg transition-colors"><Edit2 className="h-4 w-4" /></button>
+                                  <button onClick={() => handleDeleteOverride(ov.id)} className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"><Trash2 className="h-4 w-4" /></button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-900">Look-through géographique</h3>
+                    <p className="text-slate-500 text-sm mt-1">Décomposition régionale des instruments multi-zones.</p>
+                  </div>
+                  <div className="bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
+                    <div className="bg-violet-50 p-2 rounded-lg"><Globe className="h-5 w-5 text-violet-600" /></div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Instruments</p>
+                      <p className="text-xl font-bold text-slate-900 leading-none">{Object.keys(breakdowns).length}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                  <div className="px-8 py-5 border-b border-slate-50 flex items-center justify-between">
+                    <p className="text-sm font-semibold text-slate-500">
+                      {Object.keys(breakdowns).length === 0 ? "Aucun breakdown enregistré." : `${Object.keys(breakdowns).length} instrument${Object.keys(breakdowns).length > 1 ? "s" : ""} configuré${Object.keys(breakdowns).length > 1 ? "s" : ""}`}
+                    </p>
+                    <button
+                      onClick={() => setEditingBreakdown({ isin: "", name: "", rows: [{ region: "", weight: 0 }] })}
+                      className="flex items-center gap-2 bg-violet-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-violet-700 transition-all"
+                    >
+                      <span>+</span> Ajouter
+                    </button>
+                  </div>
+
+                  {Object.keys(breakdowns).length === 0 ? (
+                    <div className="px-8 py-12 text-center text-slate-400 italic">Aucun look-through configuré.</div>
+                  ) : (
+                    <div className="divide-y divide-slate-50">
+                      {Object.entries(breakdowns).map(([isin, entries]) => {
+                        const holding = allPortfolios.flatMap(p => p.holdings ?? []).find(h => h.isin === isin);
+                        const name = holding?.asset_name ?? isin;
+                        const total = entries.reduce((s, e) => s + e.weight, 0);
+                        return (
+                          <div key={isin} className="px-8 py-5 hover:bg-slate-50/50 transition-colors">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-3 mb-3">
+                                  <span className="font-bold text-slate-900 truncate">{name}</span>
+                                  <span className="text-xs font-mono text-sky-600 bg-sky-50 px-2 py-0.5 rounded-lg shrink-0">{isin}</span>
+                                  <span className={cn("text-xs font-bold px-2 py-0.5 rounded-lg shrink-0", Math.abs(total - 100) < 0.1 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600")}>
+                                    {total.toFixed(1)}%
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {entries.map((e, i) => (
+                                    <span key={i} className="inline-flex items-center gap-1.5 bg-slate-100 px-3 py-1 rounded-full text-xs font-medium text-slate-700">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />
+                                      {e.region} <span className="font-bold text-slate-900">{e.weight}%</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <button onClick={() => setEditingBreakdown({ isin, name, rows: [...entries] })} className="p-2 hover:bg-sky-50 text-slate-400 hover:text-sky-600 rounded-lg transition-colors"><Edit2 className="h-4 w-4" /></button>
+                                <button onClick={async () => { await deleteBreakdown(isin); const bd = await fetchBreakdowns(); setBreakdowns(bd); }} className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"><Trash2 className="h-4 w-4" /></button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
 
             {/* ── TARGET GRID ── */}
             {activeTab === "TARGET_GRID" && (
@@ -1225,8 +1155,8 @@ const regionData = useMemo(() => {
                   </div>
                 ) : (
                   <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-                    <div style={{ transform: 'rotateX(180deg)', overflowX: 'auto' }} className="[&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-slate-50 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300">
-                      <div style={{ transform: 'rotateX(180deg)' }}>
+                    <div style={{ transform: "rotateX(180deg)", overflowX: "auto" }} className="[&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-slate-50 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300">
+                      <div style={{ transform: "rotateX(180deg)" }}>
                         <table className="w-full text-left border-collapse">
                           <thead>
                             <tr className="bg-slate-50/50">
@@ -1237,7 +1167,6 @@ const regionData = useMemo(() => {
                                 </th>
                               ))}
                             </tr>
-                            {/* ── FIX: colonnes en minuscules pour que les conditions CSS matchent ── */}
                             <tr className="bg-slate-50/30 border-b border-slate-100">
                               <th className="px-6 py-2 sticky left-0 bg-slate-50/30 z-10" />
                               {RISK_PROFILES.map((profile) => (
@@ -1358,7 +1287,7 @@ const regionData = useMemo(() => {
                       </button>
                     </div>
 
-<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
                         <div className="flex items-center gap-3 mb-4"><div className="bg-sky-100 p-2 rounded-xl"><LayoutDashboard className="h-5 w-5 text-sky-600" /></div><span className="text-sm font-semibold text-slate-500">Actifs</span></div>
                         <div className="text-3xl font-bold text-slate-900">{currentPortfolio.holdings?.length ?? 0}</div>
@@ -1371,8 +1300,9 @@ const regionData = useMemo(() => {
                       </div>
                     </div>
 
-{(currentPortfolio.holdings?.length ?? 0) > 0 ? (
+                    {(currentPortfolio.holdings?.length ?? 0) > 0 ? (
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* ── Allocation par Catégorie ── */}
                         <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
                           <h3 className="text-lg font-bold mb-6 flex items-center gap-2"><PieChartIcon className="h-5 w-5 text-sky-600" />Allocation par Catégorie</h3>
                           <div className="h-[320px]">
@@ -1381,16 +1311,21 @@ const regionData = useMemo(() => {
                                 onClick={(d: any) => d?.activeLabel && setDrillDownFilter({ type: "category", value: d.activeLabel })}>
                                 <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} tickFormatter={(v) => v + "%"} />
                                 <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} width={90} />
-                                <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "16px", border: "none" }} formatter={(v: number) => `${v}%`} />
+                                <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "16px", border: "none" }} formatter={(v: number, name: string) => name === "target" ? ["", ""] : [v + "%", name]} />
                                 <Bar dataKey="value" radius={[0, 8, 8, 0]} className="cursor-pointer">
                                   {categoryData.map((_, idx) => <Cell key={idx} fill={COLORS[idx % COLORS.length]} />)}
-                                  <LabelList dataKey="value" position="right" formatter={(v: number) => `${v}%`} fill="#64748b" fontSize={11} />
+                                  <LabelList dataKey="value" position="right" formatter={(v: number) => v + "%"} fill="#64748b" fontSize={11} />
+                                </Bar>
+                                <Bar dataKey="target" fill="#f59e0b" fillOpacity={0.3} radius={[0, 4, 4, 0]} barSize={3}>
+                                  <LabelList dataKey="target" position="right" formatter={(v: number) => v != null ? v + "%" : ""} fill="#f59e0b" fontSize={10} fontWeight="bold" />
                                 </Bar>
                               </BarChart>
                             </ResponsiveContainer>
                           </div>
                           <p className="text-center text-xs text-slate-400 mt-2 italic">Cliquez pour filtrer</p>
                         </div>
+
+                        {/* ── Exposition Régionale ── */}
                         <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
                           <h3 className="text-lg font-bold mb-8 flex items-center gap-2"><Globe className="h-5 w-5 text-amber-600" />Exposition Régionale</h3>
                           <div className="h-[320px]">
@@ -1399,12 +1334,12 @@ const regionData = useMemo(() => {
                                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
                                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
                                 <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "16px", border: "none" }}
-                                  formatter={(v: number, name: string) => name === "target" ? null : [`${v}%`, "Actuel"]} />
+                                  formatter={(v: number, name: string) => name === "target" ? ["", ""] : [v + "%", "Actuel"]} />
                                 <Bar dataKey="value" fill="#0ea5e9" radius={[8, 8, 0, 0]} className="cursor-pointer">
-                                  <LabelList dataKey="value" position="top" formatter={(v: number) => `${v}%`} fill="#64748b" fontSize={11} />
+                                  <LabelList dataKey="value" position="top" formatter={(v: number) => v + "%"} fill="#64748b" fontSize={11} />
                                 </Bar>
-                                <Bar dataKey="target" fill="#f59e0b" fillOpacity={0.3} radius={[4, 4, 0, 0]} barSize={4}>
-                                  <LabelList dataKey="target" position="top" formatter={(v: number) => v != null ? `${v}%` : ""} fill="#f59e0b" fontSize={10} fontWeight="bold" />
+                                <Bar dataKey="target" fill="#f59e0b" fillOpacity={0.3} radius={[4, 4, 0, 0]} barSize={3}>
+                                  <LabelList dataKey="target" position="top" formatter={(v: number) => v != null ? v + "%" : ""} fill="#f59e0b" fontSize={10} fontWeight="bold" />
                                 </Bar>
                               </BarChart>
                             </ResponsiveContainer>
@@ -1580,7 +1515,7 @@ const regionData = useMemo(() => {
         )}
       </Modal>
 
-{/* ── Edit override modal ── */}
+      {/* ── Edit override modal ── */}
       <Modal isOpen={!!editingOverride} onClose={() => setEditingOverride(null)} title="Modifier l'instrument">
         {editingOverride && (
           <div className="space-y-6">
