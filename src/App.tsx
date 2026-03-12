@@ -197,18 +197,6 @@ export default function App() {
   }>({ quick_valuation: null, samdp: [], target_grid: null, other: null });
   const [targetGridData, setTargetGridData] = useState<Record<string, { bench: Record<RiskProfile, number | null>; target: Record<RiskProfile, number | null>; active: Record<RiskProfile, number | null> }>>({});
   const [collapsedRows, setCollapsedRows] = useState<Set<string>>(new Set());
-
-  const loadTargetGrid = async () => {
-    try {
-      const res = await fetch("/api/target-grid");
-      if (res.ok) {
-        const data = await res.json();
-        setTargetGridData(data);
-      }
-    } catch (e) {
-      console.warn("Could not load target grid", e);
-    }
-  };
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
   const [holdingsSortConfig, setHoldingsSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
   const [holdingsSearch, setHoldingsSearch] = useState("");
@@ -231,7 +219,23 @@ export default function App() {
     }
   }
 
-const loadBaseData = async () => {
+  // ── FIX: loadTargetGrid défini AVANT loadBaseData ─────────────────────────
+
+  const loadTargetGrid = async () => {
+    try {
+      const res = await fetch("/api/target-grid");
+      if (res.ok) {
+        const data = await res.json();
+        if (data && typeof data === "object") {
+          setTargetGridData(data);
+        }
+      }
+    } catch (e) {
+      console.warn("Could not load target grid", e);
+    }
+  };
+
+  const loadBaseData = async () => {
     const [pList, mGrid, allP, overrides] = await Promise.all([
       safeArray(fetchPortfolios),
       safeArray(fetchModelGrid),
@@ -242,7 +246,6 @@ const loadBaseData = async () => {
     setModelGrid(mGrid);
     setAllPortfolios(allP);
     setManualOverrides(overrides);
-    await loadTargetGrid();
     return pList;
   };
 
@@ -268,16 +271,8 @@ const loadBaseData = async () => {
         }
 
         // Load target grid
-        // Load target grid
-        try {
-          const tgRes = await fetch("/api/target-grid");
-          if (tgRes.ok) {
-            const tgData = await tgRes.json();
-            if (tgData && typeof tgData === "object") setTargetGridData(tgData);
-          }
-        } catch (e) {
-          console.warn("Could not load target grid", e);
-        }
+        await loadTargetGrid();
+
       } catch (e) {
         console.error("Init failed", e);
         setErrorMsg("Erreur lors du chargement initial.");
@@ -302,7 +297,6 @@ const loadBaseData = async () => {
         if (details && typeof details === "object" && (details as any).name) {
           setCurrentPortfolio(details);
         } else {
-          // Fallback to list data (without holdings)
           const fallback =
             portfolios.find((p) => p.id === selectedId) ??
             allPortfolios.find((p) => p.id === selectedId) ??
@@ -524,7 +518,7 @@ const loadBaseData = async () => {
             }
           },
         });
-        return; // Papa.parse handles its own finally
+        return;
       }
     } catch (e) {
       console.error(e);
@@ -603,7 +597,7 @@ const loadBaseData = async () => {
     });
   }, [instrumentsSynthesis, sortConfig]);
 
-  const filteredPortfolios = useMemo(() => 
+  const filteredPortfolios = useMemo(() =>
     portfolios
       .filter((p) => p?.type === activeTab)
       .sort((a, b) => {
@@ -819,7 +813,6 @@ const loadBaseData = async () => {
 
                 {/* Upload + Import log cards */}
                 <div className="flex gap-3 items-stretch">
-                  {/* Upload — compact */}
                   <div className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm w-52 shrink-0">
                     <label className="flex flex-col items-center justify-center border border-dashed border-slate-200 rounded-xl p-4 hover:border-sky-400 transition-all group cursor-pointer h-full gap-2">
                       <input type="file" accept=".csv,.xlsx" onChange={handleFileUpload} className="hidden" />
@@ -839,7 +832,6 @@ const loadBaseData = async () => {
                     </label>
                   </div>
 
-                  {/* 4 import log cards */}
                   {([
                     { key: "quick_valuation", label: "Quick Valuation", color: "sky", entries: importLog.quick_valuation ? [importLog.quick_valuation] : [] },
                     { key: "samdp", label: "SAMDP", color: "violet", entries: importLog.samdp },
@@ -880,7 +872,6 @@ const loadBaseData = async () => {
                   ? <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">Aucun instrument. Importez un CSV.</div>
                   : (
                     <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-                      {/* Search bar */}
                       <div className="px-8 py-4 border-b border-slate-50 flex items-center gap-3">
                         <Search className="h-4 w-4 text-slate-400 shrink-0" />
                         <input
@@ -1041,23 +1032,25 @@ const loadBaseData = async () => {
                                 </th>
                               ))}
                             </tr>
+                            {/* ── FIX: colonnes en minuscules pour que les conditions CSS matchent ── */}
                             <tr className="bg-slate-50/30 border-b border-slate-100">
                               <th className="px-6 py-2 sticky left-0 bg-slate-50/30 z-10" />
                               {RISK_PROFILES.map((profile) => (
-                                ["Bench", "Target", "Active"].map((col) => (
+                                ["bench", "target", "active"].map((col) => (
                                   <th key={`${profile}-${col}`} className={cn(
                                     "px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-center min-w-[72px]",
                                     col === "bench" && "border-l border-slate-100",
                                     col === "target" && "bg-emerald-50/40",
-                                    col === "Active" ? "text-violet-500" : col === "Target" ? "text-emerald-600" : "text-slate-400"
-                                  )}>{col}</th>
+                                    col === "active" ? "text-violet-500" : col === "target" ? "text-emerald-600" : "text-slate-400"
+                                  )}>
+                                    {col.charAt(0).toUpperCase() + col.slice(1)}
+                                  </th>
                                 ))
                               ))}
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-50">
                             {TARGET_GRID_STRUCTURE.map((row) => {
-                              // Check if parent is collapsed
                               if (row.parent && collapsedRows.has(row.parent)) return null;
                               if (row.level === 2 && row.parent) {
                                 const grandParent = TARGET_GRID_STRUCTURE.find(r => r.id === row.parent)?.parent;
@@ -1142,7 +1135,6 @@ const loadBaseData = async () => {
 
                 {!detailLoading && currentPortfolio && (
                   <>
-                    {/* Header */}
                     <div className="flex items-end justify-between">
                       <div>
                         <div className="flex items-center gap-3 mb-2">
@@ -1161,7 +1153,6 @@ const loadBaseData = async () => {
                       </button>
                     </div>
 
-                    {/* KPIs */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
                         <div className="flex items-center gap-3 mb-4"><div className="bg-sky-100 p-2 rounded-xl"><LayoutDashboard className="h-5 w-5 text-sky-600" /></div><span className="text-sm font-semibold text-slate-500">Actifs</span></div>
@@ -1180,7 +1171,6 @@ const loadBaseData = async () => {
                       </div>
                     </div>
 
-                    {/* Charts */}
                     {(currentPortfolio.holdings?.length ?? 0) > 0 ? (
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
@@ -1221,7 +1211,6 @@ const loadBaseData = async () => {
                       <div className="bg-white rounded-3xl border border-slate-100 p-12 text-center text-slate-400">Aucune position pour ce portefeuille.</div>
                     )}
 
-                    {/* Drill-down */}
                     <AnimatePresence>
                       {drillDownFilter && (
                         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="bg-sky-50 p-8 rounded-3xl border border-sky-100">
@@ -1235,11 +1224,8 @@ const loadBaseData = async () => {
                             {[...drillDownHoldings]
                               .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0))
                               .map((h, i) => (
-                                <button
-                                  key={i}
-                                  onClick={() => setSelectedInstrument(h)}
-                                  className="bg-white p-4 rounded-2xl shadow-sm border border-sky-100 flex justify-between items-center hover:border-sky-300 hover:shadow-md transition-all text-left group"
-                                >
+                                <button key={i} onClick={() => setSelectedInstrument(h)}
+                                  className="bg-white p-4 rounded-2xl shadow-sm border border-sky-100 flex justify-between items-center hover:border-sky-300 hover:shadow-md transition-all text-left group">
                                   <div className="min-w-0">
                                     <div className="font-bold text-slate-900 group-hover:text-sky-700 transition-colors truncate">{h.asset_name ?? "—"}</div>
                                     <div className="text-xs text-slate-500">{h.instrument ?? "—"} • {h.currency ?? "—"}</div>
@@ -1255,7 +1241,6 @@ const loadBaseData = async () => {
                       )}
                     </AnimatePresence>
 
-                    {/* AI Analysis */}
                     <AnimatePresence>
                       {analysis && (
                         <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="bg-slate-900 text-white p-8 rounded-3xl shadow-2xl relative overflow-hidden">
@@ -1286,21 +1271,14 @@ const loadBaseData = async () => {
                       )}
                     </AnimatePresence>
 
-                    {/* Holdings table */}
                     {(currentPortfolio.holdings?.length ?? 0) > 0 && (
                       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
                         <div className="px-8 py-5 flex items-center justify-between gap-4 border-b border-slate-50">
                           <h3 className="text-lg font-bold shrink-0">Détails des Positions</h3>
-                          {/* Search */}
                           <div className="flex items-center gap-2 flex-1 max-w-sm bg-slate-50 rounded-xl px-4 py-2 border border-slate-100">
                             <Search className="h-4 w-4 text-slate-400 shrink-0" />
-                            <input
-                              type="text"
-                              value={holdingsSearch}
-                              onChange={(e) => setHoldingsSearch(e.target.value)}
-                              placeholder="Rechercher…"
-                              className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400"
-                            />
+                            <input type="text" value={holdingsSearch} onChange={(e) => setHoldingsSearch(e.target.value)}
+                              placeholder="Rechercher…" className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400" />
                             {holdingsSearch && (
                               <button onClick={() => setHoldingsSearch("")} className="p-0.5 hover:bg-slate-200 rounded transition-colors">
                                 <X className="h-3.5 w-3.5 text-slate-400" />
