@@ -1364,7 +1364,7 @@ const regionData = useMemo(() => {
                             <ResponsiveContainer width="100%" height="100%">
                               <BarChart data={categoryData} layout="vertical" margin={{ top: 0, right: 60, left: 20, bottom: 0 }}
                                 onClick={(d: any) => d?.activeLabel && setDrillDownFilter({ type: "category", value: d.activeLabel })}>
-                                <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} tickFormatter={(v) => `${v}%`} />
+                                <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} tickFormatter={(v) => v + "%"} />
                                 <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} width={90} />
                                 <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "16px", border: "none" }} formatter={(v: number) => `${v}%`} />
                                 <Bar dataKey="value" radius={[0, 8, 8, 0]} className="cursor-pointer">
