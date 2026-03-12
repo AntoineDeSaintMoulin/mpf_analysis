@@ -640,11 +640,25 @@ const synthesisData = useMemo(() =>
       }),
     [portfolios, activeTab]);
 
-  const drillDownHoldings = useMemo(() =>
-    (currentPortfolio?.holdings ?? []).filter((h) => {
-      if (!h || !drillDownFilter) return false;
-      return drillDownFilter.type === "category" ? h.category === drillDownFilter.value : h.region === drillDownFilter.value;
-    }), [currentPortfolio, drillDownFilter]);
+  const drillDownHoldings = useMemo(() => {
+    if (!drillDownFilter) return [];
+    const holdings = currentPortfolio?.holdings ?? [];
+
+    if (drillDownFilter.type === "category") {
+      return holdings.filter(h => h?.category === drillDownFilter.value);
+    }
+
+    // Pour les régions : utiliser le look-through
+    return holdings.filter(h => {
+      if (!h) return false;
+      const bd = h.isin ? breakdowns[h.isin] : null;
+      if (bd && bd.length > 0) {
+        // L'instrument apparaît si une de ses régions look-through correspond
+        return bd.some(entry => entry.region === drillDownFilter.value);
+      }
+      return h.region === drillDownFilter.value;
+    });
+  }, [currentPortfolio, drillDownFilter, breakdowns]);
 
   const sortedFilteredHoldings = useMemo(() => {
     let list = (currentPortfolio?.holdings ?? []).filter((h) => {
