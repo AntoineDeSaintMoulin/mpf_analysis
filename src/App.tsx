@@ -206,7 +206,8 @@ export default function App() {
     original_asset_name: string; manual_asset_name: string; manual_isin: string;
     manual_region: string; manual_currency: string; manual_category: string; manual_instrument: string;
   } | null>(null);
-
+  const [breakdowns, setBreakdowns] = useState<BreakdownMap>({});
+  
   // ── Safe fetch ────────────────────────────────────────────────────────────
 
   async function safeArray<T>(fn: () => Promise<T[]>): Promise<T[]> {
@@ -249,8 +250,7 @@ export default function App() {
     return pList;
   };
 
-  // ── Init ──────────────────────────────────────────────────────────────────
-
+// ── Init ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -268,6 +268,14 @@ export default function App() {
           }
         } catch (e) {
           console.warn("Could not load import log", e);
+        }
+
+        // Load breakdowns
+        try {
+          const bd = await fetchBreakdowns();
+          setBreakdowns(bd);
+        } catch (e) {
+          console.warn("Could not load breakdowns", e);
         }
 
         // Load target grid
