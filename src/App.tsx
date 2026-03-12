@@ -591,14 +591,29 @@ function detectRiskProfile(portfolioName: string | null | undefined): RiskProfil
 
   // ── Derived data ──────────────────────────────────────────────────────────
 
-  const categoryData = useMemo(() => {
+const categoryData = useMemo(() => {
     const m = new Map<string, number>();
     (currentPortfolio?.holdings ?? []).forEach((h) => {
       if (!h?.category) return;
       m.set(h.category, (m.get(h.category) ?? 0) + (h.weight ?? 0));
     });
-    return Array.from(m.entries()).map(([name, value]) => ({ name, value: +value.toFixed(1) }));
-  }, [currentPortfolio]);
+
+    const CATEGORY_TO_GRID: Record<string, string> = {
+      "Equities": "equities",
+      "Fixed Income": "fixed_income",
+      "Alternatives": "alternatives",
+      "Short Term": "short_term",
+      "Cash": "short_term",
+    };
+
+    const profile = detectRiskProfile(currentPortfolio?.name);
+
+    return Array.from(m.entries()).map(([name, value]) => {
+      const gridId = CATEGORY_TO_GRID[name];
+      const target = profile && gridId ? targetGridData[gridId]?.[profile]?.["target"] ?? null : null;
+      return { name, value: +value.toFixed(1), target };
+    });
+  }, [currentPortfolio, targetGridData]);
 
 const regionData = useMemo(() => {
     const m = new Map<string, number>();
