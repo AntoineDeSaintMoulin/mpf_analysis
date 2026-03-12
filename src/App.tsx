@@ -579,11 +579,12 @@ function normalizeRegion(region: string): string {
     });
     return Array.from(m.entries()).map(([name, value]) => ({ name, value: +value.toFixed(1) }));
   }, [currentPortfolio]);
-
+  
 const regionData = useMemo(() => {
     const m = new Map<string, number>();
     const equityHoldings = (currentPortfolio?.holdings ?? []).filter(h => h?.category === "Equities");
     applyLookThrough(equityHoldings).forEach(({ region, weight }) => {
+      if (region === "Cash") return; // exclure le cash look-through
       m.set(region, (m.get(region) ?? 0) + weight);
     });
     return Array.from(m.entries()).map(([name, value]) => ({ name, value: +value.toFixed(1) }));
