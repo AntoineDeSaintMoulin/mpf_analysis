@@ -268,7 +268,16 @@ const loadBaseData = async () => {
         }
 
         // Load target grid
-        await loadTargetGrid();
+        // Load target grid
+        try {
+          const tgRes = await fetch("/api/target-grid");
+          if (tgRes.ok) {
+            const tgData = await tgRes.json();
+            if (tgData && typeof tgData === "object") setTargetGridData(tgData);
+          }
+        } catch (e) {
+          console.warn("Could not load target grid", e);
+        }
       } catch (e) {
         console.error("Init failed", e);
         setErrorMsg("Erreur lors du chargement initial.");
