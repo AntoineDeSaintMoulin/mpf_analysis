@@ -1088,7 +1088,7 @@ export default function App() {
                                   </td>
                                   {RISK_PROFILES.map((profile) => (
                                     ["bench", "target", "active"].map((col) => {
-                                      const val = data?.[col as "bench" | "target" | "active"]?.[profile];
+                                      const val = data?.[profile as RiskProfile]?.[col as "bench" | "target" | "active"];
                                       const isActive = col === "active";
                                       const isPos = (val ?? 0) > 0;
                                       const isNeg = (val ?? 0) < 0;
