@@ -549,6 +549,7 @@ function normalizeRegion(region: string): string {
     if (["Europe", "Europe ex-Euroland", "Euroland"].includes(r)) return "Europe";
     if (["US", "North America"].includes(r)) return "US";
     if (["Emerging and Frontier Markets", "Emerging Markets"].includes(r)) return "EM";
+    if (["Other"].includes(r)) return "Others";
     return r;
   }
   
@@ -585,7 +586,7 @@ const regionData = useMemo(() => {
     const m = new Map<string, number>();
     const equityHoldings = (currentPortfolio?.holdings ?? []).filter(h => h?.category === "Equities");
     applyLookThrough(equityHoldings).forEach(({ region, weight }) => {
-      if (region === "Cash") return; // exclure le cash look-through
+      if (normalizeRegion(region) === "Cash") return;
       m.set(region, (m.get(region) ?? 0) + weight);
     });
     return Array.from(m.entries()).map(([name, value]) => ({ name, value: +value.toFixed(1) }));
