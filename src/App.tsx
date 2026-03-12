@@ -231,7 +231,7 @@ export default function App() {
     }
   }
 
-  const loadBaseData = async () => {
+const loadBaseData = async () => {
     const [pList, mGrid, allP, overrides] = await Promise.all([
       safeArray(fetchPortfolios),
       safeArray(fetchModelGrid),
@@ -242,6 +242,7 @@ export default function App() {
     setModelGrid(mGrid);
     setAllPortfolios(allP);
     setManualOverrides(overrides);
+    await loadTargetGrid();
     return pList;
   };
 
@@ -1037,8 +1038,9 @@ export default function App() {
                                 ["Bench", "Target", "Active"].map((col) => (
                                   <th key={`${profile}-${col}`} className={cn(
                                     "px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-center min-w-[72px]",
-                                    col === "Bench" && "border-l border-slate-100",
-                                    col === "Active" ? "text-violet-500" : "text-slate-400"
+                                    col === "bench" && "border-l border-slate-100",
+                                    col === "target" && "bg-emerald-50/40",
+                                    col === "Active" ? "text-violet-500" : col === "Target" ? "text-emerald-600" : "text-slate-400"
                                   )}>{col}</th>
                                 ))
                               ))}
@@ -1092,6 +1094,7 @@ export default function App() {
                                         <td key={`${profile}-${col}`} className={cn(
                                           "px-3 py-3 text-right text-xs font-medium min-w-[72px]",
                                           col === "bench" && "border-l border-slate-100",
+                                          col === "target" && "bg-emerald-50/40",
                                           row.level === 0 ? "text-white/80" : isActive ? (isPos ? "text-emerald-600 font-bold" : isNeg ? "text-rose-600 font-bold" : "text-slate-400") : "text-slate-600"
                                         )}>
                                           {val != null ? `${val.toFixed(1)}%` : "—"}
