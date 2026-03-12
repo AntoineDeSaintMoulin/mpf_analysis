@@ -675,24 +675,6 @@ const drillDownHoldings = useMemo(() => {
       });
   }, [currentPortfolio, drillDownFilter, breakdowns]);
 
-    // Région : retourner le poids look-through
-    return holdings
-      .filter(h => {
-        if (!h) return false;
-        const bd = h.isin ? breakdowns[h.isin] : null;
-        if (bd && bd.length > 0) return bd.some(e => e.region === drillDownFilter.value);
-        return h.region === drillDownFilter.value;
-      })
-      .map(h => {
-        const bd = h.isin ? breakdowns[h.isin] : null;
-        if (bd && bd.length > 0) {
-          const entry = bd.find(e => e.region === drillDownFilter.value);
-          if (entry) return { ...h, weight: (h.weight ?? 0) * entry.weight / 100 };
-        }
-        return h;
-      });
-  }, [currentPortfolio, drillDownFilter, breakdowns]);
-
   const sortedFilteredHoldings = useMemo(() => {
     let list = (currentPortfolio?.holdings ?? []).filter((h) => {
       if (!h) return false;
