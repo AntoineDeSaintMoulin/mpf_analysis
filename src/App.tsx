@@ -656,10 +656,11 @@ const drillDownHoldings = useMemo(() => {
       return holdings.filter(h => h?.category === drillDownFilter.value);
     }
 
-    // Région : utiliser le look-through + normalizeRegion
+    // Région : filtrer uniquement les Equities + look-through + normalizeRegion
     return holdings
       .filter(h => {
         if (!h) return false;
+        if (h.category !== "Equities") return false;
         const bd = h.isin ? breakdowns[h.isin] : null;
         if (bd && bd.length > 0) {
           return bd.some(e => normalizeRegion(e.region) === drillDownFilter.value);
