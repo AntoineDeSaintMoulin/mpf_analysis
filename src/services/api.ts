@@ -58,7 +58,7 @@ export async function deleteManualOverride(id: number): Promise<{ success: boole
 
 // ── Instrument breakdowns (look-through) ─────────────────────────────────────
 
-export type BreakdownEntry = { region: string; weight: number };
+export type BreakdownEntry = { region: string; weight: number; updated_at?: string };
 export type BreakdownMap = Record<string, BreakdownEntry[]>;
 
 export async function fetchBreakdowns(): Promise<BreakdownMap> {
