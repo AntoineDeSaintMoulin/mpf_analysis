@@ -186,7 +186,7 @@ export default function App() {
   const [targetGridData, setTargetGridData] = useState<Record<string, { bench: Record<RiskProfile, number | null>; target: Record<RiskProfile, number | null>; active: Record<RiskProfile, number | null> }>>({});
   const [collapsedRows, setCollapsedRows] = useState<Set<string>>(new Set());
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
-  const [holdingsSortConfig, setHoldingsSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
+  const [holdingsSortConfig, setHoldingsSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>({ key: "weight", direction: "desc" });
   const [holdingsSearch, setHoldingsSearch] = useState("");
   const [instrumentsSearch, setInstrumentsSearch] = useState("");
   const [manualOverrides, setManualOverrides] = useState<ManualOverride[]>([]);
@@ -273,7 +273,7 @@ export default function App() {
       setAnalysis(null);
       setDrillDownFilter(null);
       setHoldingsSearch("");
-      setHoldingsSortConfig(null);
+      setHoldingsSortConfig({ key: "weight", direction: "desc" });
       try {
         const details = await fetchPortfolioDetails(selectedId);
         if (details && typeof details === "object" && (details as any).name) {
