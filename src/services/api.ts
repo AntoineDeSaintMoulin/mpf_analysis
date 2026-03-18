@@ -56,8 +56,7 @@ export async function deleteManualOverride(id: number): Promise<{ success: boole
   return data ?? { success: false };
 }
 
-// ── Instrument breakdowns (look-through) ─────────────────────────────────────
-
+// ── Instrument breakdowns (look-through géographique) ─────────────────────────
 export type BreakdownEntry = { region: string; weight: number; updated_at?: string };
 export type BreakdownMap = Record<string, BreakdownEntry[]>;
 
@@ -80,6 +79,36 @@ export async function saveBreakdown(
 
 export async function deleteBreakdown(isin: string): Promise<{ success: boolean }> {
   const data = await safeFetch<{ success: boolean }>("/api/instrument-breakdown", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isin }),
+  });
+  return data ?? { success: false };
+}
+
+// ── Currency breakdowns (look-through devise) ─────────────────────────────────
+export type CurrencyBreakdownEntry = { currency: string; weight: number; updated_at?: string };
+export type CurrencyBreakdownMap = Record<string, CurrencyBreakdownEntry[]>;
+
+export async function fetchCurrencyBreakdowns(): Promise<CurrencyBreakdownMap> {
+  const data = await safeFetch<CurrencyBreakdownMap>("/api/currency-breakdown");
+  return data && typeof data === "object" ? data : {};
+}
+
+export async function saveCurrencyBreakdown(
+  isin: string,
+  breakdown: CurrencyBreakdownEntry[]
+): Promise<{ success: boolean }> {
+  const data = await safeFetch<{ success: boolean }>("/api/currency-breakdown", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isin, breakdown }),
+  });
+  return data ?? { success: false };
+}
+
+export async function deleteCurrencyBreakdown(isin: string): Promise<{ success: boolean }> {
+  const data = await safeFetch<{ success: boolean }>("/api/currency-breakdown", {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ isin }),
