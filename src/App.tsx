@@ -246,8 +246,17 @@ export default function App() {
       setLoading(true);
       try {
         const pList = await loadBaseData();
-        const scv = pList.filter((p) => p?.type === "Sicav");
-        if (scv.length > 0 && scv[0]?.id != null) setSelectedId(scv[0].id);
+        // ── CHANGE 2 : ouvre sur _MED par défaut, sinon premier Sicav ──
+        const scv = pList
+          .filter((p) => p?.type === "Sicav")
+          .sort((a, b) => {
+            const ai = PORTFOLIO_ORDER.indexOf(a.name);
+            const bi = PORTFOLIO_ORDER.indexOf(b.name);
+            return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+          });
+        const defaultSicav = scv.find((p) => p.name?.includes("_MED")) ?? scv[0];
+        if (defaultSicav?.id != null) setSelectedId(defaultSicav.id);
+
         try {
           const logRes = await fetch("/api/import-log");
           if (logRes.ok) {
@@ -304,11 +313,19 @@ export default function App() {
     })();
   }, [selectedId]);
 
+  // ── CHANGE 2 : auto-select sur _MED quand on change de tab ──
   useEffect(() => {
     if (activeTab !== "Sicav" && activeTab !== "Mixed") return;
-    const filtered = portfolios.filter((p) => p?.type === activeTab);
+    const filtered = portfolios
+      .filter((p) => p?.type === activeTab)
+      .sort((a, b) => {
+        const ai = PORTFOLIO_ORDER.indexOf(a.name);
+        const bi = PORTFOLIO_ORDER.indexOf(b.name);
+        return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+      });
     if (filtered.length > 0 && !filtered.some((p) => p.id === selectedId)) {
-      setSelectedId(filtered[0].id);
+      const defaultP = filtered.find((p) => p.name?.includes("_MED")) ?? filtered[0];
+      setSelectedId(defaultP.id);
     }
   }, [activeTab, portfolios]);
 
@@ -554,6 +571,19 @@ export default function App() {
     return result;
   }
 
+  // ── CHANGE 4 : normalisation des noms de catégories CSV → grid ids ────────
+  // Certains CSV utilisent "Bonds", "Gold", "Liquidities" au lieu des noms standards
+  const CATEGORY_TO_GRID: Record<string, string> = {
+    "Equities": "equities",
+    "Fixed Income": "fixed_income",
+    "Bonds": "fixed_income",          // alias CSV
+    "Alternatives": "alternatives",
+    "Gold": "alternatives",           // alias CSV
+    "Short Term": "short_term",
+    "Cash": "short_term",
+    "Liquidities": "short_term",      // alias CSV
+  };
+
   // ── Derived data ──────────────────────────────────────────────────────────
 
   const categoryData = useMemo(() => {
@@ -562,14 +592,6 @@ export default function App() {
       if (!h?.category) return;
       m.set(h.category, (m.get(h.category) ?? 0) + (h.weight ?? 0));
     });
-
-    const CATEGORY_TO_GRID: Record<string, string> = {
-      "Equities": "equities",
-      "Fixed Income": "fixed_income",
-      "Alternatives": "alternatives",
-      "Short Term": "short_term",
-      "Cash": "short_term",
-    };
 
     const profile = detectRiskProfile(currentPortfolio?.name);
 
@@ -723,6 +745,16 @@ export default function App() {
       (row.isin ?? "").toLowerCase().includes(q)
     );
   }, [sortedInstruments, instrumentsSearch]);
+
+  // ── CHANGE 1 : helper pour savoir si un holding a un override manuel ──────
+  function hasManualOverride(h: Holding | null): boolean {
+    if (!h) return false;
+    return manualOverrides.some(
+      (ov) =>
+        (ov.manual_isin && ov.manual_isin === h.isin) ||
+        (ov.original_asset_name && ov.original_asset_name === (h.original_asset_name ?? h.asset_name))
+    );
+  }
 
   if (loading) {
     return (
@@ -1045,7 +1077,19 @@ export default function App() {
                               <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_currency || "—"}</td>
                               <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_category || "—"}</td>
                               <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_instrument || "—"}</td>
-                              <td className="px-6 py-4 text-xs text-slate-400">{ov.updated_at ? new Date(ov.updated_at).toLocaleDateString() : "—"}</td>
+                              {/* ── CHANGE 1 : date + heure ── */}
+                              <td className="px-6 py-4 text-xs text-slate-400 whitespace-nowrap">
+                                {ov.updated_at ? (
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="font-medium text-slate-600">
+                                      {new Date(ov.updated_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+                                    </span>
+                                    <span className="text-[10px]">
+                                      {new Date(ov.updated_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                                    </span>
+                                  </div>
+                                ) : "—"}
+                              </td>
                               <td className="px-6 py-4 text-right">
                                 <div className="flex items-center justify-end gap-2">
                                   <button onClick={() => setEditingOverride({ original_asset_name: ov.original_asset_name ?? "", manual_asset_name: ov.manual_asset_name ?? "", manual_isin: ov.manual_isin ?? "", manual_region: ov.manual_region ?? "", manual_currency: ov.manual_currency ?? "", manual_category: ov.manual_category ?? "", manual_instrument: ov.manual_instrument ?? "" })}
@@ -1484,10 +1528,17 @@ export default function App() {
       </div>
 
       {/* ── Instrument modal ── */}
+      {/* ── CHANGE 1 : badge M si override manuel ── */}
       <Modal isOpen={!!selectedInstrument} onClose={() => setSelectedInstrument(null)} title="Fiche Instrument">
         {selectedInstrument && (
           <div className="space-y-6">
-            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+            <div className="relative flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+              {/* Badge M discret en haut à droite */}
+              {hasManualOverride(selectedInstrument) && (
+                <span className="absolute top-2 right-2 bg-amber-100 text-amber-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full tracking-widest uppercase">
+                  M
+                </span>
+              )}
               <div className="flex items-center gap-4">
                 <div className="bg-sky-600 p-3 rounded-xl"><TrendingUp className="text-white h-6 w-6" /></div>
                 <div>
