@@ -161,6 +161,14 @@ function SortIcon({ active, direction }: { active: boolean; direction?: "asc" | 
   return direction === "asc" ? <ChevronUp className="h-3 w-3 text-sky-600" /> : <ChevronDown className="h-3 w-3 text-sky-600" />;
 }
 
+// ── Currency bar colors ────────────────────────────────────────────────────
+const CURRENCY_COLORS: Record<string, string> = {
+  EUR: "#0ea5e9",
+  USD: "#10b981",
+  JPY: "#f59e0b",
+  Other: "#94a3b8",
+};
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>("INSTRUMENTS");
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
@@ -502,7 +510,6 @@ export default function App() {
     return result;
   }
 
-  // ── Badge helpers ─────────────────────────────────────────────────────────
   function hasManualOverride(h: Holding | null): boolean {
     if (!h) return false;
     return manualOverrides.some(
@@ -547,6 +554,34 @@ export default function App() {
       return { name, value: +value.toFixed(1), target };
     });
   }, [currentPortfolio, breakdowns, targetGridData]);
+
+  // ── Currency exposure ─────────────────────────────────────────────────────
+  const currencyData = useMemo(() => {
+    const KEY_CURRENCIES = ["EUR", "USD", "JPY"];
+    const m = new Map<string, number>();
+    (currentPortfolio?.holdings ?? []).forEach((h) => {
+      if (!h) return;
+      const cur = (h.currency ?? "Other").toUpperCase().trim();
+      m.set(cur, (m.get(cur) ?? 0) + (h.weight ?? 0));
+    });
+    const result: { label: string; value: number }[] = [];
+    let other = 0;
+    m.forEach((weight, cur) => {
+      if (KEY_CURRENCIES.includes(cur)) {
+        result.push({ label: cur, value: +weight.toFixed(1) });
+      } else {
+        other += weight;
+      }
+    });
+    if (other > 0.05) result.push({ label: "Other", value: +other.toFixed(1) });
+    // Sort: EUR, USD, JPY, Other
+    const order = ["EUR", "USD", "JPY", "Other"];
+    return result.sort((a, b) => {
+      const ai = order.indexOf(a.label);
+      const bi = order.indexOf(b.label);
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    });
+  }, [currentPortfolio]);
 
   const instrumentsSynthesis = useMemo(() => {
     const im = new Map<string, { name: string; isin: string; weights: Record<string, number>; details: Partial<Holding> }>();
@@ -970,7 +1005,6 @@ export default function App() {
                               <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_currency || "—"}</td>
                               <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_category || "—"}</td>
                               <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_instrument || "—"}</td>
-                              {/* date simple sans heure */}
                               <td className="px-6 py-4 text-xs text-slate-400">{formatDate(ov.updated_at)}</td>
                               <td className="px-6 py-4 text-right">
                                 <div className="flex items-center justify-end gap-2">
@@ -986,7 +1020,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* ── Look-through section ── */}
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-xl font-bold text-slate-900">Look-through géographique</h3>
@@ -1020,7 +1053,6 @@ export default function App() {
                         const holding = allPortfolios.flatMap(p => p.holdings ?? []).find(h => h.isin === isin);
                         const name = holding?.asset_name ?? isin;
                         const total = entries.reduce((s, e) => s + e.weight, 0);
-                        // date du look-through : updated_at de la première entrée
                         const updatedAt = entries[0]?.updated_at;
                         return (
                           <div key={isin} className="px-8 py-5 hover:bg-slate-50/50 transition-colors">
@@ -1032,11 +1064,8 @@ export default function App() {
                                   <span className={cn("text-xs font-bold px-2 py-0.5 rounded-lg shrink-0", Math.abs(total - 100) < 0.1 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600")}>
                                     {total.toFixed(1)}%
                                   </span>
-                                  {/* date encodage look-through */}
                                   {updatedAt && (
-                                    <span className="text-[10px] text-slate-400 shrink-0">
-                                      maj {formatDate(updatedAt)}
-                                    </span>
+                                    <span className="text-[10px] text-slate-400 shrink-0">maj {formatDate(updatedAt)}</span>
                                   )}
                                 </div>
                                 <div className="flex flex-wrap gap-2">
@@ -1202,16 +1231,44 @@ export default function App() {
                       </button>
                     </div>
 
+                    {/* ── 2 cards : Actifs + Currency Exposure ── */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                        <div className="flex items-center gap-3 mb-4"><div className="bg-sky-100 p-2 rounded-xl"><LayoutDashboard className="h-5 w-5 text-sky-600" /></div><span className="text-sm font-semibold text-slate-500">Actifs</span></div>
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="bg-sky-100 p-2 rounded-xl"><LayoutDashboard className="h-5 w-5 text-sky-600" /></div>
+                          <span className="text-sm font-semibold text-slate-500">Actifs</span>
+                        </div>
                         <div className="text-3xl font-bold text-slate-900">{currentPortfolio.holdings?.length ?? 0}</div>
                         <div className="text-xs text-slate-400 mt-1">Instruments individuels</div>
                       </div>
+
+                      {/* ── Currency Exposure card ── */}
                       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                        <div className="flex items-center gap-3 mb-4"><div className="bg-emerald-100 p-2 rounded-xl"><PieChartIcon className="h-5 w-5 text-emerald-600" /></div><span className="text-sm font-semibold text-slate-500">Catégorie Principale</span></div>
-                        <div className="text-3xl font-bold text-slate-900 truncate">{[...categoryData].sort((a, b) => b.value - a.value)[0]?.name ?? "N/A"}</div>
-                        <div className="text-xs text-slate-400 mt-1">Plus grande exposition</div>
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="bg-emerald-100 p-2 rounded-xl"><Coins className="h-5 w-5 text-emerald-600" /></div>
+                          <span className="text-sm font-semibold text-slate-500">Currency Exposure</span>
+                        </div>
+                        {currencyData.length === 0 ? (
+                          <div className="text-slate-400 text-sm italic">Aucune donnée</div>
+                        ) : (
+                          <div className="space-y-2.5">
+                            {currencyData.map(({ label, value }) => (
+                              <div key={label} className="flex items-center gap-3">
+                                <span className="text-xs font-bold text-slate-500 w-9 shrink-0">{label}</span>
+                                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full transition-all"
+                                    style={{
+                                      width: `${Math.min(100, value)}%`,
+                                      backgroundColor: CURRENCY_COLORS[label] ?? "#94a3b8",
+                                    }}
+                                  />
+                                </div>
+                                <span className="text-xs font-bold text-slate-700 w-12 text-right shrink-0">{value.toFixed(1)}%</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -1391,7 +1448,6 @@ export default function App() {
         {selectedInstrument && (
           <div className="space-y-6">
             <div className="relative flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
-              {/* Badges M et L positionnés côte à côte en haut à droite */}
               <div className="absolute top-2 right-2 flex items-center gap-1">
                 {hasLookThrough(selectedInstrument) && (
                   <span className="bg-violet-100 text-violet-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full tracking-widest uppercase">L</span>
