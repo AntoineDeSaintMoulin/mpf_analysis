@@ -58,8 +58,13 @@ import {
   fetchBreakdowns,
   saveBreakdown,
   deleteBreakdown,
+  fetchCurrencyBreakdowns,
+  saveCurrencyBreakdown,
+  deleteCurrencyBreakdown,
   type BreakdownMap,
   type BreakdownEntry,
+  type CurrencyBreakdownMap,
+  type CurrencyBreakdownEntry,
 } from "./services/api";
 import { analyzePortfolio } from "./services/gemini";
 
@@ -86,21 +91,18 @@ function formatDate(dateStr: string | null | undefined): string {
 
 const COLORS = ["#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
+const CURRENCY_COLORS: Record<string, string> = {
+  EUR: "#0ea5e9",
+  USD: "#10b981",
+  JPY: "#f59e0b",
+  Other: "#94a3b8",
+};
+
 const PORTFOLIO_ORDER = [
-  "Sicav - SCV_BDS",
-  "Sicav - SCV_LOW",
-  "Sicav - SCV_ML",
-  "Sicav - SCV_MED",
-  "Sicav - SCV_MH",
-  "Sicav - SCV_HIGH",
-  "Sicav - SCV_VH",
-  "Mixed - MIX_BDS",
-  "Mixed - MIX_LOW",
-  "Mixed - MIX_ML",
-  "Mixed - MIX_MED",
-  "Mixed - MIX_MH",
-  "Mixed - MIX_HIGH",
-  "Mixed - MIX_VH",
+  "Sicav - SCV_BDS", "Sicav - SCV_LOW", "Sicav - SCV_ML", "Sicav - SCV_MED",
+  "Sicav - SCV_MH", "Sicav - SCV_HIGH", "Sicav - SCV_VH",
+  "Mixed - MIX_BDS", "Mixed - MIX_LOW", "Mixed - MIX_ML", "Mixed - MIX_MED",
+  "Mixed - MIX_MH", "Mixed - MIX_HIGH", "Mixed - MIX_VH",
 ];
 
 type Tab = "SYNTHESE" | "Sicav" | "Mixed" | "INSTRUMENTS" | "MANUALS" | "TARGET_GRID";
@@ -161,14 +163,6 @@ function SortIcon({ active, direction }: { active: boolean; direction?: "asc" | 
   return direction === "asc" ? <ChevronUp className="h-3 w-3 text-sky-600" /> : <ChevronDown className="h-3 w-3 text-sky-600" />;
 }
 
-// ── Currency bar colors ────────────────────────────────────────────────────
-const CURRENCY_COLORS: Record<string, string> = {
-  EUR: "#0ea5e9",
-  USD: "#10b981",
-  JPY: "#f59e0b",
-  Other: "#94a3b8",
-};
-
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>("INSTRUMENTS");
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
@@ -205,6 +199,10 @@ export default function App() {
   const [breakdowns, setBreakdowns] = useState<BreakdownMap>({});
   const [editingBreakdown, setEditingBreakdown] = useState<{ isin: string; name: string; rows: BreakdownEntry[] } | null>(null);
   const [breakdownSaving, setBreakdownSaving] = useState(false);
+  // ── Currency breakdown state ───────────────────────────────────────────────
+  const [currencyBreakdowns, setCurrencyBreakdowns] = useState<CurrencyBreakdownMap>({});
+  const [editingCurrencyBreakdown, setEditingCurrencyBreakdown] = useState<{ isin: string; name: string; rows: CurrencyBreakdownEntry[] } | null>(null);
+  const [currencyBreakdownSaving, setCurrencyBreakdownSaving] = useState(false);
 
   async function safeArray<T>(fn: () => Promise<T[]>): Promise<T[]> {
     try {
@@ -223,9 +221,7 @@ export default function App() {
         const data = await res.json();
         if (data && typeof data === "object") setTargetGridData(data);
       }
-    } catch (e) {
-      console.warn("Could not load target grid", e);
-    }
+    } catch (e) { console.warn("Could not load target grid", e); }
   };
 
   const loadBaseData = async () => {
@@ -249,21 +245,15 @@ export default function App() {
         const pList = await loadBaseData();
         const scv = pList
           .filter((p) => p?.type === "Sicav")
-          .sort((a, b) => {
-            const ai = PORTFOLIO_ORDER.indexOf(a.name);
-            const bi = PORTFOLIO_ORDER.indexOf(b.name);
-            return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
-          });
+          .sort((a, b) => (PORTFOLIO_ORDER.indexOf(a.name) === -1 ? 999 : PORTFOLIO_ORDER.indexOf(a.name)) - (PORTFOLIO_ORDER.indexOf(b.name) === -1 ? 999 : PORTFOLIO_ORDER.indexOf(b.name)));
         const defaultSicav = scv.find((p) => p.name?.includes("_MED")) ?? scv[0];
         if (defaultSicav?.id != null) setSelectedId(defaultSicav.id);
         try {
           const logRes = await fetch("/api/import-log");
           if (logRes.ok) { const log = await logRes.json(); if (log) setImportLog(log); }
         } catch (e) { console.warn("Could not load import log", e); }
-        try {
-          const bd = await fetchBreakdowns();
-          setBreakdowns(bd);
-        } catch (e) { console.warn("Could not load breakdowns", e); }
+        try { setBreakdowns(await fetchBreakdowns()); } catch (e) { console.warn(e); }
+        try { setCurrencyBreakdowns(await fetchCurrencyBreakdowns()); } catch (e) { console.warn(e); }
         await loadTargetGrid();
       } catch (e) {
         console.error("Init failed", e);
@@ -305,11 +295,7 @@ export default function App() {
     if (activeTab !== "Sicav" && activeTab !== "Mixed") return;
     const filtered = portfolios
       .filter((p) => p?.type === activeTab)
-      .sort((a, b) => {
-        const ai = PORTFOLIO_ORDER.indexOf(a.name);
-        const bi = PORTFOLIO_ORDER.indexOf(b.name);
-        return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
-      });
+      .sort((a, b) => (PORTFOLIO_ORDER.indexOf(a.name) === -1 ? 999 : PORTFOLIO_ORDER.indexOf(a.name)) - (PORTFOLIO_ORDER.indexOf(b.name) === -1 ? 999 : PORTFOLIO_ORDER.indexOf(b.name)));
     if (filtered.length > 0 && !filtered.some((p) => p.id === selectedId)) {
       const defaultP = filtered.find((p) => p.name?.includes("_MED")) ?? filtered[0];
       setSelectedId(defaultP.id);
@@ -510,6 +496,7 @@ export default function App() {
     return result;
   }
 
+  // ── Badge helpers ──────────────────────────────────────────────────────────
   function hasManualOverride(h: Holding | null): boolean {
     if (!h) return false;
     return manualOverrides.some(
@@ -524,7 +511,12 @@ export default function App() {
     return (breakdowns[h.isin]?.length ?? 0) > 0;
   }
 
-  // ── Derived data ──────────────────────────────────────────────────────────
+  function hasCurrencyBreakdown(h: Holding | null): boolean {
+    if (!h?.isin) return false;
+    return (currencyBreakdowns[h.isin]?.length ?? 0) > 0;
+  }
+
+  // ── Derived data ───────────────────────────────────────────────────────────
 
   const categoryData = useMemo(() => {
     const m = new Map<string, number>();
@@ -555,14 +547,24 @@ export default function App() {
     });
   }, [currentPortfolio, breakdowns, targetGridData]);
 
-  // ── Currency exposure ─────────────────────────────────────────────────────
+  // ── Currency exposure — avec look-through devise si disponible ─────────────
   const currencyData = useMemo(() => {
     const KEY_CURRENCIES = ["EUR", "USD", "JPY"];
     const m = new Map<string, number>();
     (currentPortfolio?.holdings ?? []).forEach((h) => {
       if (!h) return;
-      const cur = (h.currency ?? "Other").toUpperCase().trim();
-      m.set(cur, (m.get(cur) ?? 0) + (h.weight ?? 0));
+      const cbd = h.isin ? currencyBreakdowns[h.isin] : null;
+      if (cbd && cbd.length > 0) {
+        // look-through devise : on répartit le poids de l'instrument selon ses devises
+        for (const entry of cbd) {
+          const cur = entry.currency.toUpperCase().trim();
+          m.set(cur, (m.get(cur) ?? 0) + (h.weight ?? 0) * entry.weight / 100);
+        }
+      } else {
+        // pas de look-through : devise brute
+        const cur = (h.currency ?? "Other").toUpperCase().trim();
+        m.set(cur, (m.get(cur) ?? 0) + (h.weight ?? 0));
+      }
     });
     const result: { label: string; value: number }[] = [];
     let other = 0;
@@ -574,14 +576,13 @@ export default function App() {
       }
     });
     if (other > 0.05) result.push({ label: "Other", value: +other.toFixed(1) });
-    // Sort: EUR, USD, JPY, Other
     const order = ["EUR", "USD", "JPY", "Other"];
     return result.sort((a, b) => {
       const ai = order.indexOf(a.label);
       const bi = order.indexOf(b.label);
       return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
     });
-  }, [currentPortfolio]);
+  }, [currentPortfolio, currencyBreakdowns]);
 
   const instrumentsSynthesis = useMemo(() => {
     const im = new Map<string, { name: string; isin: string; weights: Record<string, number>; details: Partial<Holding> }>();
@@ -983,6 +984,7 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Overrides table */}
                 <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
@@ -1020,6 +1022,7 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* ── Look-through géographique ── */}
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-xl font-bold text-slate-900">Look-through géographique</h3>
@@ -1044,9 +1047,8 @@ export default function App() {
                       <span>+</span> Ajouter
                     </button>
                   </div>
-
                   {Object.keys(breakdowns).length === 0 ? (
-                    <div className="px-8 py-12 text-center text-slate-400 italic">Aucun look-through configuré.</div>
+                    <div className="px-8 py-12 text-center text-slate-400 italic">Aucun look-through géographique configuré.</div>
                   ) : (
                     <div className="divide-y divide-slate-50">
                       {Object.entries(breakdowns).map(([isin, entries]) => {
@@ -1061,12 +1063,8 @@ export default function App() {
                                 <div className="flex items-center gap-3 mb-3">
                                   <span className="font-bold text-slate-900 truncate">{name}</span>
                                   <span className="text-xs font-mono text-sky-600 bg-sky-50 px-2 py-0.5 rounded-lg shrink-0">{isin}</span>
-                                  <span className={cn("text-xs font-bold px-2 py-0.5 rounded-lg shrink-0", Math.abs(total - 100) < 0.1 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600")}>
-                                    {total.toFixed(1)}%
-                                  </span>
-                                  {updatedAt && (
-                                    <span className="text-[10px] text-slate-400 shrink-0">maj {formatDate(updatedAt)}</span>
-                                  )}
+                                  <span className={cn("text-xs font-bold px-2 py-0.5 rounded-lg shrink-0", Math.abs(total - 100) < 0.1 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600")}>{total.toFixed(1)}%</span>
+                                  {updatedAt && <span className="text-[10px] text-slate-400 shrink-0">maj {formatDate(updatedAt)}</span>}
                                 </div>
                                 <div className="flex flex-wrap gap-2">
                                   {entries.map((e, i) => (
@@ -1079,7 +1077,72 @@ export default function App() {
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
                                 <button onClick={() => setEditingBreakdown({ isin, name, rows: [...entries] })} className="p-2 hover:bg-sky-50 text-slate-400 hover:text-sky-600 rounded-lg transition-colors"><Edit2 className="h-4 w-4" /></button>
-                                <button onClick={async () => { await deleteBreakdown(isin); const bd = await fetchBreakdowns(); setBreakdowns(bd); }} className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"><Trash2 className="h-4 w-4" /></button>
+                                <button onClick={async () => { await deleteBreakdown(isin); setBreakdowns(await fetchBreakdowns()); }} className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"><Trash2 className="h-4 w-4" /></button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* ── Look-through devise (currency breakdown) ── */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-900">Look-through devise</h3>
+                    <p className="text-slate-500 text-sm mt-1">Exposition multi-devises forcée sur un instrument.</p>
+                  </div>
+                  <div className="bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
+                    <div className="bg-emerald-50 p-2 rounded-lg"><Coins className="h-5 w-5 text-emerald-600" /></div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Instruments</p>
+                      <p className="text-xl font-bold text-slate-900 leading-none">{Object.keys(currencyBreakdowns).length}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                  <div className="px-8 py-5 border-b border-slate-50 flex items-center justify-between">
+                    <p className="text-sm font-semibold text-slate-500">
+                      {Object.keys(currencyBreakdowns).length === 0 ? "Aucun breakdown enregistré." : `${Object.keys(currencyBreakdowns).length} instrument${Object.keys(currencyBreakdowns).length > 1 ? "s" : ""} configuré${Object.keys(currencyBreakdowns).length > 1 ? "s" : ""}`}
+                    </p>
+                    <button onClick={() => setEditingCurrencyBreakdown({ isin: "", name: "", rows: [{ currency: "", weight: 0 }] })}
+                      className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all">
+                      <span>+</span> Ajouter
+                    </button>
+                  </div>
+                  {Object.keys(currencyBreakdowns).length === 0 ? (
+                    <div className="px-8 py-12 text-center text-slate-400 italic">Aucun look-through devise configuré.</div>
+                  ) : (
+                    <div className="divide-y divide-slate-50">
+                      {Object.entries(currencyBreakdowns).map(([isin, entries]) => {
+                        const holding = allPortfolios.flatMap(p => p.holdings ?? []).find(h => h.isin === isin);
+                        const name = holding?.asset_name ?? isin;
+                        const total = entries.reduce((s, e) => s + e.weight, 0);
+                        const updatedAt = entries[0]?.updated_at;
+                        return (
+                          <div key={isin} className="px-8 py-5 hover:bg-slate-50/50 transition-colors">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-3 mb-3">
+                                  <span className="font-bold text-slate-900 truncate">{name}</span>
+                                  <span className="text-xs font-mono text-sky-600 bg-sky-50 px-2 py-0.5 rounded-lg shrink-0">{isin}</span>
+                                  <span className={cn("text-xs font-bold px-2 py-0.5 rounded-lg shrink-0", Math.abs(total - 100) < 0.1 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600")}>{total.toFixed(1)}%</span>
+                                  {updatedAt && <span className="text-[10px] text-slate-400 shrink-0">maj {formatDate(updatedAt)}</span>}
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {entries.map((e, i) => (
+                                    <span key={i} className="inline-flex items-center gap-1.5 bg-slate-100 px-3 py-1 rounded-full text-xs font-medium text-slate-700">
+                                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: CURRENCY_COLORS[e.currency.toUpperCase()] ?? "#94a3b8" }} />
+                                      {e.currency.toUpperCase()} <span className="font-bold text-slate-900">{e.weight}%</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <button onClick={() => setEditingCurrencyBreakdown({ isin, name, rows: [...entries] })} className="p-2 hover:bg-sky-50 text-slate-400 hover:text-sky-600 rounded-lg transition-colors"><Edit2 className="h-4 w-4" /></button>
+                                <button onClick={async () => { await deleteCurrencyBreakdown(isin); setCurrencyBreakdowns(await fetchCurrencyBreakdowns()); }} className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"><Trash2 className="h-4 w-4" /></button>
                               </div>
                             </div>
                           </div>
@@ -1231,7 +1294,6 @@ export default function App() {
                       </button>
                     </div>
 
-                    {/* ── 2 cards : Actifs + Currency Exposure ── */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
                         <div className="flex items-center gap-3 mb-4">
@@ -1242,7 +1304,6 @@ export default function App() {
                         <div className="text-xs text-slate-400 mt-1">Instruments individuels</div>
                       </div>
 
-                      {/* ── Currency Exposure card ── */}
                       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
                         <div className="flex items-center gap-3 mb-4">
                           <div className="bg-emerald-100 p-2 rounded-xl"><Coins className="h-5 w-5 text-emerald-600" /></div>
@@ -1256,13 +1317,7 @@ export default function App() {
                               <div key={label} className="flex items-center gap-3">
                                 <span className="text-xs font-bold text-slate-500 w-9 shrink-0">{label}</span>
                                 <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full rounded-full transition-all"
-                                    style={{
-                                      width: `${Math.min(100, value)}%`,
-                                      backgroundColor: CURRENCY_COLORS[label] ?? "#94a3b8",
-                                    }}
-                                  />
+                                  <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, value)}%`, backgroundColor: CURRENCY_COLORS[label] ?? "#94a3b8" }} />
                                 </div>
                                 <span className="text-xs font-bold text-slate-700 w-12 text-right shrink-0">{value.toFixed(1)}%</span>
                               </div>
@@ -1324,9 +1379,7 @@ export default function App() {
                       {drillDownFilter && (
                         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="bg-sky-50 p-8 rounded-3xl border border-sky-100">
                           <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-lg font-bold text-sky-900">
-                              Détail {drillDownFilter.type === "category" ? "Catégorie" : "Région"} : {drillDownFilter.value}
-                            </h3>
+                            <h3 className="text-lg font-bold text-sky-900">Détail {drillDownFilter.type === "category" ? "Catégorie" : "Région"} : {drillDownFilter.value}</h3>
                             <button onClick={() => setDrillDownFilter(null)} className="text-sky-600 hover:text-sky-800 text-sm font-medium flex items-center gap-1">Fermer <X className="h-4 w-4" /></button>
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1443,7 +1496,7 @@ export default function App() {
         </main>
       </div>
 
-      {/* ── Instrument modal ── */}
+      {/* ── Instrument modal — badges L, M, H ── */}
       <Modal isOpen={!!selectedInstrument} onClose={() => setSelectedInstrument(null)} title="Fiche Instrument">
         {selectedInstrument && (
           <div className="space-y-6">
@@ -1451,6 +1504,9 @@ export default function App() {
               <div className="absolute top-2 right-2 flex items-center gap-1">
                 {hasLookThrough(selectedInstrument) && (
                   <span className="bg-violet-100 text-violet-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full tracking-widest uppercase">L</span>
+                )}
+                {hasCurrencyBreakdown(selectedInstrument) && (
+                  <span className="bg-emerald-100 text-emerald-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full tracking-widest uppercase">H</span>
                 )}
                 {hasManualOverride(selectedInstrument) && (
                   <span className="bg-amber-100 text-amber-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full tracking-widest uppercase">M</span>
@@ -1519,7 +1575,7 @@ export default function App() {
         )}
       </Modal>
 
-      {/* ── Breakdown modal ── */}
+      {/* ── Geo breakdown modal ── */}
       <Modal isOpen={!!editingBreakdown} onClose={() => setEditingBreakdown(null)} title="Look-through géographique">
         {editingBreakdown && (
           <div className="space-y-5">
@@ -1553,9 +1609,7 @@ export default function App() {
                 ))}
               </div>
               <button onClick={() => setEditingBreakdown({ ...editingBreakdown, rows: [...editingBreakdown.rows, { region: "", weight: 0 }] })}
-                className="mt-3 text-sm text-violet-600 hover:text-violet-800 font-bold flex items-center gap-1">
-                + Ajouter une région
-              </button>
+                className="mt-3 text-sm text-violet-600 hover:text-violet-800 font-bold flex items-center gap-1">+ Ajouter une région</button>
             </div>
             <div className="flex gap-3 pt-2">
               <button onClick={() => setEditingBreakdown(null)} className="flex-1 px-6 py-3 rounded-2xl font-bold text-slate-600 hover:bg-slate-100 transition-all">Annuler</button>
@@ -1564,13 +1618,69 @@ export default function App() {
                   setBreakdownSaving(true);
                   try {
                     await saveBreakdown(editingBreakdown.isin, editingBreakdown.rows.filter(r => r.region && r.weight > 0));
-                    const bd = await fetchBreakdowns();
-                    setBreakdowns(bd);
+                    setBreakdowns(await fetchBreakdowns());
                     setEditingBreakdown(null);
                   } finally { setBreakdownSaving(false); }
                 }}
                 className="flex-1 flex items-center justify-center gap-2 bg-violet-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-violet-700 transition-all disabled:opacity-50">
                 {breakdownSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Sauvegarder
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ── Currency breakdown modal ── */}
+      <Modal isOpen={!!editingCurrencyBreakdown} onClose={() => setEditingCurrencyBreakdown(null)} title="Look-through devise">
+        {editingCurrencyBreakdown && (
+          <div className="space-y-5">
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">ISIN</label>
+              <input type="text" value={editingCurrencyBreakdown.isin} onChange={(e) => setEditingCurrencyBreakdown({ ...editingCurrencyBreakdown, isin: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none font-mono"
+                placeholder="Ex: LU0123456789" />
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-bold text-slate-700">Décomposition devise</label>
+                <span className={cn("text-xs font-bold px-2 py-0.5 rounded-lg",
+                  Math.abs(editingCurrencyBreakdown.rows.reduce((s, r) => s + (Number(r.weight) || 0), 0) - 100) < 0.1 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600")}>
+                  Total : {editingCurrencyBreakdown.rows.reduce((s, r) => s + (Number(r.weight) || 0), 0).toFixed(1)}%
+                </span>
+              </div>
+              <div className="space-y-2">
+                {editingCurrencyBreakdown.rows.map((row, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input type="text" value={row.currency}
+                      onChange={(e) => { const rows = [...editingCurrencyBreakdown.rows]; rows[i] = { ...rows[i], currency: e.target.value.toUpperCase() }; setEditingCurrencyBreakdown({ ...editingCurrencyBreakdown, rows }); }}
+                      className="flex-1 px-3 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none text-sm font-mono uppercase"
+                      placeholder="Devise (ex: EUR, USD, CHF…)" />
+                    <input type="number" value={row.weight}
+                      onChange={(e) => { const rows = [...editingCurrencyBreakdown.rows]; rows[i] = { ...rows[i], weight: Number(e.target.value) }; setEditingCurrencyBreakdown({ ...editingCurrencyBreakdown, rows }); }}
+                      className="w-24 px-3 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none text-sm text-right"
+                      placeholder="%" min={0} max={100} step={0.1} />
+                    <button onClick={() => setEditingCurrencyBreakdown({ ...editingCurrencyBreakdown, rows: editingCurrencyBreakdown.rows.filter((_, j) => j !== i) })}
+                      className="p-2 hover:bg-rose-50 text-slate-300 hover:text-rose-500 rounded-lg transition-colors"><X className="h-4 w-4" /></button>
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => setEditingCurrencyBreakdown({ ...editingCurrencyBreakdown, rows: [...editingCurrencyBreakdown.rows, { currency: "", weight: 0 }] })}
+                className="mt-3 text-sm text-emerald-600 hover:text-emerald-800 font-bold flex items-center gap-1">+ Ajouter une devise</button>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => setEditingCurrencyBreakdown(null)} className="flex-1 px-6 py-3 rounded-2xl font-bold text-slate-600 hover:bg-slate-100 transition-all">Annuler</button>
+              <button disabled={currencyBreakdownSaving || !editingCurrencyBreakdown.isin}
+                onClick={async () => {
+                  setCurrencyBreakdownSaving(true);
+                  try {
+                    await saveCurrencyBreakdown(editingCurrencyBreakdown.isin, editingCurrencyBreakdown.rows.filter(r => r.currency && r.weight > 0));
+                    setCurrencyBreakdowns(await fetchCurrencyBreakdowns());
+                    setEditingCurrencyBreakdown(null);
+                  } finally { setCurrencyBreakdownSaving(false); }
+                }}
+                className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-emerald-700 transition-all disabled:opacity-50">
+                {currencyBreakdownSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Sauvegarder
               </button>
             </div>
