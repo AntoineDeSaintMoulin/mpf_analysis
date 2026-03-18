@@ -175,7 +175,7 @@ export default function App() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [drillDownFilter, setDrillDownFilter] = useState<{ type: "category" | "region"; value: string } | null>(null);
+  const [drillDownFilter, setDrillDownFilter] = useState<{ type: "category" | "region" | "currency"; value: string } | null>(null);
   const [selectedInstrument, setSelectedInstrument] = useState<Holding | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
@@ -199,7 +199,6 @@ export default function App() {
   const [breakdowns, setBreakdowns] = useState<BreakdownMap>({});
   const [editingBreakdown, setEditingBreakdown] = useState<{ isin: string; name: string; rows: BreakdownEntry[] } | null>(null);
   const [breakdownSaving, setBreakdownSaving] = useState(false);
-  // ── Currency breakdown state ───────────────────────────────────────────────
   const [currencyBreakdowns, setCurrencyBreakdowns] = useState<CurrencyBreakdownMap>({});
   const [editingCurrencyBreakdown, setEditingCurrencyBreakdown] = useState<{ isin: string; name: string; rows: CurrencyBreakdownEntry[] } | null>(null);
   const [currencyBreakdownSaving, setCurrencyBreakdownSaving] = useState(false);
@@ -496,7 +495,6 @@ export default function App() {
     return result;
   }
 
-  // ── Badge helpers ──────────────────────────────────────────────────────────
   function hasManualOverride(h: Holding | null): boolean {
     if (!h) return false;
     return manualOverrides.some(
@@ -547,7 +545,6 @@ export default function App() {
     });
   }, [currentPortfolio, breakdowns, targetGridData]);
 
-  // ── Currency exposure — avec look-through devise si disponible ─────────────
   const currencyData = useMemo(() => {
     const KEY_CURRENCIES = ["EUR", "USD", "JPY"];
     const m = new Map<string, number>();
@@ -555,13 +552,11 @@ export default function App() {
       if (!h) return;
       const cbd = h.isin ? currencyBreakdowns[h.isin] : null;
       if (cbd && cbd.length > 0) {
-        // look-through devise : on répartit le poids de l'instrument selon ses devises
         for (const entry of cbd) {
           const cur = entry.currency.toUpperCase().trim();
           m.set(cur, (m.get(cur) ?? 0) + (h.weight ?? 0) * entry.weight / 100);
         }
       } else {
-        // pas de look-through : devise brute
         const cur = (h.currency ?? "Other").toUpperCase().trim();
         m.set(cur, (m.get(cur) ?? 0) + (h.weight ?? 0));
       }
@@ -646,7 +641,7 @@ export default function App() {
     [portfolios, activeTab]);
 
   const drillDownHoldings = useMemo(() => {
-    if (!drillDownFilter) return [];
+    if (!drillDownFilter || drillDownFilter.type === "currency") return [];
     const holdings = currentPortfolio?.holdings ?? [];
     if (drillDownFilter.type === "category") {
       return holdings.filter(h => h?.category === drillDownFilter.value);
@@ -673,6 +668,25 @@ export default function App() {
       })
       .filter(h => (h.weight ?? 0) > 0);
   }, [currentPortfolio, drillDownFilter, breakdowns]);
+
+  const currencyDrillDownHoldings = useMemo(() => {
+    if (!drillDownFilter || drillDownFilter.type !== "currency") return [];
+    const targetCur = drillDownFilter.value.toUpperCase();
+    return (currentPortfolio?.holdings ?? [])
+      .map(h => {
+        if (!h) return null;
+        const cbd = h.isin ? currencyBreakdowns[h.isin] : null;
+        if (cbd && cbd.length > 0) {
+          const entry = cbd.find(e => e.currency.toUpperCase() === targetCur);
+          if (!entry) return null;
+          return { ...h, weight: (h.weight ?? 0) * entry.weight / 100 };
+        }
+        const cur = (h.currency ?? "").toUpperCase();
+        if (cur !== targetCur) return null;
+        return h;
+      })
+      .filter((h): h is Holding => h !== null && (h.weight ?? 0) > 0.001);
+  }, [currentPortfolio, drillDownFilter, currencyBreakdowns]);
 
   const sortedFilteredHoldings = useMemo(() => {
     let list = (currentPortfolio?.holdings ?? []).filter((h) => {
@@ -984,7 +998,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Overrides table */}
                 <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
@@ -1087,7 +1100,7 @@ export default function App() {
                   )}
                 </div>
 
-                {/* ── Look-through devise (currency breakdown) ── */}
+                {/* ── Look-through devise ── */}
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-xl font-bold text-slate-900">Look-through devise</h3>
@@ -1304,6 +1317,7 @@ export default function App() {
                         <div className="text-xs text-slate-400 mt-1">Instruments individuels</div>
                       </div>
 
+                      {/* ── Currency Exposure card — barres cliquables ── */}
                       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
                         <div className="flex items-center gap-3 mb-4">
                           <div className="bg-emerald-100 p-2 rounded-xl"><Coins className="h-5 w-5 text-emerald-600" /></div>
@@ -1312,16 +1326,21 @@ export default function App() {
                         {currencyData.length === 0 ? (
                           <div className="text-slate-400 text-sm italic">Aucune donnée</div>
                         ) : (
-                          <div className="space-y-2.5">
+                          <div className="space-y-2.5 mt-1">
                             {currencyData.map(({ label, value }) => (
-                              <div key={label} className="flex items-center gap-3">
-                                <span className="text-xs font-bold text-slate-500 w-9 shrink-0">{label}</span>
+                              <div key={label}
+                                className="flex items-center gap-3 cursor-pointer group"
+                                onClick={() => setDrillDownFilter({ type: "currency", value: label })}>
+                                <span className="text-xs font-bold text-slate-500 w-9 shrink-0 group-hover:text-slate-800 transition-colors">{label}</span>
                                 <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                                  <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, value)}%`, backgroundColor: CURRENCY_COLORS[label] ?? "#94a3b8" }} />
+                                  <div className="h-full rounded-full transition-all group-hover:opacity-75"
+                                    style={{ width: `${Math.min(100, value)}%`, backgroundColor: CURRENCY_COLORS[label] ?? "#94a3b8" }} />
                                 </div>
                                 <span className="text-xs font-bold text-slate-700 w-12 text-right shrink-0">{value.toFixed(1)}%</span>
+                                <ArrowRight className="h-3 w-3 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
                               </div>
                             ))}
+                            <p className="text-[10px] text-slate-400 italic pt-1">Cliquez pour filtrer</p>
                           </div>
                         )}
                       </div>
@@ -1375,27 +1394,45 @@ export default function App() {
                       <div className="bg-white rounded-3xl border border-slate-100 p-12 text-center text-slate-400">Aucune position pour ce portefeuille.</div>
                     )}
 
+                    {/* ── Drill-down unifié : category / region / currency ── */}
                     <AnimatePresence>
                       {drillDownFilter && (
-                        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="bg-sky-50 p-8 rounded-3xl border border-sky-100">
+                        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
+                          className={cn("p-8 rounded-3xl border", drillDownFilter.type === "currency" ? "bg-emerald-50 border-emerald-100" : "bg-sky-50 border-sky-100")}>
                           <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-lg font-bold text-sky-900">Détail {drillDownFilter.type === "category" ? "Catégorie" : "Région"} : {drillDownFilter.value}</h3>
-                            <button onClick={() => setDrillDownFilter(null)} className="text-sky-600 hover:text-sky-800 text-sm font-medium flex items-center gap-1">Fermer <X className="h-4 w-4" /></button>
+                            <h3 className={cn("text-lg font-bold", drillDownFilter.type === "currency" ? "text-emerald-900" : "text-sky-900")}>
+                              {drillDownFilter.type === "category" ? "Catégorie" : drillDownFilter.type === "currency" ? "Devise" : "Région"} : {drillDownFilter.value}
+                            </h3>
+                            <button onClick={() => setDrillDownFilter(null)}
+                              className={cn("text-sm font-medium flex items-center gap-1", drillDownFilter.type === "currency" ? "text-emerald-600 hover:text-emerald-800" : "text-sky-600 hover:text-sky-800")}>
+                              Fermer <X className="h-4 w-4" />
+                            </button>
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {[...drillDownHoldings].sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0)).map((h, i) => (
-                              <button key={i} onClick={() => setSelectedInstrument(h)}
-                                className="bg-white p-4 rounded-2xl shadow-sm border border-sky-100 flex justify-between items-center hover:border-sky-300 hover:shadow-md transition-all text-left group">
-                                <div className="min-w-0">
-                                  <div className="font-bold text-slate-900 group-hover:text-sky-700 transition-colors truncate">{h.asset_name ?? "—"}</div>
-                                  <div className="text-xs text-slate-500">{h.instrument ?? "—"} • {h.currency ?? "—"}</div>
-                                </div>
-                                <div className="flex items-center gap-2 shrink-0 ml-3">
-                                  <span className="text-lg font-bold text-sky-600">{Number(h.weight ?? 0).toFixed(2)}%</span>
-                                  <ArrowRight className="h-3.5 w-3.5 text-sky-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                </div>
-                              </button>
-                            ))}
+                            {(drillDownFilter.type === "currency" ? [...currencyDrillDownHoldings] : [...drillDownHoldings])
+                              .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0))
+                              .map((h, i) => (
+                                <button key={i} onClick={() => setSelectedInstrument(h)}
+                                  className={cn("bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center hover:shadow-md transition-all text-left group",
+                                    drillDownFilter.type === "currency"
+                                      ? "border border-emerald-100 hover:border-emerald-300"
+                                      : "border border-sky-100 hover:border-sky-300")}>
+                                  <div className="min-w-0">
+                                    <div className={cn("font-bold transition-colors truncate",
+                                      drillDownFilter.type === "currency" ? "text-slate-900 group-hover:text-emerald-700" : "text-slate-900 group-hover:text-sky-700")}>
+                                      {h.asset_name ?? "—"}
+                                    </div>
+                                    <div className="text-xs text-slate-500">{h.instrument ?? "—"} • {h.currency ?? "—"}</div>
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0 ml-3">
+                                    <span className={cn("text-lg font-bold", drillDownFilter.type === "currency" ? "text-emerald-600" : "text-sky-600")}>
+                                      {Number(h.weight ?? 0).toFixed(2)}%
+                                    </span>
+                                    <ArrowRight className={cn("h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity",
+                                      drillDownFilter.type === "currency" ? "text-emerald-400" : "text-sky-400")} />
+                                  </div>
+                                </button>
+                              ))}
                           </div>
                         </motion.div>
                       )}
@@ -1496,7 +1533,7 @@ export default function App() {
         </main>
       </div>
 
-      {/* ── Instrument modal — badges L, M, H ── */}
+      {/* ── Instrument modal — badges L, H, M ── */}
       <Modal isOpen={!!selectedInstrument} onClose={() => setSelectedInstrument(null)} title="Fiche Instrument">
         {selectedInstrument && (
           <div className="space-y-6">
