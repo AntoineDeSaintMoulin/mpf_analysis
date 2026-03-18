@@ -79,6 +79,11 @@ function portfolioTypePart(name: string | undefined | null): string {
   return parts[0] ?? name;
 }
 
+function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "—";
+  return new Date(dateStr).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" });
+}
+
 const COLORS = ["#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
 const PORTFOLIO_ORDER = [
@@ -102,16 +107,6 @@ type Tab = "SYNTHESE" | "Sicav" | "Mixed" | "INSTRUMENTS" | "MANUALS" | "TARGET_
 
 const RISK_PROFILES = ["LOW", "MEDLOW", "MEDIUM", "MEDHIGH", "HIGH"] as const;
 type RiskProfile = typeof RISK_PROFILES[number];
-
-interface TargetGridRow {
-  id: string;
-  label: string;
-  level: 0 | 1 | 2;
-  parent?: string;
-  bench?: Record<RiskProfile, number | null>;
-  target?: Record<RiskProfile, number | null>;
-  active?: Record<RiskProfile, number | null>;
-}
 
 const TARGET_GRID_STRUCTURE: { id: string; label: string; level: 0 | 1 | 2; parent?: string }[] = [
   { id: "equities", label: "Equities", level: 0 },
@@ -218,9 +213,7 @@ export default function App() {
       const res = await fetch("/api/target-grid");
       if (res.ok) {
         const data = await res.json();
-        if (data && typeof data === "object") {
-          setTargetGridData(data);
-        }
+        if (data && typeof data === "object") setTargetGridData(data);
       }
     } catch (e) {
       console.warn("Could not load target grid", e);
@@ -246,7 +239,6 @@ export default function App() {
       setLoading(true);
       try {
         const pList = await loadBaseData();
-        // ── CHANGE 2 : ouvre sur _MED par défaut, sinon premier Sicav ──
         const scv = pList
           .filter((p) => p?.type === "Sicav")
           .sort((a, b) => {
@@ -256,22 +248,14 @@ export default function App() {
           });
         const defaultSicav = scv.find((p) => p.name?.includes("_MED")) ?? scv[0];
         if (defaultSicav?.id != null) setSelectedId(defaultSicav.id);
-
         try {
           const logRes = await fetch("/api/import-log");
-          if (logRes.ok) {
-            const log = await logRes.json();
-            if (log) setImportLog(log);
-          }
-        } catch (e) {
-          console.warn("Could not load import log", e);
-        }
+          if (logRes.ok) { const log = await logRes.json(); if (log) setImportLog(log); }
+        } catch (e) { console.warn("Could not load import log", e); }
         try {
           const bd = await fetchBreakdowns();
           setBreakdowns(bd);
-        } catch (e) {
-          console.warn("Could not load breakdowns", e);
-        }
+        } catch (e) { console.warn("Could not load breakdowns", e); }
         await loadTargetGrid();
       } catch (e) {
         console.error("Init failed", e);
@@ -295,15 +279,11 @@ export default function App() {
         if (details && typeof details === "object" && (details as any).name) {
           setCurrentPortfolio(details);
         } else {
-          const fallback =
-            portfolios.find((p) => p.id === selectedId) ??
-            allPortfolios.find((p) => p.id === selectedId) ??
-            null;
+          const fallback = portfolios.find((p) => p.id === selectedId) ?? allPortfolios.find((p) => p.id === selectedId) ?? null;
           setCurrentPortfolio(fallback);
           if (!fallback) setErrorMsg(`Impossible de charger le portefeuille (id=${selectedId}).`);
         }
       } catch (e) {
-        console.error("Failed to load portfolio details", e);
         const fallback = portfolios.find((p) => p.id === selectedId) ?? allPortfolios.find((p) => p.id === selectedId) ?? null;
         setCurrentPortfolio(fallback);
         setErrorMsg("Erreur de chargement du portefeuille.");
@@ -313,7 +293,6 @@ export default function App() {
     })();
   }, [selectedId]);
 
-  // ── CHANGE 2 : auto-select sur _MED quand on change de tab ──
   useEffect(() => {
     if (activeTab !== "Sicav" && activeTab !== "Mixed") return;
     const filtered = portfolios
@@ -336,9 +315,7 @@ export default function App() {
         const d = await fetchPortfolioDetails(selectedId);
         if (d && (d as any).name) setCurrentPortfolio(d);
       }
-    } catch (e) {
-      console.error("Refresh failed", e);
-    }
+    } catch (e) { console.error("Refresh failed", e); }
   };
 
   const handleAnalyze = async () => {
@@ -347,11 +324,8 @@ export default function App() {
     try {
       const result = await analyzePortfolio(currentPortfolio, modelGrid);
       setAnalysis(result);
-    } catch (e) {
-      setErrorMsg("Erreur lors de l'analyse IA.");
-    } finally {
-      setAnalyzing(false);
-    }
+    } catch (e) { setErrorMsg("Erreur lors de l'analyse IA."); }
+    finally { setAnalyzing(false); }
   };
 
   const handleSaveOverride = async () => {
@@ -360,55 +334,34 @@ export default function App() {
       await saveManualOverride(editingOverride);
       setEditingOverride(null);
       await refreshData();
-    } catch (e) {
-      setErrorMsg("Erreur lors de la sauvegarde.");
-    }
+    } catch (e) { setErrorMsg("Erreur lors de la sauvegarde."); }
   };
 
   const handleDeleteOverride = async (id: number) => {
-    try {
-      await deleteManualOverride(id);
-      await refreshData();
-    } catch (e) {
-      setErrorMsg("Erreur lors de la suppression.");
-    }
+    try { await deleteManualOverride(id); await refreshData(); }
+    catch (e) { setErrorMsg("Erreur lors de la suppression."); }
   };
 
   const handleSort = (key: string) => {
     setSortConfig((prev) => {
-      if (prev?.key === key) {
-        if (prev.direction === "asc") return { key, direction: "desc" };
-        return null;
-      }
+      if (prev?.key === key) { if (prev.direction === "asc") return { key, direction: "desc" }; return null; }
       return { key, direction: "asc" };
     });
   };
 
   const handleHoldingsSort = (key: string) => {
     setHoldingsSortConfig((prev) => {
-      if (prev?.key === key) {
-        if (prev.direction === "asc") return { key, direction: "desc" };
-        return null;
-      }
+      if (prev?.key === key) { if (prev.direction === "asc") return { key, direction: "desc" }; return null; }
       return { key, direction: "asc" };
     });
   };
 
   const saveImportLog = async (filename: string) => {
     try {
-      await fetch("/api/import-log", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename }),
-      });
+      await fetch("/api/import-log", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ filename }) });
       const logCheck = await fetch("/api/import-log");
-      if (logCheck.ok) {
-        const log = await logCheck.json();
-        if (log) setImportLog(log);
-      }
-    } catch (e) {
-      console.warn("Could not save import log", e);
-    }
+      if (logCheck.ok) { const log = await logCheck.json(); if (log) setImportLog(log); }
+    } catch (e) { console.warn("Could not save import log", e); }
   };
 
   const isTargetGridFile = (filename: string) =>
@@ -419,7 +372,6 @@ export default function App() {
     if (!file) return;
     setUploading(true);
     setUploadSuccess(false);
-
     try {
       if (isTargetGridFile(file.name)) {
         const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs" as any);
@@ -427,13 +379,8 @@ export default function App() {
         const wb = XLSX.read(buffer, { type: "array" });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const raw: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
-
         const PROFILE_COLS: Record<string, [number, number, number]> = {
-          LOW:     [2, 4, 6],
-          MEDLOW:  [9, 11, 13],
-          MEDIUM:  [17, 19, 21],
-          MEDHIGH: [24, 26, 28],
-          HIGH:    [31, 33, 35],
+          LOW: [2, 4, 6], MEDLOW: [9, 11, 13], MEDIUM: [17, 19, 21], MEDHIGH: [24, 26, 28], HIGH: [31, 33, 35],
         };
         const ROW_MAP: Record<number, string> = {
           8: "equities", 9: "eq_europe", 10: "eq_us", 11: "eq_em", 12: "eq_japan", 13: "eq_other",
@@ -443,7 +390,6 @@ export default function App() {
           29: "fi_em_local", 30: "fi_em_hard", 31: "fi_global",
           32: "short_term", 33: "st_eur", 34: "st_usd", 35: "st_other",
         };
-
         const rows: { grid_id: string; profile: string; bench: number | null; target: number | null; active: number | null }[] = [];
         for (const [rowIdx, gridId] of Object.entries(ROW_MAP)) {
           const r = raw[Number(rowIdx)];
@@ -453,12 +399,7 @@ export default function App() {
             rows.push({ grid_id: gridId, profile, bench: round2(r[b]), target: round2(r[t]), active: round2(r[a]) });
           }
         }
-
-        const res = await fetch("/api/target-grid", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rows }),
-        });
+        const res = await fetch("/api/target-grid", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rows }) });
         if (res.ok) {
           setUploadSuccess(true);
           await saveImportLog(file.name);
@@ -496,11 +437,7 @@ export default function App() {
                   currency: row[11]?.trim() || "EUR",
                 });
               });
-              const res = await fetch("/api/upload-data", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ portfolios: Array.from(map.values()) }),
-              });
+              const res = await fetch("/api/upload-data", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ portfolios: Array.from(map.values()) }) });
               if (res.ok) {
                 setUploadSuccess(true);
                 await saveImportLog(file.name);
@@ -509,24 +446,16 @@ export default function App() {
               } else {
                 setErrorMsg("Erreur upload: " + await res.text());
               }
-            } catch (e) {
-              setErrorMsg("Erreur lors du traitement du CSV.");
-            } finally {
-              setUploading(false);
-            }
+            } catch (e) { setErrorMsg("Erreur lors du traitement du CSV."); }
+            finally { setUploading(false); }
           },
         });
         return;
       }
-    } catch (e) {
-      console.error(e);
-      setErrorMsg("Erreur lors du traitement du fichier.");
-    } finally {
-      setUploading(false);
-    }
+    } catch (e) { setErrorMsg("Erreur lors du traitement du fichier."); }
+    finally { setUploading(false); }
   };
 
-  // ── Region normalizer ─────────────────────────────────────────────────────
   function normalizeRegion(region: string): string {
     const r = region?.trim() ?? "Other";
     if (["Europe", "Europe ex-Euroland", "Euroland"].includes(r)) return "Europe";
@@ -547,14 +476,16 @@ export default function App() {
   }
 
   const REGION_TO_GRID: Record<string, string> = {
-    "Europe": "eq_europe",
-    "US": "eq_us",
-    "EM": "eq_em",
-    "Japan": "eq_japan",
-    "Others": "eq_other",
+    "Europe": "eq_europe", "US": "eq_us", "EM": "eq_em", "Japan": "eq_japan", "Others": "eq_other",
   };
 
-  // ── Look-through helper ───────────────────────────────────────────────────
+  const CATEGORY_TO_GRID: Record<string, string> = {
+    "Equities": "equities",
+    "Fixed Income": "fixed_income", "Bonds": "fixed_income",
+    "Alternatives": "alternatives", "Gold": "alternatives",
+    "Short Term": "short_term", "Cash": "short_term", "Liquidities": "short_term",
+  };
+
   function applyLookThrough(holdings: Holding[]): { region: string; weight: number }[] {
     const result: { region: string; weight: number }[] = [];
     for (const h of holdings) {
@@ -571,18 +502,20 @@ export default function App() {
     return result;
   }
 
-  // ── CHANGE 4 : normalisation des noms de catégories CSV → grid ids ────────
-  // Certains CSV utilisent "Bonds", "Gold", "Liquidities" au lieu des noms standards
-  const CATEGORY_TO_GRID: Record<string, string> = {
-    "Equities": "equities",
-    "Fixed Income": "fixed_income",
-    "Bonds": "fixed_income",          // alias CSV
-    "Alternatives": "alternatives",
-    "Gold": "alternatives",           // alias CSV
-    "Short Term": "short_term",
-    "Cash": "short_term",
-    "Liquidities": "short_term",      // alias CSV
-  };
+  // ── Badge helpers ─────────────────────────────────────────────────────────
+  function hasManualOverride(h: Holding | null): boolean {
+    if (!h) return false;
+    return manualOverrides.some(
+      (ov) =>
+        (ov.manual_isin && ov.manual_isin === h.isin) ||
+        (ov.original_asset_name && ov.original_asset_name === (h.original_asset_name ?? h.asset_name))
+    );
+  }
+
+  function hasLookThrough(h: Holding | null): boolean {
+    if (!h?.isin) return false;
+    return (breakdowns[h.isin]?.length ?? 0) > 0;
+  }
 
   // ── Derived data ──────────────────────────────────────────────────────────
 
@@ -592,9 +525,7 @@ export default function App() {
       if (!h?.category) return;
       m.set(h.category, (m.get(h.category) ?? 0) + (h.weight ?? 0));
     });
-
     const profile = detectRiskProfile(currentPortfolio?.name);
-
     return Array.from(m.entries()).map(([name, value]) => {
       const gridId = CATEGORY_TO_GRID[name];
       const target = profile && gridId ? targetGridData[gridId]?.[profile]?.["target"] ?? null : null;
@@ -609,9 +540,7 @@ export default function App() {
       if (normalizeRegion(region) === "Cash") return;
       m.set(region, (m.get(region) ?? 0) + weight);
     });
-
     const profile = detectRiskProfile(currentPortfolio?.name);
-
     return Array.from(m.entries()).map(([name, value]) => {
       const gridId = REGION_TO_GRID[name];
       const target = profile && gridId ? targetGridData[gridId]?.[profile]?.["target"] ?? null : null;
@@ -683,11 +612,9 @@ export default function App() {
   const drillDownHoldings = useMemo(() => {
     if (!drillDownFilter) return [];
     const holdings = currentPortfolio?.holdings ?? [];
-
     if (drillDownFilter.type === "category") {
       return holdings.filter(h => h?.category === drillDownFilter.value);
     }
-
     return holdings
       .filter(h => {
         if (!h) return false;
@@ -746,16 +673,6 @@ export default function App() {
     );
   }, [sortedInstruments, instrumentsSearch]);
 
-  // ── CHANGE 1 : helper pour savoir si un holding a un override manuel ──────
-  function hasManualOverride(h: Holding | null): boolean {
-    if (!h) return false;
-    return manualOverrides.some(
-      (ov) =>
-        (ov.manual_isin && ov.manual_isin === h.isin) ||
-        (ov.original_asset_name && ov.original_asset_name === (h.original_asset_name ?? h.asset_name))
-    );
-  }
-
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50">
@@ -789,9 +706,7 @@ export default function App() {
             const showDate = ["SYNTHESE", "Sicav", "Mixed", "TARGET_GRID"].includes(tab);
             const latestDate = (() => {
               if (!showDate) return null;
-              if (tab === "TARGET_GRID") {
-                return importLog.target_grid ? new Date(importLog.target_grid.imported_at) : null;
-              }
+              if (tab === "TARGET_GRID") return importLog.target_grid ? new Date(importLog.target_grid.imported_at) : null;
               const all = [importLog.quick_valuation, ...importLog.samdp, importLog.target_grid, importLog.other]
                 .filter(Boolean).map(e => new Date(e!.imported_at).getTime());
               return all.length > 0 ? new Date(Math.max(...all)) : null;
@@ -937,17 +852,9 @@ export default function App() {
                     { key: "target_grid", label: "Target Grid", color: "emerald", entries: importLog.target_grid ? [importLog.target_grid] : [] },
                     { key: "other", label: "Autres", color: "amber", entries: importLog.other ? [importLog.other] : [] },
                   ] as const).map(({ key, label, color, entries }) => (
-                    <div key={key} className={cn(
-                      "flex-1 bg-white p-4 rounded-2xl border shadow-sm flex flex-col gap-2",
-                      entries.length > 0 ? "border-slate-100" : "border-slate-100 opacity-70"
-                    )}>
+                    <div key={key} className={cn("flex-1 bg-white p-4 rounded-2xl border shadow-sm flex flex-col gap-2", entries.length > 0 ? "border-slate-100" : "border-slate-100 opacity-70")}>
                       <div className="flex items-center gap-2">
-                        <div className={cn("w-2 h-2 rounded-full shrink-0", {
-                          "bg-sky-400": color === "sky",
-                          "bg-violet-400": color === "violet",
-                          "bg-emerald-400": color === "emerald",
-                          "bg-amber-400": color === "amber",
-                        })} />
+                        <div className={cn("w-2 h-2 rounded-full shrink-0", { "bg-sky-400": color === "sky", "bg-violet-400": color === "violet", "bg-emerald-400": color === "emerald", "bg-amber-400": color === "amber" })} />
                         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{label}</p>
                       </div>
                       {entries.length === 0
@@ -957,8 +864,7 @@ export default function App() {
                             <p className="text-xs font-bold text-slate-800 truncate leading-tight" title={e.filename}>{e.filename}</p>
                             <p className="text-[10px] text-slate-400 leading-tight mt-0.5">
                               {new Date(e.imported_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" })}
-                              {" "}
-                              {new Date(e.imported_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                              {" "}{new Date(e.imported_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
                             </p>
                           </div>
                         ))
@@ -973,18 +879,8 @@ export default function App() {
                     <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
                       <div className="px-8 py-4 border-b border-slate-50 flex items-center gap-3">
                         <Search className="h-4 w-4 text-slate-400 shrink-0" />
-                        <input
-                          type="text"
-                          value={instrumentsSearch}
-                          onChange={(e) => setInstrumentsSearch(e.target.value)}
-                          placeholder="Rechercher un instrument ou ISIN…"
-                          className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400"
-                        />
-                        {instrumentsSearch && (
-                          <button onClick={() => setInstrumentsSearch("")} className="p-1 hover:bg-slate-100 rounded-lg transition-colors">
-                            <X className="h-3.5 w-3.5 text-slate-400" />
-                          </button>
-                        )}
+                        <input type="text" value={instrumentsSearch} onChange={(e) => setInstrumentsSearch(e.target.value)} placeholder="Rechercher un instrument ou ISIN…" className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400" />
+                        {instrumentsSearch && <button onClick={() => setInstrumentsSearch("")} className="p-1 hover:bg-slate-100 rounded-lg transition-colors"><X className="h-3.5 w-3.5 text-slate-400" /></button>}
                         <span className="text-xs text-slate-400 shrink-0">{filteredInstruments.length} résultat{filteredInstruments.length !== 1 ? "s" : ""}</span>
                       </div>
                       <div className="overflow-x-auto">
@@ -993,8 +889,7 @@ export default function App() {
                             <tr className="bg-slate-50/50">
                               <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 min-w-[200px]">
                                 <button onClick={() => handleSort("name")} className="flex items-center gap-1 hover:text-slate-900 transition-colors">
-                                  Instrument
-                                  <SortIcon active={sortConfig?.key === "name"} direction={sortConfig?.key === "name" ? sortConfig.direction : undefined} />
+                                  Instrument <SortIcon active={sortConfig?.key === "name"} direction={sortConfig?.key === "name" ? sortConfig.direction : undefined} />
                                 </button>
                               </th>
                               <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">ISIN</th>
@@ -1005,8 +900,7 @@ export default function App() {
                                     <button onClick={() => handleSort(p.name)} className="flex flex-col items-end w-full hover:text-slate-900 transition-colors">
                                       <span className="opacity-60 leading-tight">{portfolioTypePart(p.name)}</span>
                                       <span className={cn("leading-tight flex items-center gap-1", isActive ? "text-sky-600" : "text-slate-900")}>
-                                        {portfolioLabel(p.name)}
-                                        <SortIcon active={isActive} direction={isActive ? sortConfig!.direction : undefined} />
+                                        {portfolioLabel(p.name)} <SortIcon active={isActive} direction={isActive ? sortConfig!.direction : undefined} />
                                       </span>
                                     </button>
                                   </th>
@@ -1019,8 +913,7 @@ export default function App() {
                               <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
                                 <td className="px-8 py-4 sticky left-0 bg-white group-hover:bg-slate-50">
                                   <button onClick={() => setSelectedInstrument(row.details as Holding)} className="flex items-center gap-2 text-sky-600 font-bold hover:underline text-left">
-                                    {row.name}
-                                    <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    {row.name} <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                                   </button>
                                 </td>
                                 <td className="px-8 py-4 text-xs font-mono text-slate-400">{row.isin || "—"}</td>
@@ -1077,19 +970,8 @@ export default function App() {
                               <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_currency || "—"}</td>
                               <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_category || "—"}</td>
                               <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_instrument || "—"}</td>
-                              {/* ── CHANGE 1 : date + heure ── */}
-                              <td className="px-6 py-4 text-xs text-slate-400 whitespace-nowrap">
-                                {ov.updated_at ? (
-                                  <div className="flex flex-col gap-0.5">
-                                    <span className="font-medium text-slate-600">
-                                      {new Date(ov.updated_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" })}
-                                    </span>
-                                    <span className="text-[10px]">
-                                      {new Date(ov.updated_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                                    </span>
-                                  </div>
-                                ) : "—"}
-                              </td>
+                              {/* date simple sans heure */}
+                              <td className="px-6 py-4 text-xs text-slate-400">{formatDate(ov.updated_at)}</td>
                               <td className="px-6 py-4 text-right">
                                 <div className="flex items-center justify-end gap-2">
                                   <button onClick={() => setEditingOverride({ original_asset_name: ov.original_asset_name ?? "", manual_asset_name: ov.manual_asset_name ?? "", manual_isin: ov.manual_isin ?? "", manual_region: ov.manual_region ?? "", manual_currency: ov.manual_currency ?? "", manual_category: ov.manual_category ?? "", manual_instrument: ov.manual_instrument ?? "" })}
@@ -1104,6 +986,7 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* ── Look-through section ── */}
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-xl font-bold text-slate-900">Look-through géographique</h3>
@@ -1123,10 +1006,8 @@ export default function App() {
                     <p className="text-sm font-semibold text-slate-500">
                       {Object.keys(breakdowns).length === 0 ? "Aucun breakdown enregistré." : `${Object.keys(breakdowns).length} instrument${Object.keys(breakdowns).length > 1 ? "s" : ""} configuré${Object.keys(breakdowns).length > 1 ? "s" : ""}`}
                     </p>
-                    <button
-                      onClick={() => setEditingBreakdown({ isin: "", name: "", rows: [{ region: "", weight: 0 }] })}
-                      className="flex items-center gap-2 bg-violet-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-violet-700 transition-all"
-                    >
+                    <button onClick={() => setEditingBreakdown({ isin: "", name: "", rows: [{ region: "", weight: 0 }] })}
+                      className="flex items-center gap-2 bg-violet-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-violet-700 transition-all">
                       <span>+</span> Ajouter
                     </button>
                   </div>
@@ -1139,6 +1020,8 @@ export default function App() {
                         const holding = allPortfolios.flatMap(p => p.holdings ?? []).find(h => h.isin === isin);
                         const name = holding?.asset_name ?? isin;
                         const total = entries.reduce((s, e) => s + e.weight, 0);
+                        // date du look-through : updated_at de la première entrée
+                        const updatedAt = entries[0]?.updated_at;
                         return (
                           <div key={isin} className="px-8 py-5 hover:bg-slate-50/50 transition-colors">
                             <div className="flex items-start justify-between gap-4">
@@ -1149,6 +1032,12 @@ export default function App() {
                                   <span className={cn("text-xs font-bold px-2 py-0.5 rounded-lg shrink-0", Math.abs(total - 100) < 0.1 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600")}>
                                     {total.toFixed(1)}%
                                   </span>
+                                  {/* date encodage look-through */}
+                                  {updatedAt && (
+                                    <span className="text-[10px] text-slate-400 shrink-0">
+                                      maj {formatDate(updatedAt)}
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="flex flex-wrap gap-2">
                                   {entries.map((e, i) => (
@@ -1206,9 +1095,7 @@ export default function App() {
                             <tr className="bg-slate-50/50">
                               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 min-w-[280px]">Catégorie</th>
                               {RISK_PROFILES.map((profile) => (
-                                <th key={profile} colSpan={3} className="px-2 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center border-l border-slate-100">
-                                  {profile}
-                                </th>
+                                <th key={profile} colSpan={3} className="px-2 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center border-l border-slate-100">{profile}</th>
                               ))}
                             </tr>
                             <tr className="bg-slate-50/30 border-b border-slate-100">
@@ -1245,23 +1132,14 @@ export default function App() {
                                   <td className={cn("px-6 py-3 sticky left-0 z-10 font-medium", bgColor, textColor, indent)}>
                                     <div className="flex items-center gap-2">
                                       {hasChildren && (
-                                        <button
-                                          onClick={() => setCollapsedRows(prev => {
-                                            const next = new Set(prev);
-                                            next.has(row.id) ? next.delete(row.id) : next.add(row.id);
-                                            return next;
-                                          })}
-                                          className={cn("p-0.5 rounded transition-colors", row.level === 0 ? "hover:bg-white/20" : "hover:bg-slate-200")}
-                                        >
+                                        <button onClick={() => setCollapsedRows(prev => { const next = new Set(prev); next.has(row.id) ? next.delete(row.id) : next.add(row.id); return next; })}
+                                          className={cn("p-0.5 rounded transition-colors", row.level === 0 ? "hover:bg-white/20" : "hover:bg-slate-200")}>
                                           {isCollapsed
                                             ? <ChevronRight className={cn("h-3.5 w-3.5", row.level === 0 ? "text-white/70" : "text-slate-400")} />
-                                            : <ChevronDown className={cn("h-3.5 w-3.5", row.level === 0 ? "text-white/70" : "text-slate-400")} />
-                                          }
+                                            : <ChevronDown className={cn("h-3.5 w-3.5", row.level === 0 ? "text-white/70" : "text-slate-400")} />}
                                         </button>
                                       )}
-                                      <span className={cn(
-                                        row.level === 0 ? "text-sm font-bold tracking-wide uppercase" : row.level === 1 ? "text-sm font-semibold" : "text-xs text-slate-600"
-                                      )}>{row.label}</span>
+                                      <span className={cn(row.level === 0 ? "text-sm font-bold tracking-wide uppercase" : row.level === 1 ? "text-sm font-semibold" : "text-xs text-slate-600")}>{row.label}</span>
                                     </div>
                                   </td>
                                   {RISK_PROFILES.map((profile) => (
@@ -1297,20 +1175,13 @@ export default function App() {
             {/* ── SICAV / MIXED ── */}
             {(activeTab === "Sicav" || activeTab === "Mixed") && (
               <motion.div key={`detail-${selectedId ?? "none"}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-6xl mx-auto space-y-8">
-
-                {detailLoading && (
-                  <div className="flex items-center justify-center py-32">
-                    <Loader2 className="h-8 w-8 animate-spin text-sky-500" />
-                  </div>
-                )}
-
+                {detailLoading && <div className="flex items-center justify-center py-32"><Loader2 className="h-8 w-8 animate-spin text-sky-500" /></div>}
                 {!detailLoading && !currentPortfolio && (
                   <div className="flex flex-col items-center justify-center py-32 text-slate-400 gap-4">
                     <Briefcase className="h-12 w-12 opacity-30" />
                     <p className="text-lg">Sélectionnez un portefeuille.</p>
                   </div>
                 )}
-
                 {!detailLoading && currentPortfolio && (
                   <>
                     <div className="flex items-end justify-between">
@@ -1346,7 +1217,6 @@ export default function App() {
 
                     {(currentPortfolio.holdings?.length ?? 0) > 0 ? (
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        {/* ── Allocation par Catégorie ── */}
                         <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
                           <h3 className="text-lg font-bold mb-6 flex items-center gap-2"><PieChartIcon className="h-5 w-5 text-sky-600" />Allocation par Catégorie</h3>
                           <div className="h-[320px]">
@@ -1368,8 +1238,6 @@ export default function App() {
                           </div>
                           <p className="text-center text-xs text-slate-400 mt-2 italic">Cliquez pour filtrer</p>
                         </div>
-
-                        {/* ── Exposition Régionale ── */}
                         <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
                           <h3 className="text-lg font-bold mb-8 flex items-center gap-2"><Globe className="h-5 w-5 text-amber-600" />Exposition Régionale</h3>
                           <div className="h-[320px]">
@@ -1405,21 +1273,19 @@ export default function App() {
                             <button onClick={() => setDrillDownFilter(null)} className="text-sky-600 hover:text-sky-800 text-sm font-medium flex items-center gap-1">Fermer <X className="h-4 w-4" /></button>
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {[...drillDownHoldings]
-                              .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0))
-                              .map((h, i) => (
-                                <button key={i} onClick={() => setSelectedInstrument(h)}
-                                  className="bg-white p-4 rounded-2xl shadow-sm border border-sky-100 flex justify-between items-center hover:border-sky-300 hover:shadow-md transition-all text-left group">
-                                  <div className="min-w-0">
-                                    <div className="font-bold text-slate-900 group-hover:text-sky-700 transition-colors truncate">{h.asset_name ?? "—"}</div>
-                                    <div className="text-xs text-slate-500">{h.instrument ?? "—"} • {h.currency ?? "—"}</div>
-                                  </div>
-                                  <div className="flex items-center gap-2 shrink-0 ml-3">
-                                    <span className="text-lg font-bold text-sky-600">{Number(h.weight ?? 0).toFixed(2)}%</span>
-                                    <ArrowRight className="h-3.5 w-3.5 text-sky-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                  </div>
-                                </button>
-                              ))}
+                            {[...drillDownHoldings].sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0)).map((h, i) => (
+                              <button key={i} onClick={() => setSelectedInstrument(h)}
+                                className="bg-white p-4 rounded-2xl shadow-sm border border-sky-100 flex justify-between items-center hover:border-sky-300 hover:shadow-md transition-all text-left group">
+                                <div className="min-w-0">
+                                  <div className="font-bold text-slate-900 group-hover:text-sky-700 transition-colors truncate">{h.asset_name ?? "—"}</div>
+                                  <div className="text-xs text-slate-500">{h.instrument ?? "—"} • {h.currency ?? "—"}</div>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0 ml-3">
+                                  <span className="text-lg font-bold text-sky-600">{Number(h.weight ?? 0).toFixed(2)}%</span>
+                                  <ArrowRight className="h-3.5 w-3.5 text-sky-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </div>
+                              </button>
+                            ))}
                           </div>
                         </motion.div>
                       )}
@@ -1463,11 +1329,7 @@ export default function App() {
                             <Search className="h-4 w-4 text-slate-400 shrink-0" />
                             <input type="text" value={holdingsSearch} onChange={(e) => setHoldingsSearch(e.target.value)}
                               placeholder="Rechercher…" className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400" />
-                            {holdingsSearch && (
-                              <button onClick={() => setHoldingsSearch("")} className="p-0.5 hover:bg-slate-200 rounded transition-colors">
-                                <X className="h-3.5 w-3.5 text-slate-400" />
-                              </button>
-                            )}
+                            {holdingsSearch && <button onClick={() => setHoldingsSearch("")} className="p-0.5 hover:bg-slate-200 rounded transition-colors"><X className="h-3.5 w-3.5 text-slate-400" /></button>}
                           </div>
                           <div className="text-xs text-slate-400 font-medium bg-slate-50 px-3 py-1 rounded-full shrink-0 border border-slate-100">
                             {sortedFilteredHoldings.length} / {currentPortfolio.holdings?.length ?? 0}
@@ -1487,8 +1349,7 @@ export default function App() {
                                 ] as const).map(({ key, label, align }) => (
                                   <th key={key} className={cn("px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider", align === "right" && "text-right")}>
                                     <button onClick={() => handleHoldingsSort(key)} className={cn("flex items-center gap-1 hover:text-slate-900 transition-colors", align === "right" && "ml-auto")}>
-                                      {label}
-                                      <SortIcon active={holdingsSortConfig?.key === key} direction={holdingsSortConfig?.key === key ? holdingsSortConfig.direction : undefined} />
+                                      {label} <SortIcon active={holdingsSortConfig?.key === key} direction={holdingsSortConfig?.key === key ? holdingsSortConfig.direction : undefined} />
                                     </button>
                                   </th>
                                 ))}
@@ -1504,9 +1365,7 @@ export default function App() {
                                       <button onClick={() => setSelectedInstrument(h)} className="font-medium text-slate-900 hover:text-sky-600 hover:underline text-left">{h?.asset_name ?? "—"}</button>
                                     </td>
                                     <td className="px-8 py-4 text-xs font-mono text-slate-400">{h?.isin || "—"}</td>
-                                    <td className="px-8 py-4">
-                                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-50 text-sky-700">{h?.category ?? "—"}</span>
-                                    </td>
+                                    <td className="px-8 py-4"><span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-50 text-sky-700">{h?.category ?? "—"}</span></td>
                                     <td className="px-8 py-4 text-slate-600">{h?.region ?? "—"}</td>
                                     <td className="px-8 py-4 text-slate-500 text-sm">{h?.currency ?? "—"}</td>
                                     <td className="px-8 py-4 text-right font-bold text-slate-900">{Number(h?.weight ?? 0).toFixed(2)}%</td>
@@ -1528,17 +1387,19 @@ export default function App() {
       </div>
 
       {/* ── Instrument modal ── */}
-      {/* ── CHANGE 1 : badge M si override manuel ── */}
       <Modal isOpen={!!selectedInstrument} onClose={() => setSelectedInstrument(null)} title="Fiche Instrument">
         {selectedInstrument && (
           <div className="space-y-6">
             <div className="relative flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
-              {/* Badge M discret en haut à droite */}
-              {hasManualOverride(selectedInstrument) && (
-                <span className="absolute top-2 right-2 bg-amber-100 text-amber-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full tracking-widest uppercase">
-                  M
-                </span>
-              )}
+              {/* Badges M et L positionnés côte à côte en haut à droite */}
+              <div className="absolute top-2 right-2 flex items-center gap-1">
+                {hasLookThrough(selectedInstrument) && (
+                  <span className="bg-violet-100 text-violet-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full tracking-widest uppercase">L</span>
+                )}
+                {hasManualOverride(selectedInstrument) && (
+                  <span className="bg-amber-100 text-amber-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full tracking-widest uppercase">M</span>
+                )}
+              </div>
               <div className="flex items-center gap-4">
                 <div className="bg-sky-600 p-3 rounded-xl"><TrendingUp className="text-white h-6 w-6" /></div>
                 <div>
@@ -1608,74 +1469,41 @@ export default function App() {
           <div className="space-y-5">
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">ISIN</label>
-              <input
-                type="text"
-                value={editingBreakdown.isin}
-                onChange={(e) => setEditingBreakdown({ ...editingBreakdown, isin: e.target.value })}
+              <input type="text" value={editingBreakdown.isin} onChange={(e) => setEditingBreakdown({ ...editingBreakdown, isin: e.target.value })}
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none font-mono"
-                placeholder="Ex: BE6299468940"
-              />
+                placeholder="Ex: BE6299468940" />
             </div>
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-sm font-bold text-slate-700">Décomposition régionale</label>
-                <span className={cn(
-                  "text-xs font-bold px-2 py-0.5 rounded-lg",
-                  Math.abs(editingBreakdown.rows.reduce((s, r) => s + (Number(r.weight) || 0), 0) - 100) < 0.1
-                    ? "bg-emerald-50 text-emerald-600"
-                    : "bg-rose-50 text-rose-600"
-                )}>
+                <span className={cn("text-xs font-bold px-2 py-0.5 rounded-lg",
+                  Math.abs(editingBreakdown.rows.reduce((s, r) => s + (Number(r.weight) || 0), 0) - 100) < 0.1 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600")}>
                   Total : {editingBreakdown.rows.reduce((s, r) => s + (Number(r.weight) || 0), 0).toFixed(1)}%
                 </span>
               </div>
               <div className="space-y-2">
                 {editingBreakdown.rows.map((row, i) => (
                   <div key={i} className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={row.region}
-                      onChange={(e) => {
-                        const rows = [...editingBreakdown.rows];
-                        rows[i] = { ...rows[i], region: e.target.value };
-                        setEditingBreakdown({ ...editingBreakdown, rows });
-                      }}
-                      className="flex-1 px-3 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-violet-500 outline-none text-sm"
-                      placeholder="Région (ex: US, Europe…)"
-                    />
-                    <input
-                      type="number"
-                      value={row.weight}
-                      onChange={(e) => {
-                        const rows = [...editingBreakdown.rows];
-                        rows[i] = { ...rows[i], weight: Number(e.target.value) };
-                        setEditingBreakdown({ ...editingBreakdown, rows });
-                      }}
+                    <input type="text" value={row.region}
+                      onChange={(e) => { const rows = [...editingBreakdown.rows]; rows[i] = { ...rows[i], region: e.target.value }; setEditingBreakdown({ ...editingBreakdown, rows }); }}
+                      className="flex-1 px-3 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-violet-500 outline-none text-sm" placeholder="Région (ex: US, Europe…)" />
+                    <input type="number" value={row.weight}
+                      onChange={(e) => { const rows = [...editingBreakdown.rows]; rows[i] = { ...rows[i], weight: Number(e.target.value) }; setEditingBreakdown({ ...editingBreakdown, rows }); }}
                       className="w-24 px-3 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-violet-500 outline-none text-sm text-right"
-                      placeholder="%"
-                      min={0} max={100} step={0.1}
-                    />
-                    <button
-                      onClick={() => setEditingBreakdown({ ...editingBreakdown, rows: editingBreakdown.rows.filter((_, j) => j !== i) })}
-                      className="p-2 hover:bg-rose-50 text-slate-300 hover:text-rose-500 rounded-lg transition-colors"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
+                      placeholder="%" min={0} max={100} step={0.1} />
+                    <button onClick={() => setEditingBreakdown({ ...editingBreakdown, rows: editingBreakdown.rows.filter((_, j) => j !== i) })}
+                      className="p-2 hover:bg-rose-50 text-slate-300 hover:text-rose-500 rounded-lg transition-colors"><X className="h-4 w-4" /></button>
                   </div>
                 ))}
               </div>
-              <button
-                onClick={() => setEditingBreakdown({ ...editingBreakdown, rows: [...editingBreakdown.rows, { region: "", weight: 0 }] })}
-                className="mt-3 text-sm text-violet-600 hover:text-violet-800 font-bold flex items-center gap-1"
-              >
+              <button onClick={() => setEditingBreakdown({ ...editingBreakdown, rows: [...editingBreakdown.rows, { region: "", weight: 0 }] })}
+                className="mt-3 text-sm text-violet-600 hover:text-violet-800 font-bold flex items-center gap-1">
                 + Ajouter une région
               </button>
             </div>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setEditingBreakdown(null)} className="flex-1 px-6 py-3 rounded-2xl font-bold text-slate-600 hover:bg-slate-100 transition-all">
-                Annuler
-              </button>
-              <button
-                disabled={breakdownSaving || !editingBreakdown.isin}
+              <button onClick={() => setEditingBreakdown(null)} className="flex-1 px-6 py-3 rounded-2xl font-bold text-slate-600 hover:bg-slate-100 transition-all">Annuler</button>
+              <button disabled={breakdownSaving || !editingBreakdown.isin}
                 onClick={async () => {
                   setBreakdownSaving(true);
                   try {
@@ -1683,12 +1511,9 @@ export default function App() {
                     const bd = await fetchBreakdowns();
                     setBreakdowns(bd);
                     setEditingBreakdown(null);
-                  } finally {
-                    setBreakdownSaving(false);
-                  }
+                  } finally { setBreakdownSaving(false); }
                 }}
-                className="flex-1 flex items-center justify-center gap-2 bg-violet-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-violet-700 transition-all disabled:opacity-50"
-              >
+                className="flex-1 flex items-center justify-center gap-2 bg-violet-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-violet-700 transition-all disabled:opacity-50">
                 {breakdownSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Sauvegarder
               </button>
