@@ -14,32 +14,41 @@ async function safeFetch<T>(url: string, options?: RequestInit): Promise<T | nul
   }
 }
 
-export async function fetchAllPortfolios(): Promise<Portfolio[]> {
-  const data = await safeFetch<Portfolio[]>("/api/portfolios-all");
-  return Array.isArray(data) ? data : [];
+// ── Bootstrap — tout en un seul appel ─────────────────────────────────────────
+export type BreakdownEntry = { region: string; weight: number; updated_at?: string };
+export type BreakdownMap = Record<string, BreakdownEntry[]>;
+export type CurrencyBreakdownEntry = { currency: string; weight: number; updated_at?: string };
+export type CurrencyBreakdownMap = Record<string, CurrencyBreakdownEntry[]>;
+export type RatingValue = "Govies" | "IG" | "HY" | "NR";
+export type RatingsMap = Record<string, { rating: RatingValue; updated_at: string }>;
+
+export type BootstrapData = {
+  portfolios: Portfolio[];
+  overrides: ManualOverride[];
+  breakdowns: BreakdownMap;
+  currencyBreakdowns: CurrencyBreakdownMap;
+  ratings: RatingsMap;
+  importLog: {
+    quick_valuation: { filename: string; imported_at: string } | null;
+    samdp: { filename: string; imported_at: string }[];
+    target_grid: { filename: string; imported_at: string } | null;
+    other: { filename: string; imported_at: string } | null;
+  };
+  targetGrid: Record<string, any>;
+};
+
+export async function fetchBootstrap(): Promise<BootstrapData | null> {
+  return safeFetch<BootstrapData>("/api/bootstrap");
 }
 
-export async function fetchPortfolios(): Promise<Portfolio[]> {
-  const data = await safeFetch<Portfolio[]>("/api/portfolios-list");
-  return Array.isArray(data) ? data : [];
-}
-
+// ── Portfolios (pour rafraîchissement partiel) ────────────────────────────────
 export async function fetchPortfolioDetails(id: number): Promise<Portfolio> {
   const data = await safeFetch<Portfolio>(`/api/portfolio-detail?id=${id}`);
   if (!data) throw new Error(`Failed to load portfolio ${id}`);
   return data;
 }
 
-export async function fetchModelGrid(): Promise<ModelGridItem[]> {
-  const data = await safeFetch<ModelGridItem[]>("/api/model-grid");
-  return Array.isArray(data) ? data : [];
-}
-
-export async function fetchManualOverrides(): Promise<ManualOverride[]> {
-  const data = await safeFetch<ManualOverride[]>("/api/manual-overrides");
-  return Array.isArray(data) ? data : [];
-}
-
+// ── Manual overrides ──────────────────────────────────────────────────────────
 export async function saveManualOverride(override: Partial<ManualOverride>): Promise<{ success: boolean }> {
   const data = await safeFetch<{ success: boolean }>("/api/manual-overrides", {
     method: "POST",
@@ -56,15 +65,7 @@ export async function deleteManualOverride(id: number): Promise<{ success: boole
   return data ?? { success: false };
 }
 
-// ── Instrument breakdowns (look-through géographique) ─────────────────────────
-export type BreakdownEntry = { region: string; weight: number; updated_at?: string };
-export type BreakdownMap = Record<string, BreakdownEntry[]>;
-
-export async function fetchBreakdowns(): Promise<BreakdownMap> {
-  const data = await safeFetch<BreakdownMap>("/api/manual-data?resource=breakdown");
-  return data && typeof data === "object" ? data : {};
-}
-
+// ── Geo breakdowns ────────────────────────────────────────────────────────────
 export async function saveBreakdown(isin: string, breakdown: BreakdownEntry[]): Promise<{ success: boolean }> {
   const data = await safeFetch<{ success: boolean }>("/api/manual-data?resource=breakdown", {
     method: "POST",
@@ -83,15 +84,7 @@ export async function deleteBreakdown(isin: string): Promise<{ success: boolean 
   return data ?? { success: false };
 }
 
-// ── Currency breakdowns (look-through devise) ─────────────────────────────────
-export type CurrencyBreakdownEntry = { currency: string; weight: number; updated_at?: string };
-export type CurrencyBreakdownMap = Record<string, CurrencyBreakdownEntry[]>;
-
-export async function fetchCurrencyBreakdowns(): Promise<CurrencyBreakdownMap> {
-  const data = await safeFetch<CurrencyBreakdownMap>("/api/manual-data?resource=currency");
-  return data && typeof data === "object" ? data : {};
-}
-
+// ── Currency breakdowns ───────────────────────────────────────────────────────
 export async function saveCurrencyBreakdown(isin: string, breakdown: CurrencyBreakdownEntry[]): Promise<{ success: boolean }> {
   const data = await safeFetch<{ success: boolean }>("/api/manual-data?resource=currency", {
     method: "POST",
@@ -110,15 +103,7 @@ export async function deleteCurrencyBreakdown(isin: string): Promise<{ success: 
   return data ?? { success: false };
 }
 
-// ── Instrument ratings ────────────────────────────────────────────────────────
-export type RatingValue = "Govies" | "IG" | "HY" | "NR";
-export type RatingsMap = Record<string, { rating: RatingValue; updated_at: string }>;
-
-export async function fetchRatings(): Promise<RatingsMap> {
-  const data = await safeFetch<RatingsMap>("/api/manual-data?resource=ratings");
-  return data && typeof data === "object" ? data : {};
-}
-
+// ── Ratings ───────────────────────────────────────────────────────────────────
 export async function saveRating(isin: string, rating: RatingValue): Promise<{ success: boolean }> {
   const data = await safeFetch<{ success: boolean }>("/api/manual-data?resource=ratings", {
     method: "POST",
@@ -133,6 +118,33 @@ export async function deleteRating(isin: string): Promise<{ success: boolean }> 
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ isin }),
+  });
+  return data ?? { success: false };
+}
+
+// ── Upload ────────────────────────────────────────────────────────────────────
+export async function uploadPortfolios(portfolios: any[]): Promise<{ success: boolean }> {
+  const data = await safeFetch<{ success: boolean }>("/api/upload-data", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ portfolios }),
+  });
+  return data ?? { success: false };
+}
+
+export async function saveImportLogEntry(filename: string): Promise<void> {
+  await safeFetch("/api/import-log", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ filename }),
+  });
+}
+
+export async function uploadTargetGrid(rows: any[]): Promise<{ success: boolean }> {
+  const data = await safeFetch<{ success: boolean }>("/api/target-grid", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ rows }),
   });
   return data ?? { success: false };
 }
