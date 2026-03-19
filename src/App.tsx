@@ -61,10 +61,15 @@ import {
   fetchCurrencyBreakdowns,
   saveCurrencyBreakdown,
   deleteCurrencyBreakdown,
+  fetchRatings,
+  saveRating,
+  deleteRating,
   type BreakdownMap,
   type BreakdownEntry,
   type CurrencyBreakdownMap,
   type CurrencyBreakdownEntry,
+  type RatingValue,
+  type RatingsMap,
 } from "./services/api";
 import { analyzePortfolio } from "./services/gemini";
 
@@ -97,6 +102,17 @@ const CURRENCY_COLORS: Record<string, string> = {
   JPY: "#f59e0b",
   Other: "#94a3b8",
 };
+
+const RATING_OPTIONS: RatingValue[] = ["Govies", "IG", "HY", "NR"];
+
+const RATING_STYLES: Record<RatingValue, { bg: string; text: string; badge: string }> = {
+  Govies: { bg: "bg-emerald-50",  text: "text-emerald-700", badge: "bg-emerald-100 text-emerald-700" },
+  IG:     { bg: "bg-sky-50",      text: "text-sky-700",     badge: "bg-sky-100 text-sky-700" },
+  HY:     { bg: "bg-amber-50",    text: "text-amber-700",   badge: "bg-amber-100 text-amber-700" },
+  NR:     { bg: "bg-slate-50",    text: "text-slate-500",   badge: "bg-slate-100 text-slate-500" },
+};
+
+const FIXED_INCOME_CATEGORIES = ["Fixed Income", "Bonds"];
 
 const PORTFOLIO_ORDER = [
   "Sicav - SCV_BDS", "Sicav - SCV_LOW", "Sicav - SCV_ML", "Sicav - SCV_MED",
@@ -516,7 +532,10 @@ export default function App() {
     if (!h?.isin) return false;
     return (currencyBreakdowns[h.isin]?.length ?? 0) > 0;
   }
-
+function isFixedIncome(h: Holding | null): boolean {
+  return FIXED_INCOME_CATEGORIES.includes(h?.category ?? "");
+}
+  
   // ── Derived data ───────────────────────────────────────────────────────────
 
   const categoryData = useMemo(() => {
