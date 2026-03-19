@@ -202,7 +202,9 @@ export default function App() {
   const [currencyBreakdowns, setCurrencyBreakdowns] = useState<CurrencyBreakdownMap>({});
   const [editingCurrencyBreakdown, setEditingCurrencyBreakdown] = useState<{ isin: string; name: string; rows: CurrencyBreakdownEntry[] } | null>(null);
   const [currencyBreakdownSaving, setCurrencyBreakdownSaving] = useState(false);
-
+  const [ratings, setRatings] = useState<RatingsMap>({});
+  const [ratingSaving, setRatingSaving] = useState(false);
+  
   async function safeArray<T>(fn: () => Promise<T[]>): Promise<T[]> {
     try {
       const r = await fn();
@@ -253,6 +255,7 @@ export default function App() {
         } catch (e) { console.warn("Could not load import log", e); }
         try { setBreakdowns(await fetchBreakdowns()); } catch (e) { console.warn(e); }
         try { setCurrencyBreakdowns(await fetchCurrencyBreakdowns()); } catch (e) { console.warn(e); }
+        try { setRatings(await fetchRatings()); } catch (e) { console.warn(e); }
         await loadTargetGrid();
       } catch (e) {
         console.error("Init failed", e);
@@ -1548,6 +1551,12 @@ export default function App() {
                 {hasManualOverride(selectedInstrument) && (
                   <span className="bg-amber-100 text-amber-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full tracking-widest uppercase">M</span>
                 )}
+                {selectedInstrument.isin && ratings[selectedInstrument.isin] && (
+  <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded-full tracking-widest uppercase",
+    RATING_STYLES[ratings[selectedInstrument.isin].rating as RatingValue]?.badge ?? "bg-slate-100 text-slate-500")}>
+    R
+  </span>
+)}
               </div>
               <div className="flex items-center gap-4">
                 <div className="bg-sky-600 p-3 rounded-xl"><TrendingUp className="text-white h-6 w-6" /></div>
@@ -1569,6 +1578,39 @@ export default function App() {
                 </div>
               ))}
             </div>
+            {/* ← ÉTAPE 4 ICI */}
+            {isFixedIncome(selectedInstrument) && (
+              <div className="p-4 border border-slate-100 rounded-2xl">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Rating</p>
+                <div className="flex gap-2 flex-wrap">
+                  {RATING_OPTIONS.map((r) => {
+                    const current = selectedInstrument.isin ? ratings[selectedInstrument.isin]?.rating : null;
+                    const style = RATING_STYLES[r];
+                    const isActive = current === r;
+                    return (
+                      <button key={r} disabled={ratingSaving}
+                        onClick={async () => {
+                          if (!selectedInstrument.isin) return;
+                          setRatingSaving(true);
+                          try {
+                            if (isActive) {
+                              await deleteRating(selectedInstrument.isin);
+                            } else {
+                              await saveRating(selectedInstrument.isin, r);
+                            }
+                            setRatings(await fetchRatings());
+                          } finally { setRatingSaving(false); }
+                        }}
+                        className={cn("px-3 py-1.5 rounded-xl text-xs font-bold transition-all border",
+                          isActive ? `${style.badge} border-current shadow-sm` : "bg-white text-slate-400 border-slate-200 hover:border-slate-300"
+                        )}>
+                        {r}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <div className="p-6 bg-sky-50 rounded-2xl border border-sky-100">
               <p className="text-sm text-sky-800 leading-relaxed">Exposition à <strong>{selectedInstrument.category ?? "—"}</strong> dans la zone <strong>{selectedInstrument.region ?? "—"}</strong>.</p>
             </div>
