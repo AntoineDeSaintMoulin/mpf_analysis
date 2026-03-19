@@ -48,28 +48,26 @@ import { twMerge } from "tailwind-merge";
 
 import { Portfolio, ModelGridItem, AnalysisResult, Holding, ManualOverride } from "./types";
 import {
-  fetchPortfolios,
+  fetchBootstrap,
   fetchPortfolioDetails,
-  fetchModelGrid,
-  fetchAllPortfolios,
-  fetchManualOverrides,
   saveManualOverride,
   deleteManualOverride,
-  fetchBreakdowns,
   saveBreakdown,
   deleteBreakdown,
-  fetchCurrencyBreakdowns,
   saveCurrencyBreakdown,
   deleteCurrencyBreakdown,
-  fetchRatings,
   saveRating,
   deleteRating,
+  uploadPortfolios,
+  saveImportLogEntry,
+  uploadTargetGrid,
   type BreakdownMap,
   type BreakdownEntry,
   type CurrencyBreakdownMap,
   type CurrencyBreakdownEntry,
   type RatingValue,
   type RatingsMap,
+  type BootstrapData,
 } from "./services/api";
 import { analyzePortfolio } from "./services/gemini";
 
@@ -255,32 +253,36 @@ export default function App() {
     return pList;
   };
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const pList = await loadBaseData();
-        const scv = pList
-          .filter((p) => p?.type === "Sicav")
-          .sort((a, b) => (PORTFOLIO_ORDER.indexOf(a.name) === -1 ? 999 : PORTFOLIO_ORDER.indexOf(a.name)) - (PORTFOLIO_ORDER.indexOf(b.name) === -1 ? 999 : PORTFOLIO_ORDER.indexOf(b.name)));
-        const defaultSicav = scv.find((p) => p.name?.includes("_MED")) ?? scv[0];
-        if (defaultSicav?.id != null) setSelectedId(defaultSicav.id);
-        try {
-          const logRes = await fetch("/api/import-log");
-          if (logRes.ok) { const log = await logRes.json(); if (log) setImportLog(log); }
-        } catch (e) { console.warn("Could not load import log", e); }
-        try { setBreakdowns(await fetchBreakdowns()); } catch (e) { console.warn(e); }
-        try { setCurrencyBreakdowns(await fetchCurrencyBreakdowns()); } catch (e) { console.warn(e); }
-        try { setRatings(await fetchRatings()); } catch (e) { console.warn(e); }
-        await loadTargetGrid();
-      } catch (e) {
-        console.error("Init failed", e);
-        setErrorMsg("Erreur lors du chargement initial.");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+useEffect(() => {
+  (async () => {
+    setLoading(true);
+    try {
+      const data = await fetchBootstrap();
+      if (!data) throw new Error("Bootstrap failed");
+
+      const allP = data.portfolios ?? [];
+      setAllPortfolios(allP);
+      setPortfolios(allP);
+      setManualOverrides(data.overrides ?? []);
+      setBreakdowns(data.breakdowns ?? {});
+      setCurrencyBreakdowns(data.currencyBreakdowns ?? {});
+      setRatings(data.ratings ?? {});
+      setImportLog(data.importLog);
+      setTargetGridData(data.targetGrid ?? {});
+
+      const scv = allP
+        .filter((p) => p?.type === "Sicav")
+        .sort((a, b) => (PORTFOLIO_ORDER.indexOf(a.name) === -1 ? 999 : PORTFOLIO_ORDER.indexOf(a.name)) - (PORTFOLIO_ORDER.indexOf(b.name) === -1 ? 999 : PORTFOLIO_ORDER.indexOf(b.name)));
+      const defaultSicav = scv.find((p) => p.name?.includes("_MED")) ?? scv[0];
+      if (defaultSicav?.id != null) setSelectedId(defaultSicav.id);
+    } catch (e) {
+      console.error("Bootstrap failed", e);
+      setErrorMsg("Erreur lors du chargement initial.");
+    } finally {
+      setLoading(false);
+    }
+  })();
+}, []);
 
   useEffect(() => {
     if (selectedId == null) return;
@@ -320,15 +322,25 @@ export default function App() {
     }
   }, [activeTab, portfolios]);
 
-  const refreshData = async () => {
-    try {
-      await loadBaseData();
-      if (selectedId != null) {
-        const d = await fetchPortfolioDetails(selectedId);
-        if (d && (d as any).name) setCurrentPortfolio(d);
-      }
-    } catch (e) { console.error("Refresh failed", e); }
-  };
+const refreshData = async () => {
+  try {
+    const data = await fetchBootstrap();
+    if (!data) return;
+    const allP = data.portfolios ?? [];
+    setAllPortfolios(allP);
+    setPortfolios(allP);
+    setManualOverrides(data.overrides ?? []);
+    setBreakdowns(data.breakdowns ?? {});
+    setCurrencyBreakdowns(data.currencyBreakdowns ?? {});
+    setRatings(data.ratings ?? {});
+    setImportLog(data.importLog);
+    setTargetGridData(data.targetGrid ?? {});
+    if (selectedId != null) {
+      const current = allP.find(p => p.id === selectedId) ?? null;
+      setCurrentPortfolio(current);
+    }
+  } catch (e) { console.error("Refresh failed", e); }
+};
 
   const handleAnalyze = async () => {
     if (!currentPortfolio || analyzing) return;
