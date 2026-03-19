@@ -61,15 +61,12 @@ export type BreakdownEntry = { region: string; weight: number; updated_at?: stri
 export type BreakdownMap = Record<string, BreakdownEntry[]>;
 
 export async function fetchBreakdowns(): Promise<BreakdownMap> {
-  const data = await safeFetch<BreakdownMap>("/api/instrument-breakdown");
+  const data = await safeFetch<BreakdownMap>("/api/manual-data?resource=breakdown");
   return data && typeof data === "object" ? data : {};
 }
 
-export async function saveBreakdown(
-  isin: string,
-  breakdown: BreakdownEntry[]
-): Promise<{ success: boolean }> {
-  const data = await safeFetch<{ success: boolean }>("/api/instrument-breakdown", {
+export async function saveBreakdown(isin: string, breakdown: BreakdownEntry[]): Promise<{ success: boolean }> {
+  const data = await safeFetch<{ success: boolean }>("/api/manual-data?resource=breakdown", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ isin, breakdown }),
@@ -78,7 +75,7 @@ export async function saveBreakdown(
 }
 
 export async function deleteBreakdown(isin: string): Promise<{ success: boolean }> {
-  const data = await safeFetch<{ success: boolean }>("/api/instrument-breakdown", {
+  const data = await safeFetch<{ success: boolean }>("/api/manual-data?resource=breakdown", {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ isin }),
@@ -91,15 +88,12 @@ export type CurrencyBreakdownEntry = { currency: string; weight: number; updated
 export type CurrencyBreakdownMap = Record<string, CurrencyBreakdownEntry[]>;
 
 export async function fetchCurrencyBreakdowns(): Promise<CurrencyBreakdownMap> {
-  const data = await safeFetch<CurrencyBreakdownMap>("/api/currency-breakdown");
+  const data = await safeFetch<CurrencyBreakdownMap>("/api/manual-data?resource=currency");
   return data && typeof data === "object" ? data : {};
 }
 
-export async function saveCurrencyBreakdown(
-  isin: string,
-  breakdown: CurrencyBreakdownEntry[]
-): Promise<{ success: boolean }> {
-  const data = await safeFetch<{ success: boolean }>("/api/currency-breakdown", {
+export async function saveCurrencyBreakdown(isin: string, breakdown: CurrencyBreakdownEntry[]): Promise<{ success: boolean }> {
+  const data = await safeFetch<{ success: boolean }>("/api/manual-data?resource=currency", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ isin, breakdown }),
@@ -108,7 +102,7 @@ export async function saveCurrencyBreakdown(
 }
 
 export async function deleteCurrencyBreakdown(isin: string): Promise<{ success: boolean }> {
-  const data = await safeFetch<{ success: boolean }>("/api/currency-breakdown", {
+  const data = await safeFetch<{ success: boolean }>("/api/manual-data?resource=currency", {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ isin }),
@@ -121,12 +115,12 @@ export type RatingValue = "Govies" | "IG" | "HY" | "NR";
 export type RatingsMap = Record<string, { rating: RatingValue; updated_at: string }>;
 
 export async function fetchRatings(): Promise<RatingsMap> {
-  const data = await safeFetch<RatingsMap>("/api/instrument-ratings");
+  const data = await safeFetch<RatingsMap>("/api/manual-data?resource=ratings");
   return data && typeof data === "object" ? data : {};
 }
 
 export async function saveRating(isin: string, rating: RatingValue): Promise<{ success: boolean }> {
-  const data = await safeFetch<{ success: boolean }>("/api/instrument-ratings", {
+  const data = await safeFetch<{ success: boolean }>("/api/manual-data?resource=ratings", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ isin, rating }),
@@ -135,7 +129,7 @@ export async function saveRating(isin: string, rating: RatingValue): Promise<{ s
 }
 
 export async function deleteRating(isin: string): Promise<{ success: boolean }> {
-  const data = await safeFetch<{ success: boolean }>("/api/instrument-ratings", {
+  const data = await safeFetch<{ success: boolean }>("/api/manual-data?resource=ratings", {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ isin }),
