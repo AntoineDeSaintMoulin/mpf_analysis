@@ -1629,8 +1629,8 @@ function isFixedIncome(h: Holding | null): boolean {
                             } else {
                               await saveRating(selectedInstrument.isin, r);
                             }
-                            const newRatings = await fetchRatings();
-                            setRatings(newRatings);
+                            const fresh = await fetchBootstrap();
+                            if (fresh) setRatings(fresh.ratings ?? {});
                           } finally { setRatingSaving(false); }
                         }}
                         className={cn("px-3 py-1.5 rounded-xl text-xs font-bold transition-all border",
@@ -1729,7 +1729,8 @@ function isFixedIncome(h: Holding | null): boolean {
                   setBreakdownSaving(true);
                   try {
                     await saveBreakdown(editingBreakdown.isin, editingBreakdown.rows.filter(r => r.region && r.weight > 0));
-                    setBreakdowns(await fetchBreakdowns());
+                    const fresh = await fetchBootstrap();
+                    if (fresh) setBreakdowns(fresh.breakdowns ?? {});
                     setEditingBreakdown(null);
                   } finally { setBreakdownSaving(false); }
                 }}
@@ -1786,7 +1787,8 @@ function isFixedIncome(h: Holding | null): boolean {
                   setCurrencyBreakdownSaving(true);
                   try {
                     await saveCurrencyBreakdown(editingCurrencyBreakdown.isin, editingCurrencyBreakdown.rows.filter(r => r.currency && r.weight > 0));
-                    setCurrencyBreakdowns(await fetchCurrencyBreakdowns());
+                    const fresh = await fetchBootstrap();
+                    if (fresh) setCurrencyBreakdowns(fresh.currencyBreakdowns ?? {});
                     setEditingCurrencyBreakdown(null);
                   } finally { setCurrencyBreakdownSaving(false); }
                 }}
