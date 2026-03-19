@@ -115,3 +115,30 @@ export async function deleteCurrencyBreakdown(isin: string): Promise<{ success: 
   });
   return data ?? { success: false };
 }
+
+// ── Instrument ratings ────────────────────────────────────────────────────────
+export type RatingValue = "Govies" | "IG" | "HY" | "NR";
+export type RatingsMap = Record<string, { rating: RatingValue; updated_at: string }>;
+
+export async function fetchRatings(): Promise<RatingsMap> {
+  const data = await safeFetch<RatingsMap>("/api/instrument-ratings");
+  return data && typeof data === "object" ? data : {};
+}
+
+export async function saveRating(isin: string, rating: RatingValue): Promise<{ success: boolean }> {
+  const data = await safeFetch<{ success: boolean }>("/api/instrument-ratings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isin, rating }),
+  });
+  return data ?? { success: false };
+}
+
+export async function deleteRating(isin: string): Promise<{ success: boolean }> {
+  const data = await safeFetch<{ success: boolean }>("/api/instrument-ratings", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isin }),
+  });
+  return data ?? { success: false };
+}
