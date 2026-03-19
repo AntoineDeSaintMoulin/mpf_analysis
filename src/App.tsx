@@ -1617,7 +1617,8 @@ function isFixedIncome(h: Holding | null): boolean {
                             } else {
                               await saveRating(selectedInstrument.isin, r);
                             }
-                            setRatings(await fetchRatings());
+                            const newRatings = await fetchRatings();
+                            setRatings(newRatings);
                           } finally { setRatingSaving(false); }
                         }}
                         className={cn("px-3 py-1.5 rounded-xl text-xs font-bold transition-all border",
