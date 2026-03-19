@@ -78,6 +78,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         weight REAL NOT NULL,
         updated_at TIMESTAMP DEFAULT NOW()
       );
+      
+      CREATE TABLE IF NOT EXISTS instrument_ratings (
+        id SERIAL PRIMARY KEY,
+        isin TEXT UNIQUE NOT NULL,
+        rating TEXT NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
     `);
 
     return res.json({ success: true, message: "Tables créées ou déjà existantes." });
