@@ -78,11 +78,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         weight REAL NOT NULL,
         updated_at TIMESTAMP DEFAULT NOW()
       );
-      
+
       CREATE TABLE IF NOT EXISTS instrument_ratings (
         id SERIAL PRIMARY KEY,
         isin TEXT UNIQUE NOT NULL,
         rating TEXT NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS credit_breakdown (
+        id SERIAL PRIMARY KEY,
+        isin TEXT NOT NULL,
+        credit_type TEXT NOT NULL,
+        currency TEXT NOT NULL,
+        weight REAL NOT NULL,
         updated_at TIMESTAMP DEFAULT NOW()
       );
     `);
