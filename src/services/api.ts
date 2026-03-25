@@ -118,7 +118,7 @@ export async function deleteCurrencyBreakdown(isin: string): Promise<{ success: 
 
 // ── Credit breakdowns ─────────────────────────────────────────────────────────
 export async function saveCreditBreakdown(isin: string, breakdown: CreditBreakdownEntry[]): Promise<{ success: boolean }> {
-  const data = await safeFetch<{ success: boolean }>("/api/credit-breakdown", {
+  const data = await safeFetch<{ success: boolean }>("/api/manual-data?resource=credit", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ isin, breakdown }),
@@ -127,7 +127,7 @@ export async function saveCreditBreakdown(isin: string, breakdown: CreditBreakdo
 }
 
 export async function deleteCreditBreakdown(isin: string): Promise<{ success: boolean }> {
-  const data = await safeFetch<{ success: boolean }>("/api/credit-breakdown", {
+  const data = await safeFetch<{ success: boolean }>("/api/manual-data?resource=credit", {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ isin }),
