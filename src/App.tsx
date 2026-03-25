@@ -1330,7 +1330,7 @@ const refreshData = async () => {
               </motion.div>
             )}
 
-            {/* ── SICAV / MIXED ── */}
+   {/* ── SICAV / MIXED ── */}
             {(activeTab === "Sicav" || activeTab === "Mixed") && (
               <motion.div key={`detail-${selectedId ?? "none"}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-6xl mx-auto space-y-8">
                 {detailLoading && <div className="flex items-center justify-center py-32"><Loader2 className="h-8 w-8 animate-spin text-sky-500" /></div>}
@@ -1360,7 +1360,10 @@ const refreshData = async () => {
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* ── Cards KPI : Actifs + Credit Quality + Currency ── */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+                      {/* Actifs */}
                       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
                         <div className="flex items-center gap-3 mb-4">
                           <div className="bg-sky-100 p-2 rounded-xl"><LayoutDashboard className="h-5 w-5 text-sky-600" /></div>
@@ -1370,7 +1373,31 @@ const refreshData = async () => {
                         <div className="text-xs text-slate-400 mt-1">Instruments individuels</div>
                       </div>
 
-                      {/* ── Currency Exposure card — barres cliquables ── */}
+                      {/* Credit Quality */}
+                      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="bg-violet-100 p-2 rounded-xl"><TrendingUp className="h-5 w-5 text-violet-600" /></div>
+                          <span className="text-sm font-semibold text-slate-500">Credit Quality</span>
+                        </div>
+                        {creditData.length === 0 ? (
+                          <div className="text-slate-400 text-sm italic">Aucune décomposition configurée</div>
+                        ) : (
+                          <div className="space-y-2.5 mt-1">
+                            {creditData.map(({ name, value }) => (
+                              <div key={name} className="flex items-center gap-3">
+                                <span className="text-xs font-bold w-16 shrink-0" style={{ color: CREDIT_COLORS[name] ?? "#94a3b8" }}>{name}</span>
+                                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                  <div className="h-full rounded-full transition-all"
+                                    style={{ width: `${Math.min(100, value)}%`, backgroundColor: CREDIT_COLORS[name] ?? "#94a3b8" }} />
+                                </div>
+                                <span className="text-xs font-bold text-slate-700 w-12 text-right shrink-0">{value.toFixed(1)}%</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Currency Exposure */}
                       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
                         <div className="flex items-center gap-3 mb-4">
                           <div className="bg-emerald-100 p-2 rounded-xl"><Coins className="h-5 w-5 text-emerald-600" /></div>
@@ -1400,7 +1427,7 @@ const refreshData = async () => {
                     </div>
 
                     {(currentPortfolio.holdings?.length ?? 0) > 0 ? (
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
                           <h3 className="text-lg font-bold mb-6 flex items-center gap-2"><PieChartIcon className="h-5 w-5 text-sky-600" />Allocation par Catégorie</h3>
                           <div className="h-[320px]">
@@ -1442,33 +1469,6 @@ const refreshData = async () => {
                           </div>
                           <p className="text-center text-xs text-slate-400 mt-2 italic">Cliquez pour filtrer</p>
                         </div>
-                         <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
-    <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-      <TrendingUp className="h-5 w-5 text-violet-600" />Credit Quality
-    </h3>
-    {creditData.length === 0 ? (
-      <div className="flex items-center justify-center h-[280px] text-slate-300 text-sm italic">
-        Aucune décomposition crédit configurée
-      </div>
-    ) : (
-      <div className="h-[280px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={creditData} layout="vertical" margin={{ top: 0, right: 50, left: 10, bottom: 0 }}>
-            <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} tickFormatter={(v) => v + "%"} />
-            <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} width={70} />
-            <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "16px", border: "none" }} formatter={(v: number) => [v + "%", "Poids"]} />
-            <Bar dataKey="value" radius={[0, 8, 8, 0]}>
-              {creditData.map((entry, idx) => (
-                <Cell key={idx} fill={CREDIT_COLORS[entry.name] ?? "#94a3b8"} />
-              ))}
-              <LabelList dataKey="value" position="right" formatter={(v: number) => v + "%"} fill="#64748b" fontSize={11} />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    )}
-  </div>
- 
                       </div>
                     ) : (
                       <div className="bg-white rounded-3xl border border-slate-100 p-12 text-center text-slate-400">Aucune position pour ce portefeuille.</div>
