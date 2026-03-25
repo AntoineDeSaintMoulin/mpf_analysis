@@ -14,20 +14,32 @@ async function safeFetch<T>(url: string, options?: RequestInit): Promise<T | nul
   }
 }
 
-// ── Bootstrap — tout en un seul appel ─────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 export type BreakdownEntry = { region: string; weight: number; updated_at?: string };
 export type BreakdownMap = Record<string, BreakdownEntry[]>;
+
 export type CurrencyBreakdownEntry = { currency: string; weight: number; updated_at?: string };
 export type CurrencyBreakdownMap = Record<string, CurrencyBreakdownEntry[]>;
-export type RatingValue = "Govies" | "IG" | "HY" | "NR";
-export type RatingsMap = Record<string, { rating: RatingValue; updated_at: string }>;
+
+export type CreditType = "Govies" | "IG" | "HY" | "NR" | "EM Debt";
+export const CREDIT_TYPES: CreditType[] = ["Govies", "IG", "HY", "NR", "EM Debt"];
+export const CREDIT_CURRENCIES = ["EUR", "USD", "JPY", "Other"] as const;
+export type CreditCurrency = typeof CREDIT_CURRENCIES[number];
+
+export type CreditBreakdownEntry = {
+  credit_type: CreditType;
+  currency: CreditCurrency;
+  weight: number;
+  updated_at?: string;
+};
+export type CreditBreakdownMap = Record<string, CreditBreakdownEntry[]>;
 
 export type BootstrapData = {
   portfolios: Portfolio[];
   overrides: ManualOverride[];
   breakdowns: BreakdownMap;
   currencyBreakdowns: CurrencyBreakdownMap;
-  ratings: RatingsMap;
+  creditBreakdowns: CreditBreakdownMap;
   importLog: {
     quick_valuation: { filename: string; imported_at: string } | null;
     samdp: { filename: string; imported_at: string }[];
@@ -37,11 +49,12 @@ export type BootstrapData = {
   targetGrid: Record<string, any>;
 };
 
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
 export async function fetchBootstrap(): Promise<BootstrapData | null> {
   return safeFetch<BootstrapData>("/api/bootstrap");
 }
 
-// ── Portfolios (pour rafraîchissement partiel) ────────────────────────────────
+// ── Portfolio detail ──────────────────────────────────────────────────────────
 export async function fetchPortfolioDetails(id: number): Promise<Portfolio> {
   const data = await safeFetch<Portfolio>(`/api/portfolio-detail?id=${id}`);
   if (!data) throw new Error(`Failed to load portfolio ${id}`);
@@ -103,18 +116,18 @@ export async function deleteCurrencyBreakdown(isin: string): Promise<{ success: 
   return data ?? { success: false };
 }
 
-// ── Ratings ───────────────────────────────────────────────────────────────────
-export async function saveRating(isin: string, rating: RatingValue): Promise<{ success: boolean }> {
-  const data = await safeFetch<{ success: boolean }>("/api/manual-data?resource=ratings", {
+// ── Credit breakdowns ─────────────────────────────────────────────────────────
+export async function saveCreditBreakdown(isin: string, breakdown: CreditBreakdownEntry[]): Promise<{ success: boolean }> {
+  const data = await safeFetch<{ success: boolean }>("/api/credit-breakdown", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ isin, rating }),
+    body: JSON.stringify({ isin, breakdown }),
   });
   return data ?? { success: false };
 }
 
-export async function deleteRating(isin: string): Promise<{ success: boolean }> {
-  const data = await safeFetch<{ success: boolean }>("/api/manual-data?resource=ratings", {
+export async function deleteCreditBreakdown(isin: string): Promise<{ success: boolean }> {
+  const data = await safeFetch<{ success: boolean }>("/api/credit-breakdown", {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ isin }),
