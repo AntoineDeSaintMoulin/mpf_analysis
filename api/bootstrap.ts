@@ -10,11 +10,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       overridesRes,
       breakdownRes,
       currencyRes,
-      ratingsRes,
+      creditRes,
       importLogRes,
       targetGridRes,
     ] = await Promise.all([
-      // Tous les portefeuilles avec leurs holdings
       pool.query(`
         SELECT p.id, p.name, p.type, p.description,
           json_agg(
@@ -36,17 +35,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         GROUP BY p.id, p.name, p.type, p.description
         ORDER BY p.name
       `),
-      // Manual overrides
       pool.query(`SELECT * FROM manual_overrides ORDER BY updated_at DESC`),
-      // Geo breakdowns
       pool.query(`SELECT isin, region, weight, updated_at FROM instrument_breakdown ORDER BY isin, weight DESC`),
-      // Currency breakdowns
       pool.query(`SELECT isin, currency, weight, updated_at FROM currency_breakdown ORDER BY isin, weight DESC`),
-      // Ratings
-      pool.query(`SELECT isin, rating, updated_at FROM instrument_ratings ORDER BY isin`),
-      // Import log
+      pool.query(`SELECT isin, credit_type, currency, weight, updated_at FROM credit_breakdown ORDER BY isin, credit_type, currency`),
       pool.query(`SELECT filename, imported_at FROM import_log ORDER BY imported_at DESC LIMIT 20`),
-      // Target grid
       pool.query(`SELECT grid_id, profile, bench, target, active FROM target_grid`),
     ]);
 
@@ -64,10 +57,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       currencyBreakdowns[row.isin].push({ currency: row.currency, weight: row.weight, updated_at: row.updated_at });
     }
 
-    // Ratings map
-    const ratings: Record<string, { rating: string; updated_at: string }> = {};
-    for (const row of ratingsRes.rows) {
-      ratings[row.isin] = { rating: row.rating, updated_at: row.updated_at };
+    // Group credit breakdowns by isin
+    const creditBreakdowns: Record<string, { credit_type: string; currency: string; weight: number; updated_at: string }[]> = {};
+    for (const row of creditRes.rows) {
+      if (!creditBreakdowns[row.isin]) creditBreakdowns[row.isin] = [];
+      creditBreakdowns[row.isin].push({
+        credit_type: row.credit_type,
+        currency: row.currency,
+        weight: row.weight,
+        updated_at: row.updated_at,
+      });
     }
 
     // Import log
@@ -89,7 +88,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const targetGrid: Record<string, any> = {};
     for (const row of targetGridRes.rows) {
       if (!targetGrid[row.grid_id]) targetGrid[row.grid_id] = {};
-      if (!targetGrid[row.grid_id][row.profile]) targetGrid[row.grid_id][row.profile] = {};
       targetGrid[row.grid_id][row.profile] = { bench: row.bench, target: row.target, active: row.active };
     }
 
@@ -99,7 +97,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       overrides: overridesRes.rows,
       breakdowns,
       currencyBreakdowns,
-      ratings,
+      creditBreakdowns,
       importLog,
       targetGrid,
     });
