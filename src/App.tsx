@@ -56,17 +56,17 @@ import {
   deleteBreakdown,
   saveCurrencyBreakdown,
   deleteCurrencyBreakdown,
-  saveRating,
-  deleteRating,
-  uploadPortfolios,
-  saveImportLogEntry,
-  uploadTargetGrid,
+  saveCreditBreakdown,
+  deleteCreditBreakdown,
   type BreakdownMap,
   type BreakdownEntry,
   type CurrencyBreakdownMap,
   type CurrencyBreakdownEntry,
-  type RatingValue,
-  type RatingsMap,
+  type CreditBreakdownMap,
+  type CreditBreakdownEntry,
+  type CreditType,
+  CREDIT_TYPES,
+  CREDIT_CURRENCIES,
   type BootstrapData,
 } from "./services/api";
 import { analyzePortfolio } from "./services/gemini";
@@ -100,17 +100,6 @@ const CURRENCY_COLORS: Record<string, string> = {
   JPY: "#f59e0b",
   Other: "#94a3b8",
 };
-
-const RATING_OPTIONS: RatingValue[] = ["Govies", "IG", "HY", "NR"];
-
-const RATING_STYLES: Record<RatingValue, { bg: string; text: string; badge: string }> = {
-  Govies: { bg: "bg-emerald-50",  text: "text-emerald-700", badge: "bg-emerald-100 text-emerald-700" },
-  IG:     { bg: "bg-sky-50",      text: "text-sky-700",     badge: "bg-sky-100 text-sky-700" },
-  HY:     { bg: "bg-amber-50",    text: "text-amber-700",   badge: "bg-amber-100 text-amber-700" },
-  NR:     { bg: "bg-slate-50",    text: "text-slate-500",   badge: "bg-slate-100 text-slate-500" },
-};
-
-const FIXED_INCOME_CATEGORIES = ["Fixed Income", "Bonds"];
 
 const PORTFOLIO_ORDER = [
   "Sicav - SCV_BDS", "Sicav - SCV_LOW", "Sicav - SCV_ML", "Sicav - SCV_MED",
@@ -216,8 +205,9 @@ export default function App() {
   const [currencyBreakdowns, setCurrencyBreakdowns] = useState<CurrencyBreakdownMap>({});
   const [editingCurrencyBreakdown, setEditingCurrencyBreakdown] = useState<{ isin: string; name: string; rows: CurrencyBreakdownEntry[] } | null>(null);
   const [currencyBreakdownSaving, setCurrencyBreakdownSaving] = useState(false);
-  const [ratings, setRatings] = useState<RatingsMap>({});
-  const [ratingSaving, setRatingSaving] = useState(false);
+  const [creditBreakdowns, setCreditBreakdowns] = useState<CreditBreakdownMap>({});
+  const [editingCreditBreakdown, setEditingCreditBreakdown] = useState<{ isin: string; name: string } | null>(null);
+  const [creditBreakdownSaving, setCreditBreakdownSaving] = useState(false);
   
   async function safeArray<T>(fn: () => Promise<T[]>): Promise<T[]> {
     try {
@@ -266,7 +256,7 @@ useEffect(() => {
       setManualOverrides(data.overrides ?? []);
       setBreakdowns(data.breakdowns ?? {});
       setCurrencyBreakdowns(data.currencyBreakdowns ?? {});
-      setRatings(data.ratings ?? {});
+      setCreditBreakdowns(data.creditBreakdowns ?? {});
       setImportLog(data.importLog);
       setTargetGridData(data.targetGrid ?? {});
 
@@ -332,7 +322,7 @@ const refreshData = async () => {
     setManualOverrides(data.overrides ?? []);
     setBreakdowns(data.breakdowns ?? {});
     setCurrencyBreakdowns(data.currencyBreakdowns ?? {});
-    setRatings(data.ratings ?? {});
+    setCreditBreakdowns(data.creditBreakdowns ?? {});
     setImportLog(data.importLog);
     setTargetGridData(data.targetGrid ?? {});
     if (selectedId != null) {
@@ -544,8 +534,10 @@ const refreshData = async () => {
     if (!h?.isin) return false;
     return (currencyBreakdowns[h.isin]?.length ?? 0) > 0;
   }
-function isFixedIncome(h: Holding | null): boolean {
-  return FIXED_INCOME_CATEGORIES.includes(h?.category ?? "");
+  
+  function hasCreditBreakdown(h: Holding | null): boolean {
+  if (!h?.isin) return false;
+  return (creditBreakdowns[h.isin]?.length ?? 0) > 0;
 }
   
   // ── Derived data ───────────────────────────────────────────────────────────
@@ -613,6 +605,33 @@ function isFixedIncome(h: Holding | null): boolean {
     });
   }, [currentPortfolio, currencyBreakdowns]);
 
+ // ── Credit exposure — agrégation par credit_type sur tout le portefeuille ──
+  const creditData = useMemo(() => {
+    const FIXED_INCOME_CATS = ["Fixed Income", "Bonds"];
+    const m = new Map<string, number>();
+    (currentPortfolio?.holdings ?? []).forEach((h) => {
+      if (!h || !FIXED_INCOME_CATS.includes(h.category ?? "")) return;
+      const cbd = h.isin ? creditBreakdowns[h.isin] : null;
+      if (cbd && cbd.length > 0) {
+        for (const entry of cbd) {
+          m.set(entry.credit_type, (m.get(entry.credit_type) ?? 0) + (h.weight ?? 0) * entry.weight / 100);
+        }
+      }
+    });
+    const order: CreditType[] = ["Govies", "IG", "HY", "NR", "EM Debt"];
+    return order
+      .filter(ct => (m.get(ct) ?? 0) > 0.01)
+      .map(ct => ({ name: ct, value: +((m.get(ct) ?? 0).toFixed(1)) }));
+  }, [currentPortfolio, creditBreakdowns]);
+ 
+  const CREDIT_COLORS: Record<string, string> = {
+    "Govies":  "#0ea5e9",
+    "IG":      "#10b981",
+    "HY":      "#f59e0b",
+    "NR":      "#94a3b8",
+    "EM Debt": "#8b5cf6",
+  };
+  
   const instrumentsSynthesis = useMemo(() => {
     const im = new Map<string, { name: string; isin: string; weights: Record<string, number>; details: Partial<Holding> }>();
     const names = allPortfolios.map((p) => p?.name).filter(Boolean) as string[];
@@ -1381,7 +1400,7 @@ function isFixedIncome(h: Holding | null): boolean {
                     </div>
 
                     {(currentPortfolio.holdings?.length ?? 0) > 0 ? (
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
                           <h3 className="text-lg font-bold mb-6 flex items-center gap-2"><PieChartIcon className="h-5 w-5 text-sky-600" />Allocation par Catégorie</h3>
                           <div className="h-[320px]">
@@ -1423,6 +1442,33 @@ function isFixedIncome(h: Holding | null): boolean {
                           </div>
                           <p className="text-center text-xs text-slate-400 mt-2 italic">Cliquez pour filtrer</p>
                         </div>
+                         <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+    <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
+      <TrendingUp className="h-5 w-5 text-violet-600" />Credit Quality
+    </h3>
+    {creditData.length === 0 ? (
+      <div className="flex items-center justify-center h-[280px] text-slate-300 text-sm italic">
+        Aucune décomposition crédit configurée
+      </div>
+    ) : (
+      <div className="h-[280px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={creditData} layout="vertical" margin={{ top: 0, right: 50, left: 10, bottom: 0 }}>
+            <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} tickFormatter={(v) => v + "%"} />
+            <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} width={70} />
+            <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "16px", border: "none" }} formatter={(v: number) => [v + "%", "Poids"]} />
+            <Bar dataKey="value" radius={[0, 8, 8, 0]}>
+              {creditData.map((entry, idx) => (
+                <Cell key={idx} fill={CREDIT_COLORS[entry.name] ?? "#94a3b8"} />
+              ))}
+              <LabelList dataKey="value" position="right" formatter={(v: number) => v + "%"} fill="#64748b" fontSize={11} />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    )}
+  </div>
+ 
                       </div>
                     ) : (
                       <div className="bg-white rounded-3xl border border-slate-100 p-12 text-center text-slate-400">Aucune position pour ce portefeuille.</div>
@@ -1582,12 +1628,9 @@ function isFixedIncome(h: Holding | null): boolean {
                 {hasManualOverride(selectedInstrument) && (
                   <span className="bg-amber-100 text-amber-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full tracking-widest uppercase">M</span>
                 )}
-                {selectedInstrument.isin && ratings[selectedInstrument.isin] && (
-  <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded-full tracking-widest uppercase",
-    RATING_STYLES[ratings[selectedInstrument.isin].rating as RatingValue]?.badge ?? "bg-slate-100 text-slate-500")}>
-    R
-  </span>
-)}
+  {hasCreditBreakdown(selectedInstrument) && (
+    <span className="bg-violet-100 text-violet-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full tracking-widest uppercase">C</span>
+  )}
               </div>
               <div className="flex items-center gap-4">
                 <div className="bg-sky-600 p-3 rounded-xl"><TrendingUp className="text-white h-6 w-6" /></div>
@@ -1610,40 +1653,68 @@ function isFixedIncome(h: Holding | null): boolean {
               ))}
             </div>
             {/* ← ÉTAPE 4 ICI */}
-            {isFixedIncome(selectedInstrument) && (
-              <div className="p-4 border border-slate-100 rounded-2xl">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Rating</p>
-                <div className="flex gap-2 flex-wrap">
-                  {RATING_OPTIONS.map((r) => {
-                    const current = selectedInstrument.isin ? ratings[selectedInstrument.isin]?.rating : null;
-                    const style = RATING_STYLES[r];
-                    const isActive = current === r;
-                    return (
-                      <button key={r} disabled={ratingSaving}
-                        onClick={async () => {
-                          if (!selectedInstrument.isin) return;
-                          setRatingSaving(true);
-                          try {
-                            if (isActive) {
-                              await deleteRating(selectedInstrument.isin);
-                            } else {
-                              await saveRating(selectedInstrument.isin, r);
-                            }
-                            const fresh = await fetchBootstrap();
-                            if (fresh) setRatings(fresh.ratings ?? {});
-                          } finally { setRatingSaving(false); }
-                        }}
-                        className={cn("px-3 py-1.5 rounded-xl text-xs font-bold transition-all border",
-                          isActive ? `${style.badge} border-current shadow-sm` : "bg-white text-slate-400 border-slate-200 hover:border-slate-300"
-                        )}>
-                        {r}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-            <div className="p-6 bg-sky-50 rounded-2xl border border-sky-100">
+ {["Fixed Income", "Bonds"].includes(selectedInstrument.category ?? "") && (
+    <div className="border border-slate-100 rounded-2xl overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-100">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Credit Quality Breakdown</p>
+        <button
+          onClick={() => setEditingCreditBreakdown({ isin: selectedInstrument.isin ?? "", name: selectedInstrument.asset_name ?? "" })}
+          className="flex items-center gap-1 text-xs font-bold text-violet-600 hover:text-violet-800 transition-colors">
+          <Edit2 className="h-3 w-3" />
+          {creditBreakdowns[selectedInstrument.isin ?? ""] ? "Modifier" : "Configurer"}
+        </button>
+      </div>
+      {!creditBreakdowns[selectedInstrument.isin ?? ""] ? (
+        <div className="px-4 py-6 text-center text-slate-400 text-sm italic">
+          Aucune décomposition configurée
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="bg-slate-50/50">
+                <th className="px-4 py-2 text-left font-bold text-slate-500 uppercase tracking-wider">Type</th>
+                {CREDIT_CURRENCIES.map(cur => (
+                  <th key={cur} className="px-3 py-2 text-right font-bold text-slate-500 uppercase tracking-wider">{cur}</th>
+                ))}
+                <th className="px-3 py-2 text-right font-bold text-slate-500 uppercase tracking-wider">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {CREDIT_TYPES.map(ct => {
+                const entries = (creditBreakdowns[selectedInstrument.isin ?? ""] ?? []).filter(e => e.credit_type === ct);
+                if (entries.length === 0) return null;
+                const totalCt = entries.reduce((s, e) => s + e.weight, 0);
+                return (
+                  <tr key={ct} className="hover:bg-slate-50/50">
+                    <td className="px-4 py-2 font-bold" style={{ color: CREDIT_COLORS[ct] ?? "#64748b" }}>{ct}</td>
+                    {CREDIT_CURRENCIES.map(cur => {
+                      const w = entries.find(e => e.currency === cur)?.weight ?? 0;
+                      return <td key={cur} className="px-3 py-2 text-right text-slate-600">{w > 0 ? w.toFixed(1) + "%" : "—"}</td>;
+                    })}
+                    <td className="px-3 py-2 text-right font-bold text-slate-900">{totalCt.toFixed(1)}%</td>
+                  </tr>
+                );
+              })}
+              <tr className="bg-slate-50/50 font-bold">
+                <td className="px-4 py-2 text-slate-700">Total</td>
+                {CREDIT_CURRENCIES.map(cur => {
+                  const total = (creditBreakdowns[selectedInstrument.isin ?? ""] ?? [])
+                    .filter(e => e.currency === cur)
+                    .reduce((s, e) => s + e.weight, 0);
+                  return <td key={cur} className="px-3 py-2 text-right text-slate-700">{total > 0 ? total.toFixed(1) + "%" : "—"}</td>;
+                })}
+                <td className="px-3 py-2 text-right text-slate-900">
+                  {(creditBreakdowns[selectedInstrument.isin ?? ""] ?? []).reduce((s, e) => s + e.weight, 0).toFixed(1)}%
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )}
+             <div className="p-6 bg-sky-50 rounded-2xl border border-sky-100">
               <p className="text-sm text-sky-800 leading-relaxed">Exposition à <strong>{selectedInstrument.category ?? "—"}</strong> dans la zone <strong>{selectedInstrument.region ?? "—"}</strong>.</p>
             </div>
           </div>
@@ -1799,6 +1870,111 @@ function isFixedIncome(h: Holding | null): boolean {
             </div>
           </div>
         )}
+      </Modal>
+
+           {/* ── Credit breakdown modal ── */}
+      <Modal isOpen={!!editingCreditBreakdown} onClose={() => setEditingCreditBreakdown(null)} title="Credit Quality Breakdown">
+        {editingCreditBreakdown && (() => {
+          const isin = editingCreditBreakdown.isin;
+          const existing = creditBreakdowns[isin] ?? [];
+          
+          // Build a local grid state: credit_type x currency → weight
+          const getWeight = (ct: CreditType, cur: string) =>
+            existing.find(e => e.credit_type === ct && e.currency === cur)?.weight ?? 0;
+          
+          const handleChange = async (ct: CreditType, cur: string, val: number) => {
+            // Mise à jour optimiste immédiate
+            const updated = existing.filter(e => !(e.credit_type === ct && e.currency === cur));
+            if (val > 0) updated.push({ credit_type: ct, currency: cur as CreditBreakdownEntry["currency"], weight: val });
+            setCreditBreakdowns(prev => ({ ...prev, [isin]: updated }));
+            // Sauvegarde en arrière-plan
+            setCreditBreakdownSaving(true);
+            try {
+              await saveCreditBreakdown(isin, updated);
+            } finally {
+              setCreditBreakdownSaving(false);
+            }
+          };
+ 
+          const total = existing.reduce((s, e) => s + e.weight, 0);
+ 
+          return (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-bold text-slate-900 truncate">{editingCreditBreakdown.name}</p>
+                  <p className="text-xs font-mono text-sky-600">{isin}</p>
+                </div>
+                <span className={cn("text-xs font-bold px-2 py-0.5 rounded-lg",
+                  Math.abs(total - 100) < 0.1 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600")}>
+                  Total : {total.toFixed(1)}%
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50">
+                      <th className="px-3 py-2 text-left font-bold text-slate-500 uppercase tracking-wider">Type</th>
+                      {CREDIT_CURRENCIES.map(cur => (
+                        <th key={cur} className="px-2 py-2 text-center font-bold text-slate-500 uppercase tracking-wider">{cur}</th>
+                      ))}
+                      <th className="px-2 py-2 text-right font-bold text-slate-500">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {CREDIT_TYPES.map(ct => {
+                      const rowTotal = CREDIT_CURRENCIES.reduce((s, cur) => s + getWeight(ct, cur), 0);
+                      return (
+                        <tr key={ct} className="hover:bg-slate-50/50">
+                          <td className="px-3 py-2 font-bold" style={{ color: CREDIT_COLORS[ct] ?? "#64748b" }}>{ct}</td>
+                          {CREDIT_CURRENCIES.map(cur => (
+                            <td key={cur} className="px-1 py-1">
+                              <input
+                                type="number"
+                                min={0} max={100} step={0.1}
+                                defaultValue={getWeight(ct, cur) || ""}
+                                placeholder="0"
+                                onBlur={(e) => handleChange(ct, cur, parseFloat(e.target.value) || 0)}
+                                className="w-16 px-2 py-1 text-right rounded-lg border border-slate-200 focus:ring-2 focus:ring-violet-400 outline-none text-slate-700"
+                              />
+                            </td>
+                          ))}
+                          <td className="px-2 py-2 text-right font-bold text-slate-900">
+                            {rowTotal > 0 ? rowTotal.toFixed(1) + "%" : "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {creditBreakdownSaving && (
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Sauvegarde…
+                </div>
+              )}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={async () => {
+                    setCreditBreakdowns(prev => { const n = { ...prev }; delete n[isin]; return n; });
+                    await deleteCreditBreakdown(isin);
+                    setEditingCreditBreakdown(null);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-rose-500 hover:bg-rose-50 transition-colors text-sm">
+                  <Trash2 className="h-4 w-4" /> Supprimer
+                </button>
+                <button
+                  onClick={() => setEditingCreditBreakdown(null)}
+                  className="flex-1 px-6 py-3 rounded-2xl font-bold bg-violet-600 text-white hover:bg-violet-700 transition-all text-sm text-center">
+                  Fermer
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-400 text-center italic">
+                Les modifications sont sauvegardées automatiquement à chaque champ.
+              </p>
+            </div>
+          );
+        })()}
       </Modal>
 
     </div>
