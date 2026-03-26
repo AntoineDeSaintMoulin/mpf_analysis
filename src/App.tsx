@@ -58,6 +58,9 @@ import {
   deleteCurrencyBreakdown,
   saveCreditBreakdown,
   deleteCreditBreakdown,
+  saveDuration,
+  deleteDuration,
+  type DurationsMap,
   type BreakdownMap,
   type BreakdownEntry,
   type CurrencyBreakdownMap,
@@ -208,6 +211,7 @@ export default function App() {
   const [creditBreakdowns, setCreditBreakdowns] = useState<CreditBreakdownMap>({});
   const [editingCreditBreakdown, setEditingCreditBreakdown] = useState<{ isin: string; name: string } | null>(null);
   const [creditBreakdownSaving, setCreditBreakdownSaving] = useState(false);
+  const [durations, setDurations] = useState<DurationsMap>({});
   
   async function safeArray<T>(fn: () => Promise<T[]>): Promise<T[]> {
     try {
@@ -257,6 +261,7 @@ useEffect(() => {
       setBreakdowns(data.breakdowns ?? {});
       setCurrencyBreakdowns(data.currencyBreakdowns ?? {});
       setCreditBreakdowns(data.creditBreakdowns ?? {});
+      setDurations(data.durations ?? {});
       setImportLog(data.importLog);
       setTargetGridData(data.targetGrid ?? {});
 
@@ -323,6 +328,7 @@ const refreshData = async () => {
     setBreakdowns(data.breakdowns ?? {});
     setCurrencyBreakdowns(data.currencyBreakdowns ?? {});
     setCreditBreakdowns(data.creditBreakdowns ?? {});
+    setDurations(data.durations ?? {});
     setImportLog(data.importLog);
     setTargetGridData(data.targetGrid ?? {});
     if (selectedId != null) {
@@ -1651,7 +1657,44 @@ const refreshData = async () => {
                   <div className="font-bold text-slate-900">{value || "—"}</div>
                 </div>
               ))}
-            </div>
+           </div>
+
+            {/* Duration — Fixed Income uniquement */}
+            {["Fixed Income", "Bonds"].includes(selectedInstrument.category ?? "") && (
+              <div className="p-4 border border-slate-100 rounded-2xl">
+                <div className="flex items-center gap-2 text-slate-400 mb-2">
+                  <Info className="h-4 w-4" />
+                  <span className="text-xs font-semibold uppercase tracking-wider">Duration</span>
+                </div>
+                <div className="flex items-end justify-between gap-2">
+                  <input
+                    type="number"
+                    step={0.01}
+                    min={0}
+                    placeholder="—"
+                    defaultValue={durations[selectedInstrument.isin ?? ""]?.duration ?? ""}
+                    onBlur={async (e) => {
+                      const val = parseFloat(e.target.value);
+                      if (!selectedInstrument.isin) return;
+                      if (isNaN(val)) {
+                        setDurations(prev => { const n = { ...prev }; delete n[selectedInstrument.isin!]; return n; });
+                        await deleteDuration(selectedInstrument.isin);
+                      } else {
+                        setDurations(prev => ({ ...prev, [selectedInstrument.isin!]: { duration: val, updated_at: new Date().toISOString() } }));
+                        await saveDuration(selectedInstrument.isin, val);
+                      }
+                    }}
+                    className="font-bold text-slate-900 bg-transparent outline-none w-20 border-b border-slate-200 focus:border-violet-400 transition-colors text-sm"
+                  />
+                  {durations[selectedInstrument.isin ?? ""]?.updated_at && (
+                    <span className="text-[10px] italic text-slate-400 shrink-0">
+                      maj {formatDate(durations[selectedInstrument.isin ?? ""].updated_at)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* ← ÉTAPE 4 ICI */}
  {["Fixed Income", "Bonds"].includes(selectedInstrument.category ?? "") && (
     <div className="border border-slate-100 rounded-2xl overflow-hidden">
