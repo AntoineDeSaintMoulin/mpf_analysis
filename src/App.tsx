@@ -1619,7 +1619,7 @@ const refreshData = async () => {
         </main>
       </div>
 
-      {/* ── Instrument modal — badges L, H, M ── */}
+      {/* ── Instrument modal — badges L, H, M, C ── */}
       <Modal isOpen={!!selectedInstrument} onClose={() => setSelectedInstrument(null)} title="Fiche Instrument">
         {selectedInstrument && (
           <div className="space-y-6">
@@ -1634,9 +1634,9 @@ const refreshData = async () => {
                 {hasManualOverride(selectedInstrument) && (
                   <span className="bg-amber-100 text-amber-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full tracking-widest uppercase">M</span>
                 )}
-  {hasCreditBreakdown(selectedInstrument) && (
-    <span className="bg-violet-100 text-violet-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full tracking-widest uppercase">C</span>
-  )}
+                {hasCreditBreakdown(selectedInstrument) && (
+                  <span className="bg-violet-100 text-violet-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full tracking-widest uppercase">C</span>
+                )}
               </div>
               <div className="flex items-center gap-4">
                 <div className="bg-sky-600 p-3 rounded-xl"><TrendingUp className="text-white h-6 w-6" /></div>
@@ -1657,43 +1657,41 @@ const refreshData = async () => {
                   <div className="font-bold text-slate-900">{value || "—"}</div>
                 </div>
               ))}
-           </div>
-
-            {/* Duration — Fixed Income uniquement */}
-            {["Fixed Income", "Bonds"].includes(selectedInstrument.category ?? "") && (
-              <div className="p-4 border border-slate-100 rounded-2xl">
-                <div className="flex items-center gap-2 text-slate-400 mb-2">
-                  <Info className="h-4 w-4" />
-                  <span className="text-xs font-semibold uppercase tracking-wider">Duration</span>
+              {["Fixed Income", "Bonds"].includes(selectedInstrument.category ?? "") && (
+                <div className="p-4 border border-slate-100 rounded-2xl">
+                  <div className="flex items-center gap-2 text-slate-400 mb-2">
+                    <Info className="h-4 w-4" />
+                    <span className="text-xs font-semibold uppercase tracking-wider">Duration</span>
+                  </div>
+                  <div className="flex items-end justify-between gap-2">
+                    <input
+                      type="number"
+                      step={0.01}
+                      min={0}
+                      placeholder="—"
+                      defaultValue={durations[selectedInstrument.isin ?? ""]?.duration ?? ""}
+                      onBlur={async (e) => {
+                        const val = parseFloat(e.target.value);
+                        if (!selectedInstrument.isin) return;
+                        if (isNaN(val)) {
+                          setDurations(prev => { const n = { ...prev }; delete n[selectedInstrument.isin!]; return n; });
+                          await deleteDuration(selectedInstrument.isin);
+                        } else {
+                          setDurations(prev => ({ ...prev, [selectedInstrument.isin!]: { duration: val, updated_at: new Date().toISOString() } }));
+                          await saveDuration(selectedInstrument.isin, val);
+                        }
+                      }}
+                      className="font-bold text-slate-900 bg-transparent outline-none w-20 border-b border-slate-200 focus:border-violet-400 transition-colors text-sm"
+                    />
+                    {durations[selectedInstrument.isin ?? ""]?.updated_at && (
+                      <span className="text-[10px] italic text-slate-400 shrink-0">
+                        maj {formatDate(durations[selectedInstrument.isin ?? ""].updated_at)}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-end justify-between gap-2">
-                  <input
-                    type="number"
-                    step={0.01}
-                    min={0}
-                    placeholder="—"
-                    defaultValue={durations[selectedInstrument.isin ?? ""]?.duration ?? ""}
-                    onBlur={async (e) => {
-                      const val = parseFloat(e.target.value);
-                      if (!selectedInstrument.isin) return;
-                      if (isNaN(val)) {
-                        setDurations(prev => { const n = { ...prev }; delete n[selectedInstrument.isin!]; return n; });
-                        await deleteDuration(selectedInstrument.isin);
-                      } else {
-                        setDurations(prev => ({ ...prev, [selectedInstrument.isin!]: { duration: val, updated_at: new Date().toISOString() } }));
-                        await saveDuration(selectedInstrument.isin, val);
-                      }
-                    }}
-                    className="font-bold text-slate-900 bg-transparent outline-none w-20 border-b border-slate-200 focus:border-violet-400 transition-colors text-sm"
-                  />
-                  {durations[selectedInstrument.isin ?? ""]?.updated_at && (
-                    <span className="text-[10px] italic text-slate-400 shrink-0">
-                      maj {formatDate(durations[selectedInstrument.isin ?? ""].updated_at)}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* ← ÉTAPE 4 ICI */}
  {["Fixed Income", "Bonds"].includes(selectedInstrument.category ?? "") && (
