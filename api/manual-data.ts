@@ -4,8 +4,8 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const resource = req.query.resource as string;
 
-  if (!["breakdown", "currency", "ratings", "credit"].includes(resource)) {
-    return res.status(400).json({ error: "resource doit être breakdown, currency, ratings ou credit" });
+  if (!["breakdown", "currency", "ratings", "credit", "duration"].includes(resource)) {
+    return res.status(400).json({ error: "resource doit être breakdown, currency, ratings, credit ou duration" });
   }
 
   // ── GET ────────────────────────────────────────────────────────────────────
@@ -70,6 +70,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         return res.json(grouped);
       }
+
+      if (resource === "duration") {
+        const result = await pool.query(`
+          SELECT isin, duration, updated_at
+          FROM instrument_duration
+          ORDER BY isin
+        `);
+        const map: Record<string, { duration: number; updated_at: string }> = {};
+        for (const row of result.rows) {
+          map[row.isin] = { duration: row.duration, updated_at: row.updated_at };
+        }
+        return res.json(map);
+      }
     } catch (e) {
       console.error(e);
       return res.status(500).json({ error: String(e) });
@@ -133,6 +146,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         return res.json({ success: true });
       }
+
+      if (resource === "duration") {
+        const { duration } = req.body as { duration: number };
+        if (duration == null) return res.status(400).json({ error: "duration requis" });
+        await pool.query(`
+          INSERT INTO instrument_duration (isin, duration)
+          VALUES ($1, $2)
+          ON CONFLICT (isin) DO UPDATE SET duration = $2, updated_at = NOW()
+        `, [isin, duration]);
+        return res.json({ success: true });
+      }
     } catch (e) {
       console.error(e);
       return res.status(500).json({ error: String(e) });
@@ -162,6 +186,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (resource === "credit") {
         await pool.query("DELETE FROM credit_breakdown WHERE isin = $1", [isin]);
+        return res.json({ success: true });
+      }
+
+      if (resource === "duration") {
+        await pool.query("DELETE FROM instrument_duration WHERE isin = $1", [isin]);
         return res.json({ success: true });
       }
     } catch (e) {
