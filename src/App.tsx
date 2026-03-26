@@ -629,7 +629,22 @@ const refreshData = async () => {
       .filter(ct => (m.get(ct) ?? 0) > 0.01)
       .map(ct => ({ name: ct, value: +((m.get(ct) ?? 0).toFixed(1)) }));
   }, [currentPortfolio, creditBreakdowns]);
- 
+
+const portfolioDuration = useMemo(() => {
+  const FIXED_INCOME_CATS = ["Fixed Income", "Bonds"];
+  let totalWeight = 0;
+  let weightedDuration = 0;
+  (currentPortfolio?.holdings ?? []).forEach((h) => {
+    if (!h || !FIXED_INCOME_CATS.includes(h.category ?? "")) return;
+    const dur = h.isin ? durations[h.isin]?.duration : null;
+    if (dur == null) return;
+    weightedDuration += (h.weight ?? 0) * dur / 100;
+    totalWeight += h.weight ?? 0;
+  });
+  if (totalWeight === 0) return null;
+  return +weightedDuration.toFixed(2);
+}, [currentPortfolio, durations]);
+  
   const CREDIT_COLORS: Record<string, string> = {
     "Govies":  "#0ea5e9",
     "IG":      "#10b981",
@@ -1366,8 +1381,8 @@ const refreshData = async () => {
                       </button>
                     </div>
 
-                    {/* ── Cards KPI : Actifs + Credit Quality + Currency ── */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* ── Cards KPI : Actifs + Duration + Credit Quality + Currency ── */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
 
                       {/* Actifs */}
                       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
@@ -1379,6 +1394,22 @@ const refreshData = async () => {
                         <div className="text-xs text-slate-400 mt-1">Instruments individuels</div>
                       </div>
 
+                      {/* Duration */}
+  <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+    <div className="flex items-center gap-3 mb-4">
+      <div className="bg-sky-100 p-2 rounded-xl"><TrendingUp className="h-5 w-5 text-sky-600" /></div>
+      <span className="text-sm font-semibold text-slate-500">Duration</span>
+    </div>
+    {portfolioDuration == null ? (
+      <div className="text-slate-400 text-sm italic">Aucune donnée</div>
+    ) : (
+      <>
+        <div className="text-3xl font-bold text-slate-900">{portfolioDuration}</div>
+        <div className="text-xs text-slate-400 mt-1">années (Fixed Income)</div>
+      </>
+    )}
+  </div>
+                      
                       {/* Credit Quality */}
                       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
                         <div className="flex items-center gap-3 mb-4">
