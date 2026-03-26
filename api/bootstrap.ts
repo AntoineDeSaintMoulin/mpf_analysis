@@ -13,6 +13,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       creditRes,
       importLogRes,
       targetGridRes,
+      durationRes,
     ] = await Promise.all([
       pool.query(`
         SELECT p.id, p.name, p.type, p.description,
@@ -41,6 +42,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       pool.query(`SELECT isin, credit_type, currency, weight, updated_at FROM credit_breakdown ORDER BY isin, credit_type, currency`),
       pool.query(`SELECT filename, imported_at FROM import_log ORDER BY imported_at DESC LIMIT 20`),
       pool.query(`SELECT grid_id, profile, bench, target, active FROM target_grid`),
+      pool.query(`SELECT isin, duration, updated_at FROM instrument_duration ORDER BY isin`),
     ]);
 
     // Group geo breakdowns by isin
@@ -67,6 +69,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         weight: row.weight,
         updated_at: row.updated_at,
       });
+    }
+
+    // Durations map
+    const durations: Record<string, { duration: number; updated_at: string }> = {};
+    for (const row of durationRes.rows) {
+      durations[row.isin] = { duration: row.duration, updated_at: row.updated_at };
     }
 
     // Import log
@@ -98,6 +106,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       breakdowns,
       currencyBreakdowns,
       creditBreakdowns,
+      durations,
       importLog,
       targetGrid,
     });
