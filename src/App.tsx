@@ -1655,15 +1655,22 @@ const refreshData = async () => {
             {/* ← ÉTAPE 4 ICI */}
  {["Fixed Income", "Bonds"].includes(selectedInstrument.category ?? "") && (
     <div className="border border-slate-100 rounded-2xl overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-100">
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Credit Quality Breakdown</p>
-        <button
-          onClick={() => setEditingCreditBreakdown({ isin: selectedInstrument.isin ?? "", name: selectedInstrument.asset_name ?? "" })}
-          className="flex items-center gap-1 text-xs font-bold text-violet-600 hover:text-violet-800 transition-colors">
-          <Edit2 className="h-3 w-3" />
-          {creditBreakdowns[selectedInstrument.isin ?? ""] ? "Modifier" : "Configurer"}
-        </button>
-      </div>
+     <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-100">
+  <div>
+    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Credit Quality Breakdown</p>
+    {creditBreakdowns[selectedInstrument.isin ?? ""]?.[0]?.updated_at && (
+      <p className="text-[10px] italic text-slate-400 mt-0.5">
+        maj {formatDate(creditBreakdowns[selectedInstrument.isin ?? ""][0].updated_at)}
+      </p>
+    )}
+  </div>
+  <button
+    onClick={() => setEditingCreditBreakdown({ isin: selectedInstrument.isin ?? "", name: selectedInstrument.asset_name ?? "" })}
+    className="flex items-center gap-1 text-xs font-bold text-violet-600 hover:text-violet-800 transition-colors">
+    <Edit2 className="h-3 w-3" />
+    {creditBreakdowns[selectedInstrument.isin ?? ""] ? "Modifier" : "Configurer"}
+  </button>
+</div>
       {!creditBreakdowns[selectedInstrument.isin ?? ""] ? (
         <div className="px-4 py-6 text-center text-slate-400 text-sm italic">
           Aucune décomposition configurée
