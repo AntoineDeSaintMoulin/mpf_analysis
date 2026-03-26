@@ -161,3 +161,22 @@ export async function uploadTargetGrid(rows: any[]): Promise<{ success: boolean 
   });
   return data ?? { success: false };
 }
+export type DurationsMap = Record<string, { duration: number; updated_at: string }>;
+
+export async function saveDuration(isin: string, duration: number): Promise<{ success: boolean }> {
+  const data = await safeFetch<{ success: boolean }>("/api/manual-data?resource=duration", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isin, duration }),
+  });
+  return data ?? { success: false };
+}
+
+export async function deleteDuration(isin: string): Promise<{ success: boolean }> {
+  const data = await safeFetch<{ success: boolean }>("/api/manual-data?resource=duration", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isin }),
+  });
+  return data ?? { success: false };
+}
