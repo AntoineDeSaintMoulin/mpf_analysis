@@ -40,6 +40,7 @@ export type BootstrapData = {
   breakdowns: BreakdownMap;
   currencyBreakdowns: CurrencyBreakdownMap;
   creditBreakdowns: CreditBreakdownMap;
+  durations: DurationsMap;
   importLog: {
     quick_valuation: { filename: string; imported_at: string } | null;
     samdp: { filename: string; imported_at: string }[];
