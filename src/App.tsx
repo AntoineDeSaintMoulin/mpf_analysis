@@ -231,7 +231,6 @@ const ALWAYS_DASH = new Set([
   "alt_conv", "alt_other",
   "fi_eur_gov_infl", "fi_usd_gov_infl",
   "fi_em_hard", "fi_global",
-  "st_eur", "st_usd", "st_other",
 ]);
 
 // Calcule le poids d'une ligne du target grid dans un portefeuille donné
@@ -362,8 +361,26 @@ function computePtfWeight(
       return total;
     }
 
-    case "short_term":
+case "short_term":
       return holdings.filter(h => ["Short Term", "Cash", "Liquidities"].includes(h?.category ?? "")).reduce((s, h) => s + (h.weight ?? 0), 0);
+
+    case "st_eur":
+      return holdings
+        .filter(h => ["Short Term", "Cash", "Liquidities"].includes(h?.category ?? ""))
+        .reduce((s, h) => (h.currency ?? "").toUpperCase() === "EUR" ? s + (h.weight ?? 0) : s, 0);
+
+    case "st_usd":
+      return holdings
+        .filter(h => ["Short Term", "Cash", "Liquidities"].includes(h?.category ?? ""))
+        .reduce((s, h) => (h.currency ?? "").toUpperCase() === "USD" ? s + (h.weight ?? 0) : s, 0);
+
+    case "st_other":
+      return holdings
+        .filter(h => ["Short Term", "Cash", "Liquidities"].includes(h?.category ?? ""))
+        .reduce((s, h) => !["EUR", "USD"].includes((h.currency ?? "").toUpperCase()) ? s + (h.weight ?? 0) : s, 0);
+
+    default:
+      return null;
 
     default:
       return null;
