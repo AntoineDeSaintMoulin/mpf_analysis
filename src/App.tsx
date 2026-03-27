@@ -685,32 +685,15 @@ useEffect(() => {
   })();
 }, []);
 
-  useEffect(() => {
-    if (selectedId == null) return;
-    (async () => {
-      setDetailLoading(true);
-      setAnalysis(null);
-      setDrillDownFilter(null);
-      setHoldingsSearch("");
-      setHoldingsSortConfig({ key: "weight", direction: "desc" });
-      try {
-        const details = await fetchPortfolioDetails(selectedId);
-        if (details && typeof details === "object" && (details as any).name) {
-          setCurrentPortfolio(details);
-        } else {
-          const fallback = portfolios.find((p) => p.id === selectedId) ?? allPortfolios.find((p) => p.id === selectedId) ?? null;
-          setCurrentPortfolio(fallback);
-          if (!fallback) setErrorMsg(`Impossible de charger le portefeuille (id=${selectedId}).`);
-        }
-      } catch (e) {
-        const fallback = portfolios.find((p) => p.id === selectedId) ?? allPortfolios.find((p) => p.id === selectedId) ?? null;
-        setCurrentPortfolio(fallback);
-        setErrorMsg("Erreur de chargement du portefeuille.");
-      } finally {
-        setDetailLoading(false);
-      }
-    })();
-  }, [selectedId]);
+useEffect(() => {
+  if (selectedId == null) return;
+  setAnalysis(null);
+  setDrillDownFilter(null);
+  setHoldingsSearch("");
+  setHoldingsSortConfig({ key: "weight", direction: "desc" });
+  const current = allPortfolios.find(p => p.id === selectedId) ?? null;
+  setCurrentPortfolio(current);
+}, [selectedId, allPortfolios]);
 
   useEffect(() => {
     if (activeTab !== "Sicav" && activeTab !== "Mixed") return;
