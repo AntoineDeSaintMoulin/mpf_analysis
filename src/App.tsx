@@ -576,7 +576,7 @@ function BreakdownDeviationTable({
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<Tab>("INSTRUMENTS");
+  const [activeTab, setActiveTab] = useState<Tab>("SYNTHESE");
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [allPortfolios, setAllPortfolios] = useState<Portfolio[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
