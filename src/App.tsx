@@ -168,6 +168,410 @@ function SortIcon({ active, direction }: { active: boolean; direction?: "asc" | 
   if (!active) return <ChevronsUpDown className="h-3 w-3 opacity-30" />;
   return direction === "asc" ? <ChevronUp className="h-3 w-3 text-sky-600" /> : <ChevronDown className="h-3 w-3 text-sky-600" />;
 }
+// ── Types locaux ──────────────────────────────────────────────────────────────
+type PortfolioType = "Sicav" | "Mixed";
+
+const PROFILE_ORDER_ALL = ["BDS", "LOW", "ML", "MED", "MH", "HIGH", "VH"] as const;
+type ProfileKey = typeof PROFILE_ORDER_ALL[number];
+
+// Profils visibles par défaut (sans BDS et VH)
+const PROFILE_DEFAULT_VISIBLE: ProfileKey[] = ["LOW", "ML", "MED", "MH", "HIGH"];
+
+// Mapping nom portefeuille → profil
+function portfolioToProfile(name: string): ProfileKey | null {
+  if (name.includes("_BDS")) return "BDS";
+  if (name.includes("_LOW")) return "LOW";
+  if (name.includes("_ML")) return "ML";
+  if (name.includes("_MED")) return "MED";
+  if (name.includes("_MH")) return "MH";
+  if (name.includes("_VH")) return "VH";
+  if (name.includes("_HIGH")) return "HIGH";
+  return null;
+}
+
+// Mapping profil portefeuille → profil target grid
+const PROFILE_TO_TARGET: Partial<Record<ProfileKey, string>> = {
+  LOW: "LOW", ML: "MEDLOW", MED: "MEDIUM", MH: "MEDHIGH", HIGH: "HIGH",
+};
+
+// Structure target grid (même que dans App)
+const TG_STRUCTURE: { id: string; label: string; level: 0 | 1 | 2; parent?: string }[] = [
+  { id: "equities", label: "Equities", level: 0 },
+    { id: "eq_europe", label: "Europe", level: 1, parent: "equities" },
+    { id: "eq_us", label: "United States", level: 1, parent: "equities" },
+    { id: "eq_em", label: "Emerging Markets", level: 1, parent: "equities" },
+    { id: "eq_japan", label: "Japan", level: 1, parent: "equities" },
+    { id: "eq_other", label: "Other", level: 1, parent: "equities" },
+  { id: "alternatives", label: "Alternatives", level: 0 },
+    { id: "alt_conv", label: "Convertible Bonds", level: 1, parent: "alternatives" },
+    { id: "alt_gold", label: "Gold", level: 1, parent: "alternatives" },
+    { id: "alt_other", label: "Other Alternatives", level: 1, parent: "alternatives" },
+  { id: "fixed_income", label: "Fixed Income", level: 0 },
+    { id: "fi_eur", label: "Bonds EUR Exposure", level: 1, parent: "fixed_income" },
+      { id: "fi_eur_gov", label: "EUR Govies", level: 2, parent: "fi_eur" },
+      { id: "fi_eur_gov_infl", label: "EUR Govies Infl. Linked", level: 2, parent: "fi_eur" },
+      { id: "fi_eur_ig", label: "EUR IG Credit", level: 2, parent: "fi_eur" },
+      { id: "fi_eur_hy", label: "EUR High Yield", level: 2, parent: "fi_eur" },
+    { id: "fi_usd", label: "Bonds USD Exposure", level: 1, parent: "fixed_income" },
+      { id: "fi_usd_gov", label: "USD Govies", level: 2, parent: "fi_usd" },
+      { id: "fi_usd_gov_infl", label: "USD Govies Infl. Linked", level: 2, parent: "fi_usd" },
+      { id: "fi_usd_ig", label: "USD IG Credit", level: 2, parent: "fi_usd" },
+      { id: "fi_usd_hy", label: "USD High Yield", level: 2, parent: "fi_usd" },
+    { id: "fi_em_local", label: "EM Debt (Local Currency)", level: 1, parent: "fixed_income" },
+    { id: "fi_em_hard", label: "EM Debt (Hard Currency)", level: 1, parent: "fixed_income" },
+    { id: "fi_global", label: "Global Fixed Income", level: 1, parent: "fixed_income" },
+  { id: "short_term", label: "Short Term", level: 0 },
+    { id: "st_eur", label: "EUR", level: 1, parent: "short_term" },
+    { id: "st_usd", label: "USD", level: 1, parent: "short_term" },
+    { id: "st_other", label: "Other FX", level: 1, parent: "short_term" },
+];
+
+// Lignes qui ont toujours — (pas de calcul possible)
+const ALWAYS_DASH = new Set([
+  "alt_conv", "alt_other",
+  "fi_eur_gov_infl", "fi_usd_gov_infl",
+  "fi_em_hard", "fi_global",
+  "st_eur", "st_usd", "st_other",
+]);
+
+// Calcule le poids d'une ligne du target grid dans un portefeuille donné
+function computePtfWeight(
+  gridId: string,
+  holdings: any[],
+  breakdowns: Record<string, any[]>,
+  creditBreakdowns: Record<string, any[]>
+): number | null {
+  if (ALWAYS_DASH.has(gridId)) return null;
+
+  const FI_CATS = ["Fixed Income", "Bonds"];
+
+  const normalizeRegion = (r: string) => {
+    if (["Europe", "Europe ex-Euroland", "Euroland"].includes(r)) return "Europe";
+    if (["US", "North America"].includes(r)) return "US";
+    if (["Emerging and Frontier Markets", "Emerging Markets"].includes(r)) return "EM";
+    if (["Other"].includes(r)) return "Others";
+    return r;
+  };
+
+  switch (gridId) {
+    case "equities":
+      return holdings.filter(h => h?.category === "Equities").reduce((s, h) => s + (h.weight ?? 0), 0);
+
+    case "eq_europe": case "eq_us": case "eq_em": case "eq_japan": case "eq_other": {
+      const regionMap: Record<string, string> = { eq_europe: "Europe", eq_us: "US", eq_em: "EM", eq_japan: "Japan", eq_other: "Others" };
+      const targetRegion = regionMap[gridId];
+      let total = 0;
+      holdings.filter(h => h?.category === "Equities").forEach(h => {
+        const bd = h.isin ? breakdowns[h.isin] : null;
+        if (bd && bd.length > 0) {
+          bd.forEach((e: any) => { if (normalizeRegion(e.region) === targetRegion) total += (h.weight ?? 0) * e.weight / 100; });
+        } else {
+          if (normalizeRegion(h.region ?? "") === targetRegion) total += h.weight ?? 0;
+        }
+      });
+      return total;
+    }
+
+    case "alternatives":
+      return holdings.filter(h => h?.category === "Alternatives" || h?.category === "Gold").reduce((s, h) => s + (h.weight ?? 0), 0);
+
+    case "alt_gold":
+      return holdings.filter(h => h?.category === "Gold").reduce((s, h) => s + (h.weight ?? 0), 0);
+
+    case "fixed_income":
+      return holdings.filter(h => FI_CATS.includes(h?.category ?? "")).reduce((s, h) => s + (h.weight ?? 0), 0);
+
+    case "fi_eur": {
+      let total = 0;
+      holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
+        const cbd = h.isin ? creditBreakdowns[h.isin] : null;
+        if (cbd) cbd.filter((e: any) => e.currency === "EUR").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+      });
+      return total;
+    }
+
+    case "fi_eur_gov": {
+      let total = 0;
+      holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
+        const cbd = h.isin ? creditBreakdowns[h.isin] : null;
+        if (cbd) cbd.filter((e: any) => e.credit_type === "Govies" && e.currency === "EUR").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+      });
+      return total;
+    }
+
+    case "fi_eur_ig": {
+      let total = 0;
+      holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
+        const cbd = h.isin ? creditBreakdowns[h.isin] : null;
+        if (cbd) cbd.filter((e: any) => e.credit_type === "IG" && e.currency === "EUR").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+      });
+      return total;
+    }
+
+    case "fi_eur_hy": {
+      let total = 0;
+      holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
+        const cbd = h.isin ? creditBreakdowns[h.isin] : null;
+        if (cbd) cbd.filter((e: any) => e.credit_type === "HY" && e.currency === "EUR").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+      });
+      return total;
+    }
+
+    case "fi_usd": {
+      let total = 0;
+      holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
+        const cbd = h.isin ? creditBreakdowns[h.isin] : null;
+        if (cbd) cbd.filter((e: any) => e.currency === "USD").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+      });
+      return total;
+    }
+
+    case "fi_usd_gov": {
+      let total = 0;
+      holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
+        const cbd = h.isin ? creditBreakdowns[h.isin] : null;
+        if (cbd) cbd.filter((e: any) => e.credit_type === "Govies" && e.currency === "USD").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+      });
+      return total;
+    }
+
+    case "fi_usd_ig": {
+      let total = 0;
+      holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
+        const cbd = h.isin ? creditBreakdowns[h.isin] : null;
+        if (cbd) cbd.filter((e: any) => e.credit_type === "IG" && e.currency === "USD").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+      });
+      return total;
+    }
+
+    case "fi_usd_hy": {
+      let total = 0;
+      holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
+        const cbd = h.isin ? creditBreakdowns[h.isin] : null;
+        if (cbd) cbd.filter((e: any) => e.credit_type === "HY" && e.currency === "USD").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+      });
+      return total;
+    }
+
+    case "fi_em_local": {
+      let total = 0;
+      holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
+        const cbd = h.isin ? creditBreakdowns[h.isin] : null;
+        if (cbd) cbd.filter((e: any) => e.credit_type === "EM Debt").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+      });
+      return total;
+    }
+
+    case "short_term":
+      return holdings.filter(h => ["Short Term", "Cash", "Liquidities"].includes(h?.category ?? "")).reduce((s, h) => s + (h.weight ?? 0), 0);
+
+    default:
+      return null;
+  }
+}
+
+function BreakdownDeviationTable({
+  allPortfolios,
+  targetGridData,
+  breakdowns,
+  creditBreakdowns,
+}: {
+  allPortfolios: any[];
+  targetGridData: Record<string, any>;
+  breakdowns: Record<string, any[]>;
+  creditBreakdowns: Record<string, any[]>;
+}) {
+  const [portfolioType, setPortfolioType] = React.useState<PortfolioType>("Sicav");
+  const [showBDS, setShowBDS] = React.useState(false);
+  const [showVH, setShowVH] = React.useState(false);
+  const [collapsedRows, setCollapsedRows] = React.useState<Set<string>>(new Set());
+
+  const cn = (...classes: (string | undefined | false | null)[]) => classes.filter(Boolean).join(" ");
+
+  // Portefeuilles filtrés par type, triés par profil
+  const portfoliosByProfile = React.useMemo(() => {
+    const map: Partial<Record<ProfileKey, any>> = {};
+    allPortfolios
+      .filter(p => p?.type === portfolioType)
+      .forEach(p => {
+        const profile = portfolioToProfile(p.name ?? "");
+        if (profile) map[profile] = p;
+      });
+    return map;
+  }, [allPortfolios, portfolioType]);
+
+  // Profils visibles selon les toggles
+  const visibleProfiles = React.useMemo(() => {
+    return PROFILE_ORDER_ALL.filter(p => {
+      if (p === "BDS") return showBDS;
+      if (p === "VH") return showVH;
+      return PROFILE_DEFAULT_VISIBLE.includes(p);
+    });
+  }, [showBDS, showVH]);
+
+  const fmt = (v: number | null) => v == null ? "—" : v.toFixed(1) + "%";
+
+  return (
+    <div className="space-y-4">
+      {/* Controls */}
+      <div className="flex items-center gap-4">
+        {/* Dropdown type */}
+        <div className="flex items-center bg-slate-100 p-1 rounded-xl">
+          {(["Sicav", "Mixed"] as PortfolioType[]).map(t => (
+            <button key={t} onClick={() => setPortfolioType(t)}
+              className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition-all",
+                portfolioType === t ? "bg-white text-sky-700 shadow-sm" : "text-slate-500 hover:text-slate-700")}>
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {/* Toggle BDS */}
+        <button onClick={() => setShowBDS(v => !v)}
+          className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border",
+            showBDS ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-500 border-slate-200 hover:border-slate-300")}>
+          {showBDS ? "← Masquer BDS" : "← Afficher BDS"}
+        </button>
+
+        {/* Toggle VH */}
+        <button onClick={() => setShowVH(v => !v)}
+          className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border",
+            showVH ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-500 border-slate-200 hover:border-slate-300")}>
+          {showVH ? "Masquer VH →" : "Afficher VH →"}
+        </button>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+        <div style={{ overflowX: "auto" }}>
+          <table className="w-full text-left border-collapse">
+            <thead>
+              {/* Row 1 : profils */}
+              <tr className="bg-slate-50/50">
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 min-w-[260px]">Catégorie</th>
+                {visibleProfiles.map(profile => (
+                  <th key={profile} colSpan={3}
+                    className={cn("px-2 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center border-l border-slate-100",
+                      profile === "BDS" ? "bg-slate-50" : "")}>
+                    {profile}
+                  </th>
+                ))}
+              </tr>
+              {/* Row 2 : Target / Ptf / Active */}
+              <tr className="bg-slate-50/30 border-b border-slate-100">
+                <th className="px-6 py-2 sticky left-0 bg-slate-50/30 z-10" />
+                {visibleProfiles.map(profile => (
+                  ["Target", "Ptf", "Active"].map(col => (
+                    <th key={`${profile}-${col}`}
+                      className={cn(
+                        "px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-center min-w-[68px]",
+                        col === "Target" && "border-l border-slate-100 text-emerald-600 bg-emerald-50/40",
+                        col === "Ptf" && "text-sky-600",
+                        col === "Active" && "text-violet-500",
+                      )}>
+                      {col}
+                    </th>
+                  ))
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {TG_STRUCTURE.map(row => {
+                // Gestion collapse
+                if (row.parent && collapsedRows.has(row.parent)) return null;
+                if (row.level === 2 && row.parent) {
+                  const grandParent = TG_STRUCTURE.find(r => r.id === row.parent)?.parent;
+                  if (grandParent && collapsedRows.has(grandParent)) return null;
+                }
+
+                const isCollapsed = collapsedRows.has(row.id);
+                const hasChildren = TG_STRUCTURE.some(r => r.parent === row.id);
+                const bgColor = row.level === 0 ? "bg-slate-800" : row.level === 1 ? "bg-slate-50/80" : "bg-white";
+                const textColor = row.level === 0 ? "text-white" : "text-slate-900";
+                const indent = row.level === 1 ? "pl-10" : row.level === 2 ? "pl-16" : "pl-6";
+
+                return (
+                  <tr key={row.id} className={cn("transition-colors", row.level === 0 ? bgColor : "hover:bg-slate-50/50")}>
+                    {/* Label */}
+                    <td className={cn("px-6 py-3 sticky left-0 z-10 font-medium", bgColor, textColor, indent)}>
+                      <div className="flex items-center gap-2">
+                        {hasChildren && (
+                          <button
+                            onClick={() => setCollapsedRows(prev => {
+                              const next = new Set(prev);
+                              next.has(row.id) ? next.delete(row.id) : next.add(row.id);
+                              return next;
+                            })}
+                            className={cn("p-0.5 rounded transition-colors", row.level === 0 ? "hover:bg-white/20" : "hover:bg-slate-200")}>
+                            {isCollapsed
+                              ? <ChevronRight className={cn("h-3.5 w-3.5", row.level === 0 ? "text-white/70" : "text-slate-400")} />
+                              : <ChevronDown className={cn("h-3.5 w-3.5", row.level === 0 ? "text-white/70" : "text-slate-400")} />}
+                          </button>
+                        )}
+                        <span className={cn(
+                          row.level === 0 ? "text-sm font-bold tracking-wide uppercase" :
+                          row.level === 1 ? "text-sm font-semibold" : "text-xs text-slate-600"
+                        )}>{row.label}</span>
+                      </div>
+                    </td>
+
+                    {/* Colonnes par profil */}
+                    {visibleProfiles.map(profile => {
+                      const ptf = portfoliosByProfile[profile];
+                      const targetProfileKey = PROFILE_TO_TARGET[profile];
+
+                      // Target depuis target grid
+                      const targetVal = targetProfileKey
+                        ? targetGridData[row.id]?.[targetProfileKey]?.target ?? null
+                        : null;
+
+                      // Ptf calculé
+                      const ptfVal = ptf
+                        ? computePtfWeight(row.id, ptf.holdings ?? [], breakdowns, creditBreakdowns)
+                        : null;
+
+                      // Active = Ptf - Target
+                      const activeVal = ptfVal != null && targetVal != null
+                        ? +(ptfVal - targetVal).toFixed(1)
+                        : null;
+
+                      const isPos = (activeVal ?? 0) > 0;
+                      const isNeg = (activeVal ?? 0) < 0;
+
+                      return ["Target", "Ptf", "Active"].map(col => {
+                        let displayVal: number | null = null;
+                        if (col === "Target") displayVal = targetVal;
+                        if (col === "Ptf") displayVal = ptfVal;
+                        if (col === "Active") displayVal = activeVal;
+
+                        return (
+                          <td key={`${profile}-${col}`}
+                            className={cn(
+                              "px-3 py-3 text-right text-xs font-medium min-w-[68px]",
+                              col === "Target" && "border-l border-slate-100 bg-emerald-50/40",
+                              row.level === 0
+                                ? "text-white/80"
+                                : col === "Active"
+                                  ? (isPos ? "text-emerald-600 font-bold" : isNeg ? "text-rose-600 font-bold" : "text-slate-400")
+                                  : col === "Ptf"
+                                    ? "text-sky-700 font-medium"
+                                    : "text-slate-600"
+                            )}>
+                            {displayVal != null ? displayVal.toFixed(1) + "%" : "—"}
+                          </td>
+                        );
+                      });
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>("INSTRUMENTS");
@@ -874,61 +1278,30 @@ const portfolioDuration = useMemo(() => {
         <main className="flex-1 overflow-y-auto p-10 bg-slate-50/50">
           <AnimatePresence mode="wait">
 
-            {/* ── SYNTHESE GEO ── */}
+                       {/* ── BREAKDOWN DEVIATION ── */}
             {activeTab === "SYNTHESE" && (
               <motion.div key="synthese" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-7xl mx-auto space-y-8">
                 <div className="flex items-center justify-between mb-8">
                   <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Synthèse Géographique</h2>
-                    <p className="text-slate-500">Vue d'ensemble de l'exposition régionale pour tous les portefeuilles modèles.</p>
+                    <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Breakdown Deviation</h2>
+                    <p className="text-slate-500">Comparaison allocation portefeuille vs target grid par profil.</p>
                   </div>
                   <div className="bg-sky-100 p-3 rounded-2xl"><Globe className="h-6 w-6 text-sky-600" /></div>
                 </div>
-                {sortedPortfolios.length === 0
-                  ? <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">Aucune donnée. Importez un CSV.</div>
-                  : (
-                    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-                      <div className="overflow-x-auto [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-slate-50 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300 flex flex-col-reverse">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="bg-slate-50/50">
-                              <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 min-w-[180px]">Portefeuille</th>
-                              <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
-                              {synthesisRegions.map((r) => (
-                                <th key={r} className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right whitespace-nowrap">{r}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-50">
-                            {synthesisData.map((row, i) => (
-                              <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                                <td className="px-8 py-5 font-bold text-slate-900 sticky left-0 bg-white">{row.name}</td>
-                                <td className="px-8 py-5">
-                                  <span className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
-                                    row.type === "Sicav" ? "bg-purple-50 text-purple-700" : "bg-amber-50 text-amber-700")}>
-                                    {row.type}
-                                  </span>
-                                </td>
-                                {synthesisRegions.map((r) => {
-                                  const w = Number(row[r] ?? 0);
-                                  return (
-                                    <td key={r} className="px-6 py-5 text-right font-medium text-slate-600">
-                                      <div className="flex flex-col items-end gap-1">
-                                        <span>{w > 0 ? `${w.toFixed(1)}%` : "—"}</span>
-                                        {w > 0 && <div className="w-16 h-1 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-sky-500" style={{ width: `${Math.min(100, w)}%` }} /></div>}
-                                      </div>
-                                    </td>
-                                  );
-                                })}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
+
+                {sortedPortfolios.length === 0 ? (
+                  <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">Aucune donnée. Importez un CSV.</div>
+                ) : (
+                  <BreakdownDeviationTable
+                    allPortfolios={allPortfolios}
+                    targetGridData={targetGridData}
+                    breakdowns={breakdowns}
+                    creditBreakdowns={creditBreakdowns}
+                  />
+                )}
               </motion.div>
             )}
+
 
             {/* ── INSTRUMENTS ── */}
             {activeTab === "INSTRUMENTS" && (
