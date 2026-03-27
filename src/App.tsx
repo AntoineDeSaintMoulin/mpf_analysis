@@ -443,7 +443,8 @@ function BreakdownDeviationTable({
 
       {/* Table */}
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-        <div style={{ overflowX: "auto" }}>
+        <div style={{ transform: "rotateX(180deg)", overflowX: "auto" }}>
+  <div style={{ transform: "rotateX(180deg)" }}>
           <table className="w-full text-left border-collapse">
             <thead>
               {/* Row 1 : profils */}
@@ -567,6 +568,7 @@ function BreakdownDeviationTable({
               })}
             </tbody>
           </table>
+        </div>
         </div>
       </div>
     </div>
@@ -1230,7 +1232,7 @@ const portfolioDuration = useMemo(() => {
         </div>
         <div className="flex items-center bg-slate-100 p-1 rounded-xl">
           {(["SYNTHESE", "INSTRUMENTS", "TARGET_GRID", "Sicav", "Mixed", "MANUALS"] as Tab[]).map((tab) => {
-            const labels: Record<Tab, string> = { SYNTHESE: "Synthèse Géo", INSTRUMENTS: "Synthèse Instruments", TARGET_GRID: "Target Grid", Sicav: "Sicav", Mixed: "Mixed", MANUALS: "Manuals" };
+            const labels: Record<Tab, string> = { SYNTHESE: "Breakdown Deviation", INSTRUMENTS: "Synthèse Instruments", TARGET_GRID: "Target Grid", Sicav: "Sicav", Mixed: "Mixed", MANUALS: "Manuals" };
             const showDate = ["SYNTHESE", "Sicav", "Mixed", "TARGET_GRID"].includes(tab);
             const latestDate = (() => {
               if (!showDate) return null;
