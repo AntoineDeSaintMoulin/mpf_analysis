@@ -378,10 +378,6 @@ case "short_term":
       return holdings
         .filter(h => ["Short Term", "Cash", "Liquidities"].includes(h?.category ?? ""))
         .reduce((s, h) => !["EUR", "USD"].includes((h.currency ?? "").toUpperCase()) ? s + (h.weight ?? 0) : s, 0);
-
-    default:
-      return null;
-
     default:
       return null;
   }
