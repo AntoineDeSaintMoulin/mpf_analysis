@@ -631,6 +631,7 @@ export default function App() {
   const [editingCreditBreakdown, setEditingCreditBreakdown] = useState<{ isin: string; name: string } | null>(null);
   const [creditBreakdownSaving, setCreditBreakdownSaving] = useState(false);
   const [durations, setDurations] = useState<DurationsMap>({});
+  const [showDurationDetail, setShowDurationDetail] = useState(false);
   
   async function safeArray<T>(fn: () => Promise<T[]>): Promise<T[]> {
     try {
@@ -1766,7 +1767,8 @@ const portfolioDuration = useMemo(() => {
                       </div>
 
                       {/* Duration */}
-  <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+<div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm cursor-pointer hover:border-sky-200 hover:shadow-md transition-all"
+  onClick={() => setShowDurationDetail(true)}>
     <div className="flex items-center gap-3 mb-4">
       <div className="bg-sky-100 p-2 rounded-xl"><TrendingUp className="h-5 w-5 text-sky-600" /></div>
       <span className="text-sm font-semibold text-slate-500">Duration</span>
@@ -2427,6 +2429,54 @@ const portfolioDuration = useMemo(() => {
         })()}
       </Modal>
 
+      {/* ── Duration detail modal ── */}
+<Modal isOpen={showDurationDetail} onClose={() => setShowDurationDetail(false)} title="Détail Duration">
+  {currentPortfolio && (
+    <div className="space-y-4">
+      <p className="text-xs text-slate-500 italic">Duration moyenne pondérée des instruments Fixed Income.</p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse text-sm">
+          <thead>
+            <tr className="bg-slate-50/50 border-b border-slate-100">
+              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Instrument</th>
+              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Poids</th>
+              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Duration</th>
+              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Contribution</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {(currentPortfolio.holdings ?? [])
+              .filter(h => ["Fixed Income", "Bonds"].includes(h?.category ?? "") && h?.isin && durations[h.isin])
+              .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0))
+              .map((h, i) => {
+                const dur = durations[h.isin!].duration;
+                const contribution = (h.weight ?? 0) * dur / 100;
+                return (
+                  <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-4 py-3 font-medium text-slate-900 truncate max-w-[200px]">{h.asset_name ?? "—"}</td>
+                    <td className="px-4 py-3 text-right text-slate-600">{(h.weight ?? 0).toFixed(2)}%</td>
+                    <td className="px-4 py-3 text-right text-slate-600">{dur.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-sky-600">{contribution.toFixed(2)}</td>
+                  </tr>
+                );
+              })}
+          </tbody>
+          <tfoot>
+            <tr className="bg-slate-50 border-t border-slate-200">
+              <td colSpan={3} className="px-4 py-3 font-bold text-slate-700 text-right">Duration totale</td>
+              <td className="px-4 py-3 text-right font-bold text-slate-900">
+                {portfolioDuration != null ? portfolioDuration.toFixed(2) : "—"}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <p className="text-[10px] text-slate-400 italic text-center">
+        Contribution = Poids × Duration / 100
+      </p>
+    </div>
+  )}
+</Modal>
     </div>
   );
 }
