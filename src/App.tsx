@@ -1877,7 +1877,12 @@ const weightedDuration = fiHoldings.reduce((s, h) => {
                           <p className="text-center text-xs text-slate-400 mt-2 italic">Cliquez pour filtrer</p>
                         </div>
                         <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
-                          <h3 className="text-lg font-bold mb-8 flex items-center gap-2"><Globe className="h-5 w-5 text-amber-600" />Exposition Régionale</h3>
+                          <div className="flex items-center justify-between mb-8">
+  <h3 className="text-lg font-bold flex items-center gap-2"><Globe className="h-5 w-5 text-amber-600" />Exposition Régionale</h3>
+  <span className="text-2xl font-bold text-sky-600">
+    {regionData.reduce((s, d) => s + d.value, 0).toFixed(1)}%
+  </span>
+</div>
                           <div className="h-[320px]">
                             <ResponsiveContainer width="100%" height="100%">
                               <BarChart data={regionData} margin={{ top: 20, right: 10, left: 0, bottom: 0 }} onClick={(d: any) => d?.activeLabel && setDrillDownFilter({ type: "region", value: d.activeLabel })}>
