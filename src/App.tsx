@@ -1035,18 +1035,17 @@ const refreshData = async () => {
   }, [currentPortfolio, creditBreakdowns]);
 
 const portfolioDuration = useMemo(() => {
-  const FIXED_INCOME_CATS = ["Fixed Income", "Bonds"];
-  let totalWeight = 0;
-  let weightedDuration = 0;
-  (currentPortfolio?.holdings ?? []).forEach((h) => {
-    if (!h || !FIXED_INCOME_CATS.includes(h.category ?? "")) return;
-    const dur = h.isin ? durations[h.isin]?.duration : null;
-    if (dur == null) return;
-    weightedDuration += (h.weight ?? 0) * dur / 100;
-    totalWeight += h.weight ?? 0;
-  });
+  const FIXED_INCOME_CATS = ["Fixed Income", "Bonds", "Liquidities"];
+  const fiHoldings = (currentPortfolio?.holdings ?? []).filter(h =>
+    h && FIXED_INCOME_CATS.includes(h.category ?? "") && h.isin && durations[h.isin]
+  );
+  const totalWeight = fiHoldings.reduce((s, h) => s + (h.weight ?? 0), 0);
   if (totalWeight === 0) return null;
-  return +weightedDuration.toFixed(2);
+  const weightedDuration = fiHoldings.reduce((s, h) => {
+    const dur = durations[h.isin!].duration;
+    return s + (h.weight ?? 0) * dur;
+  }, 0);
+  return +(weightedDuration / totalWeight).toFixed(2);
 }, [currentPortfolio, durations]);
   
   const CREDIT_COLORS: Record<string, string> = {
@@ -2522,7 +2521,12 @@ const portfolioDuration = useMemo(() => {
               .sort((a, b) => b.exposition - a.exposition)
               .map(({ h, curWeight, exposition }, i) => (
                 <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-4 py-3 font-medium text-slate-900 truncate max-w-[180px]">{h.asset_name ?? "—"}</td>
+                  <td className="px-4 py-3 font-medium truncate max-w-[180px]">
+  <button onClick={() => { setShowCurrencyDetail(null); setSelectedInstrument(h); }}
+    className="text-sky-600 hover:underline font-bold text-left">
+    {h.asset_name ?? "—"}
+  </button>
+</td>
                   <td className="px-4 py-3 text-right text-slate-600">{(h.weight ?? 0).toFixed(2)}%</td>
                   <td className="px-4 py-3 text-right text-slate-500">{curWeight.toFixed(1)}%</td>
                   <td className="px-4 py-3 text-right font-bold text-emerald-600">{exposition.toFixed(2)}%</td>
