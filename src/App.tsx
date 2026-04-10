@@ -632,6 +632,7 @@ export default function App() {
   const [creditBreakdownSaving, setCreditBreakdownSaving] = useState(false);
   const [durations, setDurations] = useState<DurationsMap>({});
   const [showDurationDetail, setShowDurationDetail] = useState(false);
+  const [showCurrencyDetail, setShowCurrencyDetail] = useState<string | null>(null);
   
   async function safeArray<T>(fn: () => Promise<T[]>): Promise<T[]> {
     try {
@@ -1820,7 +1821,10 @@ const portfolioDuration = useMemo(() => {
                             {currencyData.map(({ label, value }) => (
                               <div key={label}
                                 className="flex items-center gap-3 cursor-pointer group"
-                                onClick={() => setDrillDownFilter({ type: "currency", value: label })}>
+                               onClick={() => {
+                                setDrillDownFilter({ type: "currency", value: label });
+                                setShowCurrencyDetail(label);
+                                }}>
                                 <span className="text-xs font-bold text-slate-500 w-9 shrink-0 group-hover:text-slate-800 transition-colors">{label}</span>
                                 <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
                                   <div className="h-full rounded-full transition-all group-hover:opacity-75"
@@ -2473,6 +2477,70 @@ const portfolioDuration = useMemo(() => {
       </div>
       <p className="text-[10px] text-slate-400 italic text-center">
         Contribution = Poids × Duration / 100
+      </p>
+    </div>
+  )}
+</Modal>
+      {/* ── Currency detail modal ── */}
+<Modal isOpen={!!showCurrencyDetail} onClose={() => setShowCurrencyDetail(null)} title={`Exposition ${showCurrencyDetail}`}>
+  {currentPortfolio && showCurrencyDetail && (
+    <div className="space-y-4">
+      <p className="text-xs text-slate-500 italic">
+        Détail du calcul de l'exposition en {showCurrencyDetail}.
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse text-sm">
+          <thead>
+            <tr className="bg-slate-50/50 border-b border-slate-100">
+              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Instrument</th>
+              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Poids Ptf</th>
+              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">% {showCurrencyDetail}</th>
+              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Exposition</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {(currentPortfolio.holdings ?? [])
+              .map(h => {
+                if (!h) return null;
+                const targetCur = showCurrencyDetail.toUpperCase();
+                const cbd = h.isin ? currencyBreakdowns[h.isin] : null;
+                let curWeight: number | null = null;
+                let exposition = 0;
+                if (cbd && cbd.length > 0) {
+                  const entry = cbd.find(e => e.currency.toUpperCase() === targetCur);
+                  if (!entry) return null;
+                  curWeight = entry.weight;
+                  exposition = (h.weight ?? 0) * entry.weight / 100;
+                } else {
+                  if ((h.currency ?? "").toUpperCase() !== targetCur) return null;
+                  curWeight = 100;
+                  exposition = h.weight ?? 0;
+                }
+                return { h, curWeight, exposition };
+              })
+              .filter((x): x is { h: any; curWeight: number; exposition: number } => x !== null && x.exposition > 0.001)
+              .sort((a, b) => b.exposition - a.exposition)
+              .map(({ h, curWeight, exposition }, i) => (
+                <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-4 py-3 font-medium text-slate-900 truncate max-w-[180px]">{h.asset_name ?? "—"}</td>
+                  <td className="px-4 py-3 text-right text-slate-600">{(h.weight ?? 0).toFixed(2)}%</td>
+                  <td className="px-4 py-3 text-right text-slate-500">{curWeight.toFixed(1)}%</td>
+                  <td className="px-4 py-3 text-right font-bold text-emerald-600">{exposition.toFixed(2)}%</td>
+                </tr>
+              ))}
+          </tbody>
+          <tfoot>
+            <tr className="bg-slate-50 border-t border-slate-200">
+              <td colSpan={3} className="px-4 py-3 font-bold text-slate-700 text-right">Total {showCurrencyDetail}</td>
+              <td className="px-4 py-3 text-right font-bold text-slate-900">
+                {currencyData.find(c => c.label === showCurrencyDetail)?.value.toFixed(2) ?? "—"}%
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <p className="text-[10px] text-slate-400 italic text-center">
+        Exposition = Poids Ptf × % {showCurrencyDetail} / 100
       </p>
     </div>
   )}
