@@ -2432,54 +2432,95 @@ const portfolioDuration = useMemo(() => {
         })()}
       </Modal>
 
-      {/* ── Duration detail modal ── */}
-<Modal isOpen={showDurationDetail} onClose={() => setShowDurationDetail(false)} title="Détail Duration">
-  {currentPortfolio && (
-    <div className="space-y-4">
-      <p className="text-xs text-slate-500 italic">Duration moyenne pondérée des instruments Fixed Income.</p>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse text-sm">
-          <thead>
-            <tr className="bg-slate-50/50 border-b border-slate-100">
-              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Instrument</th>
-              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Poids</th>
-              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Duration</th>
-              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Contribution</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-50">
-            {(currentPortfolio.holdings ?? [])
-              .filter(h => ["Fixed Income", "Bonds"].includes(h?.category ?? "") && h?.isin && durations[h.isin])
-              .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0))
-              .map((h, i) => {
-                const dur = durations[h.isin!].duration;
-                const contribution = (h.weight ?? 0) * dur / 100;
-                return (
-                  <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-4 py-3 font-medium text-slate-900 truncate max-w-[200px]">{h.asset_name ?? "—"}</td>
-                    <td className="px-4 py-3 text-right text-slate-600">{(h.weight ?? 0).toFixed(2)}%</td>
-                    <td className="px-4 py-3 text-right text-slate-600">{dur.toFixed(2)}</td>
-                    <td className="px-4 py-3 text-right font-bold text-sky-600">{contribution.toFixed(2)}</td>
+        {/* ── Duration detail modal ── */}
+    <Modal isOpen={showDurationDetail} onClose={() => setShowDurationDetail(false)} title="Détail Duration">
+      {currentPortfolio && (() => {
+        const FIXED_INCOME_CATS = ["Fixed Income", "Bonds", "Liquidities"];
+        const fiHoldings = (currentPortfolio.holdings ?? [])
+          .filter(h => h && FIXED_INCOME_CATS.includes(h.category ?? "") && h.isin && durations[h.isin])
+          .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0));
+        const allFiHoldings = (currentPortfolio.holdings ?? [])
+          .filter(h => h && FIXED_INCOME_CATS.includes(h.category ?? ""))
+          .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0));
+        const totalWeight = fiHoldings.reduce((s, h) => s + (h.weight ?? 0), 0);
+
+        return (
+          <div className="space-y-4">
+            <p className="text-xs text-slate-500 italic">Duration moyenne pondérée — divisée par le poids total des instruments obligataires avec duration configurée.</p>
+
+            {/* Instruments utilisés dans le calcul */}
+            <div className="border border-slate-100 rounded-2xl overflow-hidden">
+              <div className="px-4 py-2 bg-slate-50 border-b border-slate-100">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Instruments utilisés ({fiHoldings.length} / {allFiHoldings.length})</p>
+              </div>
+              <div className="divide-y divide-slate-50 max-h-32 overflow-y-auto">
+                {allFiHoldings.map((h, i) => {
+                  const hasDur = h.isin && durations[h.isin];
+                  return (
+                    <div key={i} className="flex items-center justify-between px-4 py-2">
+                      <span className={cn("text-xs truncate max-w-[220px]", hasDur ? "text-slate-700 font-medium" : "text-slate-300 italic")}>
+                        {h.asset_name ?? "—"}
+                      </span>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className={cn("text-xs", hasDur ? "text-slate-600" : "text-slate-300")}>{(h.weight ?? 0).toFixed(2)}%</span>
+                        {hasDur
+                          ? <span className="text-[10px] bg-emerald-50 text-emerald-600 font-bold px-1.5 py-0.5 rounded-full">✓</span>
+                          : <span className="text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-full">—</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Tableau de calcul */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr className="bg-slate-50/50 border-b border-slate-100">
+                    <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Instrument</th>
+                    <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Poids</th>
+                    <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Duration</th>
+                    <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Contribution</th>
                   </tr>
-                );
-              })}
-          </tbody>
-          <tfoot>
-            <tr className="bg-slate-50 border-t border-slate-200">
-              <td colSpan={3} className="px-4 py-3 font-bold text-slate-700 text-right">Duration totale</td>
-              <td className="px-4 py-3 text-right font-bold text-slate-900">
-                {portfolioDuration != null ? portfolioDuration.toFixed(2) : "—"}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-      <p className="text-[10px] text-slate-400 italic text-center">
-        Contribution = Poids × Duration / 100
-      </p>
-    </div>
-  )}
-</Modal>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {fiHoldings.map((h, i) => {
+                    const dur = durations[h.isin!].duration;
+                    const contribution = (h.weight ?? 0) * dur / totalWeight;
+                    return (
+                      <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-4 py-3 truncate max-w-[180px]">
+                          <button
+                            onClick={() => { setShowDurationDetail(false); setSelectedInstrument(h); }}
+                            className="text-sky-600 hover:underline font-bold text-left">
+                            {h.asset_name ?? "—"}
+                          </button>
+                        </td>
+                        <td className="px-4 py-3 text-right text-slate-600">{(h.weight ?? 0).toFixed(2)}%</td>
+                        <td className="px-4 py-3 text-right text-slate-600">{dur.toFixed(2)}</td>
+                        <td className="px-4 py-3 text-right font-bold text-sky-600">{contribution.toFixed(2)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-slate-50 border-t border-slate-200">
+                    <td className="px-4 py-3 font-bold text-slate-700">Total ({totalWeight.toFixed(1)}%)</td>
+                    <td colSpan={2} className="px-4 py-3 text-right font-bold text-slate-500 text-xs italic">Σ(poids × duration) / {totalWeight.toFixed(1)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-slate-900">{portfolioDuration != null ? portfolioDuration.toFixed(2) : "—"}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <p className="text-[10px] text-slate-400 italic text-center">
+              Les instruments en grisé n'ont pas de duration configurée et ne sont pas inclus dans le calcul.
+            </p>
+          </div>
+        );
+      })()}
+    </Modal>
+
       {/* ── Currency detail modal ── */}
 <Modal isOpen={!!showCurrencyDetail} onClose={() => setShowCurrencyDetail(null)} title={`Exposition ${showCurrencyDetail}`}>
   {currentPortfolio && showCurrencyDetail && (
