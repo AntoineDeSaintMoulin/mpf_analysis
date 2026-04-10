@@ -46,5 +46,6 @@ export interface ManualOverride {
   manual_currency: string | null;
   manual_category: string | null;
   manual_instrument: string | null;
+  is_hedged: boolean;
   updated_at: string;
 }
