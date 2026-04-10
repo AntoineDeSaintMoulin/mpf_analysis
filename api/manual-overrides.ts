@@ -9,12 +9,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === "POST") {
-      const { original_asset_name, manual_asset_name, manual_isin, manual_region, manual_currency, manual_category, manual_instrument } = req.body;
+      const {
+        original_asset_name,
+        manual_asset_name,
+        manual_isin,
+        manual_region,
+        manual_currency,
+        manual_category,
+        manual_instrument,
+        is_hedged,
+      } = req.body;
+
       if (!original_asset_name) return res.status(400).json({ error: "original_asset_name is required" });
 
       await pool.query(`
-        INSERT INTO manual_overrides (original_asset_name, manual_asset_name, manual_isin, manual_region, manual_currency, manual_category, manual_instrument, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+        INSERT INTO manual_overrides
+          (original_asset_name, manual_asset_name, manual_isin, manual_region, manual_currency, manual_category, manual_instrument, is_hedged, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
         ON CONFLICT(original_asset_name) DO UPDATE SET
           manual_asset_name = EXCLUDED.manual_asset_name,
           manual_isin = EXCLUDED.manual_isin,
@@ -22,8 +33,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           manual_currency = EXCLUDED.manual_currency,
           manual_category = EXCLUDED.manual_category,
           manual_instrument = EXCLUDED.manual_instrument,
+          is_hedged = EXCLUDED.is_hedged,
           updated_at = NOW()
-      `, [original_asset_name, manual_asset_name, manual_isin, manual_region, manual_currency, manual_category, manual_instrument]);
+      `, [original_asset_name, manual_asset_name, manual_isin, manual_region, manual_currency, manual_category, manual_instrument, is_hedged ?? false]);
 
       await pool.query(`
         UPDATE holdings SET
