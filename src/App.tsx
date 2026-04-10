@@ -151,14 +151,14 @@ function Modal({ isOpen, onClose, title, children }: { isOpen: boolean; onClose:
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-      <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} className="bg-white rounded-3xl shadow-2xl w-full max-w-lg">
+      <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl">
         <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
           <h3 className="text-xl font-bold text-slate-900">{title}</h3>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
             <X className="h-5 w-5 text-slate-400" />
           </button>
         </div>
-        <div className="p-8">{children}</div>
+        <div className="p-8 overflow-y-auto max-h-[75vh]">{children}</div>
       </motion.div>
     </div>
   );
