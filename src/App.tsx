@@ -1036,15 +1036,16 @@ const refreshData = async () => {
 
 const portfolioDuration = useMemo(() => {
   const FIXED_INCOME_CATS = ["Fixed Income", "Bonds", "Liquidities"];
-  const fiHoldings = (currentPortfolio?.holdings ?? []).filter(h =>
-    h && FIXED_INCOME_CATS.includes(h.category ?? "") && h.isin && durations[h.isin]
-  );
+const fiHoldings = (currentPortfolio?.holdings ?? []).filter(h =>
+  h && FIXED_INCOME_CATS.includes(h.category ?? "") && h.isin &&
+  (durations[h.isin] || h.category === "Liquidities")
+);
   const totalWeight = fiHoldings.reduce((s, h) => s + (h.weight ?? 0), 0);
   if (totalWeight === 0) return null;
-  const weightedDuration = fiHoldings.reduce((s, h) => {
-    const dur = durations[h.isin!].duration;
-    return s + (h.weight ?? 0) * dur;
-  }, 0);
+const weightedDuration = fiHoldings.reduce((s, h) => {
+  const dur = durations[h.isin!]?.duration ?? 0;
+  return s + (h.weight ?? 0) * dur;
+}, 0);
   return +(weightedDuration / totalWeight).toFixed(2);
 }, [currentPortfolio, durations]);
   
@@ -2437,8 +2438,9 @@ const portfolioDuration = useMemo(() => {
       {currentPortfolio && (() => {
         const FIXED_INCOME_CATS = ["Fixed Income", "Bonds", "Liquidities"];
         const fiHoldings = (currentPortfolio.holdings ?? [])
-          .filter(h => h && FIXED_INCOME_CATS.includes(h.category ?? "") && h.isin && durations[h.isin])
-          .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0));
+  .filter(h => h && FIXED_INCOME_CATS.includes(h.category ?? "") && h.isin &&
+    (durations[h.isin] || h.category === "Liquidities"))
+  .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0));
         const allFiHoldings = (currentPortfolio.holdings ?? [])
           .filter(h => h && FIXED_INCOME_CATS.includes(h.category ?? ""))
           .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0));
@@ -2486,7 +2488,7 @@ const portfolioDuration = useMemo(() => {
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {fiHoldings.map((h, i) => {
-                    const dur = durations[h.isin!].duration;
+                    const dur = durations[h.isin!]?.duration ?? 0;
                     const contribution = (h.weight ?? 0) * dur / totalWeight;
                     return (
                       <tr key={i} className="hover:bg-slate-50/50 transition-colors">
