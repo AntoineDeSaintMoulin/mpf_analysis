@@ -949,6 +949,14 @@ const refreshData = async () => {
   if (!h?.isin) return false;
   return (creditBreakdowns[h.isin]?.length ?? 0) > 0;
 }
+  function isHedged(h: Holding | null): boolean {
+  if (!h) return false;
+  return manualOverrides.some(
+    ov => ((ov.manual_isin && ov.manual_isin === h.isin) ||
+    (ov.original_asset_name && ov.original_asset_name === (h.original_asset_name ?? h.asset_name)))
+    && ov.is_hedged === true
+  );
+}
   
   // ── Derived data ───────────────────────────────────────────────────────────
 
@@ -992,10 +1000,15 @@ const refreshData = async () => {
           const cur = entry.currency.toUpperCase().trim();
           m.set(cur, (m.get(cur) ?? 0) + (h.weight ?? 0) * entry.weight / 100);
         }
-      } else {
-        const cur = (h.currency ?? "Other").toUpperCase().trim();
-        m.set(cur, (m.get(cur) ?? 0) + (h.weight ?? 0));
-      }
+} else {
+  const hedged = manualOverrides.some(
+    ov => ((ov.manual_isin && ov.manual_isin === h.isin) ||
+    (ov.original_asset_name && ov.original_asset_name === (h.original_asset_name ?? h.asset_name)))
+    && ov.is_hedged === true
+  );
+  const cur = hedged ? "EUR" : (h.currency ?? "Other").toUpperCase().trim();
+  m.set(cur, (m.get(cur) ?? 0) + (h.weight ?? 0));
+}
     });
     const result: { label: string; value: number }[] = [];
     let other = 0;
@@ -1470,7 +1483,7 @@ const weightedDuration = fiHoldings.reduce((s, h) => {
                               <td className="px-6 py-4 text-xs text-slate-400">{formatDate(ov.updated_at)}</td>
                               <td className="px-6 py-4 text-right">
                                 <div className="flex items-center justify-end gap-2">
-                                  <button onClick={() => setEditingOverride({ original_asset_name: ov.original_asset_name ?? "", manual_asset_name: ov.manual_asset_name ?? "", manual_isin: ov.manual_isin ?? "", manual_region: ov.manual_region ?? "", manual_currency: ov.manual_currency ?? "", manual_category: ov.manual_category ?? "", manual_instrument: ov.manual_instrument ?? "" })}
+                                  <button onClick={() => setEditingOverride({ original_asset_name: ov.original_asset_name ?? "", manual_asset_name: ov.manual_asset_name ?? "", manual_isin: ov.manual_isin ?? "", manual_region: ov.manual_region ?? "", manual_currency: ov.manual_currency ?? "", manual_category: ov.manual_category ?? "", manual_instrument: ov.manual_instrument ?? "", is_hedged: ov.is_hedged ?? false })}
                                     className="p-2 hover:bg-sky-50 text-slate-400 hover:text-sky-600 rounded-lg transition-colors"><Edit2 className="h-4 w-4" /></button>
                                   <button onClick={() => handleDeleteOverride(ov.id)} className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"><Trash2 className="h-4 w-4" /></button>
                                 </div>
@@ -2036,15 +2049,18 @@ const weightedDuration = fiHoldings.reduce((s, h) => {
                 {hasLookThrough(selectedInstrument) && (
                   <span className="bg-violet-100 text-violet-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full tracking-widest uppercase">L</span>
                 )}
-                {hasCurrencyBreakdown(selectedInstrument) && (
-                  <span className="bg-emerald-100 text-emerald-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full tracking-widest uppercase">H</span>
-                )}
+{hasCurrencyBreakdown(selectedInstrument) && (
+  <span className="bg-emerald-100 text-emerald-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full tracking-widest uppercase">CB</span>
+)}
                 {hasManualOverride(selectedInstrument) && (
                   <span className="bg-amber-100 text-amber-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full tracking-widest uppercase">M</span>
                 )}
                 {hasCreditBreakdown(selectedInstrument) && (
                   <span className="bg-violet-100 text-violet-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full tracking-widest uppercase">C</span>
                 )}
+                {isHedged(selectedInstrument) && (
+  <span className="bg-sky-100 text-sky-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full tracking-widest uppercase">H</span>
+)}
               </div>
               <div className="flex items-center gap-4">
                 <div className="bg-sky-600 p-3 rounded-xl"><TrendingUp className="text-white h-6 w-6" /></div>
@@ -2053,10 +2069,25 @@ const weightedDuration = fiHoldings.reduce((s, h) => {
                   <p className="text-sm text-slate-500">{selectedInstrument.instrument ?? "—"}</p>
                 </div>
               </div>
-              <button onClick={() => { setEditingOverride({ original_asset_name: selectedInstrument.original_asset_name ?? selectedInstrument.asset_name ?? "", manual_asset_name: selectedInstrument.asset_name ?? "", manual_isin: selectedInstrument.isin ?? "", manual_region: selectedInstrument.region ?? "", manual_currency: selectedInstrument.currency ?? "", manual_category: selectedInstrument.category ?? "", manual_instrument: selectedInstrument.instrument ?? "" }); setSelectedInstrument(null); }}
-                className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-sky-50 text-sky-600 border border-sky-100 rounded-xl transition-colors font-bold text-sm">
-                <Edit2 className="h-4 w-4" /> Modifier
-              </button>
+<button onClick={() => {
+  setEditingOverride({
+    original_asset_name: selectedInstrument.original_asset_name ?? selectedInstrument.asset_name ?? "",
+    manual_asset_name: selectedInstrument.asset_name ?? "",
+    manual_isin: selectedInstrument.isin ?? "",
+    manual_region: selectedInstrument.region ?? "",
+    manual_currency: selectedInstrument.currency ?? "",
+    manual_category: selectedInstrument.category ?? "",
+    manual_instrument: selectedInstrument.instrument ?? "",
+    is_hedged: manualOverrides.find(ov =>
+      (ov.manual_isin && ov.manual_isin === selectedInstrument.isin) ||
+      (ov.original_asset_name && ov.original_asset_name === (selectedInstrument.original_asset_name ?? selectedInstrument.asset_name))
+    )?.is_hedged ?? false,
+  });
+  setSelectedInstrument(null);
+}}
+  className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-sky-50 text-sky-600 border border-sky-100 rounded-xl transition-colors font-bold text-sm">
+  <Edit2 className="h-4 w-4" /> Modifier
+</button>
             </div>
             <div className="grid grid-cols-2 gap-4">
               {([{ icon: Info, label: "ISIN", value: selectedInstrument.isin }, { icon: MapPin, label: "Région", value: selectedInstrument.region }, { icon: Coins, label: "Devise", value: selectedInstrument.currency }, { icon: Tag, label: "Catégorie", value: selectedInstrument.category }, { icon: Info, label: "Type", value: selectedInstrument.instrument }] as const).map(({ icon: Icon, label, value }) => (
@@ -2201,6 +2232,19 @@ const weightedDuration = fiHoldings.reduce((s, h) => {
                     placeholder={placeholder} />
                 </div>
               ))}
+            </div>
+            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+              <div>
+                <p className="text-sm font-bold text-slate-700">Instrument hedgé (EUR)</p>
+                <p className="text-xs text-slate-400">Force l'exposition à 100% EUR dans le calcul devise</p>
+              </div>
+              <button
+                onClick={() => setEditingOverride({ ...editingOverride, is_hedged: !editingOverride.is_hedged })}
+                className={cn("relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
+                  editingOverride.is_hedged ? "bg-sky-500" : "bg-slate-200")}>
+                <span className={cn("inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm",
+                  editingOverride.is_hedged ? "translate-x-6" : "translate-x-1")} />
+              </button>
             </div>
             <div className="flex gap-3 pt-4">
               <button onClick={() => setEditingOverride(null)} className="flex-1 px-6 py-3 rounded-2xl font-bold text-slate-600 hover:bg-slate-100 transition-all">Annuler</button>
