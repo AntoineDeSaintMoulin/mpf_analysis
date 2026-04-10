@@ -2458,7 +2458,7 @@ const allFiHoldings = (currentPortfolio.holdings ?? [])
               </div>
               <div className="divide-y divide-slate-50 max-h-32 overflow-y-auto">
                 {allFiHoldings.map((h, i) => {
-                  const hasDur = h.isin && (durations[h.isin] || h.category === "Liquidities");
+                  const hasDur = h.category === "Liquidities" || (h.isin && durations[h.isin]);
                   return (
                     <div key={i} className="flex items-center justify-between px-4 py-2">
                       <span className={cn("text-xs truncate max-w-[220px]", hasDur ? "text-slate-700 font-medium" : "text-slate-300 italic")}>
