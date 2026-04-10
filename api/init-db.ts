@@ -43,6 +43,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         manual_currency TEXT,
         manual_category TEXT,
         manual_instrument TEXT,
+        is_hedged BOOLEAN DEFAULT FALSE,
         updated_at TIMESTAMP DEFAULT NOW()
       );
 
@@ -101,6 +102,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         duration REAL NOT NULL,
         updated_at TIMESTAMP DEFAULT NOW()
       );
+    `);
+
+    // Migrations — ajout de colonnes si elles n'existent pas encore
+    await pool.query(`
+      ALTER TABLE manual_overrides ADD COLUMN IF NOT EXISTS is_hedged BOOLEAN DEFAULT FALSE;
     `);
 
     return res.json({ success: true, message: "Tables créées ou déjà existantes." });
