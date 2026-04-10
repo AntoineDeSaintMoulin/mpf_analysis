@@ -2489,8 +2489,8 @@ const allFiHoldings = (currentPortfolio.holdings ?? [])
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {fiHoldings.map((h, i) => {
-                    const dur = (h.isin && durations[h.isin]?.duration) ?? 0;
-                    const contribution = (h.weight ?? 0) * dur / totalWeight;
+const dur = Number((h.isin && durations[h.isin]?.duration) ?? 0);
+const contribution = totalWeight > 0 ? (h.weight ?? 0) * dur / totalWeight : 0;
                     return (
                       <tr key={i} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-4 py-3 truncate max-w-[180px]">
@@ -2510,7 +2510,7 @@ const allFiHoldings = (currentPortfolio.holdings ?? [])
                 <tfoot>
                   <tr className="bg-slate-50 border-t border-slate-200">
                     <td className="px-4 py-3 font-bold text-slate-700">Total ({totalWeight.toFixed(1)}%)</td>
-                    <td colSpan={2} className="px-4 py-3 text-right font-bold text-slate-500 text-xs italic">Σ(poids × duration) / {totalWeight.toFixed(1)}</td>
+                    <td colSpan={2} className="px-4 py-3 text-right font-bold text-slate-500 text-xs italic">Σ(poids × duration) / {(totalWeight ?? 0).toFixed(1)}</td>
                     <td className="px-4 py-3 text-right font-bold text-slate-900">{portfolioDuration != null ? portfolioDuration.toFixed(2) : "—"}</td>
                   </tr>
                 </tfoot>
