@@ -605,11 +605,13 @@ const CUR_COLORS: Record<string, string> = {
  
 function DpamTab({
   bondsData,
+  equityData,
   onUpload,
   uploading,
   uploadSuccess,
 }: {
   bondsData: any | null;
+  equityData: any | null;
   onUpload: (file: File) => void;
   uploading: boolean;
   uploadSuccess: boolean;
@@ -694,7 +696,19 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
             <div className="w-2 h-2 rounded-full bg-sky-400" />
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Equity Funds Summary</p>
           </div>
-          <p className="text-xs text-slate-300 italic">Aucun import</p>
+            {equityData ? (
+            <>
+              <p className="text-xs font-bold text-slate-800 truncate" title={equityData.importLog.filename}>
+                {equityData.importLog.filename}
+              </p>
+              <p className="text-[10px] text-slate-400">
+                {new Date(equityData.importLog.imported_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+                {" "}{new Date(equityData.importLog.imported_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+              </p>
+            </>
+          ) : (
+            <p className="text-xs text-slate-300 italic">Aucun import</p>
+          )}
         </div>
  
         {/* Case Bonds */}
@@ -975,11 +989,201 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
         </>
       )}
  
-      {/* ── VUE EQUITY ── */}
       {view === "Equity" && (
-        <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">
-          <p className="text-lg">Vue Equity — à venir.</p>
-        </div>
+        <>
+          {!equityData ? (
+            <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">
+              <TableIcon className="h-12 w-12 mx-auto mb-4 opacity-20" />
+              <p className="text-lg">Aucune donnée. Importez un fichier Equity Funds Summary.</p>
+            </div>
+          ) : (
+            <>
+              {/* ── Selector instrument ── */}
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-4">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider shrink-0">Fonds</span>
+                <div className="flex flex-wrap gap-2 flex-1">
+                  {(equityData.instruments ?? []).map((inst: any) => (
+                    <button key={inst.col_index}
+                      onClick={() => setSelectedCol(inst.col_index)}
+                      className={cn("px-3 py-1.5 rounded-xl text-xs font-medium transition-all border",
+                        selectedCol === inst.col_index
+                          ? "bg-sky-600 text-white border-sky-600 shadow-sm"
+                          : "bg-white text-slate-600 border-slate-200 hover:border-sky-300")}>
+                      {inst.name.replace("DPAM B EQUITIES ", "").replace("DPAM L EQUITIES ", "").replace("DPAM B REAL ESTATE ", "").replace("DPAM L ", "").replace("SELECT EQUITIES ", "").replace("DPAM DBI RDT B EQUITIES ", "")}
+                    </button>
+                  ))}
+                </div>
+              </div>
+ 
+              {/* ── Fiche détail ── */}
+              {(() => {
+                const selInst = (equityData.instruments ?? []).find((i: any) => i.col_index === selectedCol);
+                const selGlob = (equityData.globals ?? []).find((g: any) => g.instrument_col === selectedCol);
+                const selSectors = (equityData.sectors ?? [])
+                  .filter((s: any) => s.instrument_col === selectedCol && (s.weight ?? 0) > 0.001)
+                  .sort((a: any, b: any) => (b.weight ?? 0) - (a.weight ?? 0));
+                const selCountries = (equityData.countries ?? [])
+                  .filter((c: any) => c.instrument_col === selectedCol && (c.weight ?? 0) > 0.001)
+                  .sort((a: any, b: any) => (b.weight ?? 0) - (a.weight ?? 0));
+                const selCur = (equityData.currencies ?? []).find((c: any) => c.instrument_col === selectedCol);
+ 
+                if (!selInst) return null;
+                return (
+                  <div className="space-y-6">
+                    {/* Nom */}
+                    <h3 className="text-xl font-bold text-slate-900">{selInst.name}</h3>
+ 
+                    {/* KPI globaux */}
+                    {selGlob && (
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {[
+                          { label: "Market Value", value: selGlob.market_value != null ? fmtNum(selGlob.market_value, 0) + " M€" : "—" },
+                          { label: "Nb Holdings", value: selGlob.nb_holdings ?? "—" },
+                          { label: "Dividend Yield", value: selGlob.dividend_yield != null ? fmtPct(selGlob.dividend_yield) : "—" },
+                        ].map(({ label, value }) => (
+                          <div key={label} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{label}</p>
+                            <p className="text-lg font-bold text-slate-900">{String(value)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+ 
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Secteurs */}
+                      {selSectors.length > 0 && (
+                        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                          <h4 className="text-base font-bold text-slate-900 mb-4">Exposition par Secteur</h4>
+                          <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                            {selSectors.map(({ sector, weight }: any) => (
+                              <div key={sector} className="flex items-center gap-3">
+                                <span className="text-xs text-slate-600 w-40 shrink-0 truncate">{sector}</span>
+                                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                  <div className="h-full rounded-full bg-violet-400 transition-all"
+                                    style={{ width: `${Math.min(100, Number(weight) ?? 0)}%` }} />
+                                </div>
+                                <span className="text-xs font-bold text-slate-700 w-14 text-right shrink-0">{fmtPct(weight)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+ 
+                      {/* Pays */}
+                      {selCountries.length > 0 && (
+                        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                          <h4 className="text-base font-bold text-slate-900 mb-4">Exposition par Pays</h4>
+                          <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                            {selCountries.map(({ country, weight }: any) => (
+                              <div key={country} className="flex items-center gap-3">
+                                <span className="text-xs text-slate-600 w-36 shrink-0 truncate">{country}</span>
+                                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                  <div className="h-full rounded-full bg-sky-400 transition-all"
+                                    style={{ width: `${Math.min(100, Number(weight) ?? 0)}%` }} />
+                                </div>
+                                <span className="text-xs font-bold text-slate-700 w-14 text-right shrink-0">{fmtPct(weight)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+ 
+                    {/* Devises */}
+                    {selCur && (
+                      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                        <h4 className="text-base font-bold text-slate-900 mb-4">Exposition Devises</h4>
+                        <div className="space-y-3">
+                          {[
+                            { label: "EUR", value: selCur.eur },
+                            { label: "USD", value: selCur.usd },
+                            { label: "JPY", value: selCur.jpy },
+                            { label: "Other", value: selCur.other },
+                          ].filter(({ value }) => Number(value ?? 0) > 0.05).map(({ label, value }) => (
+                            <div key={label} className="flex items-center gap-3">
+                              <span className="text-xs font-bold w-10 shrink-0" style={{ color: CUR_COLORS[label] ?? "#94a3b8" }}>{label}</span>
+                              <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full transition-all"
+                                  style={{ width: `${Math.min(100, Number(value) ?? 0)}%`, backgroundColor: CUR_COLORS[label] ?? "#94a3b8" }} />
+                              </div>
+                              <span className="text-xs font-bold text-slate-700 w-14 text-right shrink-0">{fmtPct(value)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+ 
+              {/* ── Vue résumé multi-colonnes ── */}
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 mb-4">Vue Résumé — Tous les fonds</h3>
+                <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                  <div style={{ transform: "rotateX(180deg)", overflowX: "auto" }}
+                    className="[&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-slate-50 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full">
+                    <div style={{ transform: "rotateX(180deg)" }}>
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-slate-800">
+                            <th className="px-4 py-3 text-xs font-bold text-white/70 uppercase tracking-wider sticky left-0 bg-slate-800 z-10 min-w-[200px]">Métrique</th>
+                            {(equityData.instruments ?? []).map((inst: any) => (
+                              <th key={inst.col_index}
+                                className="px-3 py-3 text-[10px] font-bold text-white/70 uppercase tracking-wider text-center min-w-[120px] cursor-pointer hover:text-white transition-colors"
+                                onClick={() => setSelectedCol(inst.col_index)}>
+                                {inst.name.replace("DPAM B EQUITIES ", "").replace("DPAM L EQUITIES ", "").replace("DPAM B REAL ESTATE ", "").replace("DPAM L ", "").replace("SELECT EQUITIES ", "").replace("DPAM DBI RDT B EQUITIES ", "")}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                          {[
+                            { label: "Market Value (M€)", key: "market_value", fmt: (v: any) => fmtNum(v, 0) },
+                            { label: "Nb Holdings", key: "nb_holdings", fmt: (v: any) => String(Math.round(Number(v))) },
+                            { label: "Dividend Yield (%)", key: "dividend_yield", fmt: (v: any) => fmtPct(v) },
+                          ].map(({ label, key, fmt }) => (
+                            <tr key={key} className="hover:bg-slate-50/50">
+                              <td className="px-4 py-2.5 font-medium text-slate-700 sticky left-0 bg-white z-10">{label}</td>
+                              {(equityData.instruments ?? []).map((inst: any) => {
+                                const g = (equityData.globals ?? []).find((g: any) => g.instrument_col === inst.col_index);
+                                const val = g?.[key];
+                                return (
+                                  <td key={inst.col_index} className="px-3 py-2.5 text-center text-slate-600">
+                                    {val != null ? fmt(val) : "—"}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                          {/* Devises */}
+                          <tr className="bg-slate-100">
+                            <td className="px-4 py-1.5 font-bold text-xs text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-100 z-10">Devises</td>
+                            {(equityData.instruments ?? []).map((inst: any) => <td key={inst.col_index} />)}
+                          </tr>
+                          {[
+                            { label: "EUR (%)", key: "eur" },
+                            { label: "USD (%)", key: "usd" },
+                            { label: "JPY (%)", key: "jpy" },
+                            { label: "Other (%)", key: "other" },
+                          ].map(({ label, key }) => (
+                            <tr key={key} className="hover:bg-slate-50/50">
+                              <td className="px-4 py-2.5 font-medium text-slate-700 sticky left-0 bg-white z-10">{label}</td>
+                              {(equityData.instruments ?? []).map((inst: any) => {
+                                const c = (equityData.currencies ?? []).find((c: any) => c.instrument_col === inst.col_index);
+                                const val = c?.[key];
+                                return <td key={inst.col_index} className="px-3 py-2.5 text-center text-slate-600">{val != null ? fmtPct(val) : "—"}</td>;
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </>
       )}
     </div>
   );
@@ -1033,6 +1237,7 @@ export default function App() {
   const [dpamBondsData, setDpamBondsData] = useState<any>(null);
   const [dpamUploading, setDpamUploading] = useState(false);
   const [dpamUploadSuccess, setDpamUploadSuccess] = useState(false);
+  const [dpamEquityData, setDpamEquityData] = useState<any>(null);
   
   async function safeArray<T>(fn: () => Promise<T[]>): Promise<T[]> {
     try {
@@ -1088,6 +1293,7 @@ useEffect(() => {
         if (dpamRes.ok) {
           const dpam = await dpamRes.json();
           if (dpam.bonds) setDpamBondsData(dpam.bonds);
+          if (dpam.equity) setDpamEquityData(dpam.equity);
         }
       } catch (e) { console.warn("DPAM load failed", e); }
       setImportLog(data.importLog);
@@ -1145,6 +1351,7 @@ const refreshData = async () => {
         if (dpamRes.ok) {
           const dpam = await dpamRes.json();
           if (dpam.bonds) setDpamBondsData(dpam.bonds);
+          if (dpam.equity) setDpamEquityData(dpam.equity);
         }
       } catch (e) { console.warn("DPAM load failed", e); }
     setImportLog(data.importLog);
@@ -1274,6 +1481,7 @@ const handleDpamUpload = async (file: File) => {
           if (fresh.ok) {
             const dpam = await fresh.json();
             if (dpam.bonds) setDpamBondsData(dpam.bonds);
+            if (dpam.equity) setDpamEquityData(dpam.equity);
           }
           setDpamUploadSuccess(true);
           setTimeout(() => setDpamUploadSuccess(false), 3000);
@@ -1281,6 +1489,78 @@ const handleDpamUpload = async (file: File) => {
           setErrorMsg("Erreur upload DPAM Bonds: " + await res.text());
         }
       }
+
+if (isEquity) {
+        const instruments = [];
+        for (let col = 2; col <= 35; col++) {
+          const name = r(4, col);
+          if (!name) continue;
+          instruments.push({
+            colIndex: col,
+            name: String(name),
+            portfolioCode: r(5, col) ? String(r(5, col)) : null,
+          });
+        }
+
+        const globals = instruments.map(inst => ({
+          colIndex: inst.colIndex,
+          marketValue: toNum(r(6, inst.colIndex)),
+          nbHoldings: toNum(r(7, inst.colIndex)),
+          dividendYield: toNum(r(8, inst.colIndex)),
+        }));
+
+        const sectors = [];
+        for (let row = 10; row <= 46; row++) {
+          const sector = r(row, 1);
+          if (!sector) continue;
+          for (const inst of instruments) {
+            const w = toNum(r(row, inst.colIndex));
+            sectors.push({ colIndex: inst.colIndex, sector: String(sector), weight: w });
+          }
+        }
+
+        const countries = [];
+        for (let row = 48; row <= 108; row++) {
+          const country = r(row, 1);
+          if (!country) continue;
+          for (const inst of instruments) {
+            const w = toNum(r(row, inst.colIndex));
+            countries.push({ colIndex: inst.colIndex, country: String(country), weight: w });
+          }
+        }
+
+        const currencies = instruments.map(inst => {
+          const eur = toNum(r(110, inst.colIndex));
+          const usd = toNum(r(116, inst.colIndex));
+          const jpy = toNum(r(118, inst.colIndex));
+          const other = Math.max(0, 100 - (eur ?? 0) - (usd ?? 0) - (jpy ?? 0));
+          return { colIndex: inst.colIndex, eur, usd, jpy, other: +other.toFixed(2) };
+        });
+
+        const res = await fetch("/api/dpam-data", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "equity",
+            filename: file.name,
+            parsed: { instruments, globals, sectors, countries, currencies },
+          }),
+        });
+
+        if (res.ok) {
+          const fresh = await fetch("/api/dpam-data");
+          if (fresh.ok) {
+            const dpam = await fresh.json();
+            if (dpam.bonds) setDpamBondsData(dpam.bonds);
+            if (dpam.equity) setDpamEquityData(dpam.equity);
+          }
+          setDpamUploadSuccess(true);
+          setTimeout(() => setDpamUploadSuccess(false), 3000);
+        } else {
+          setErrorMsg("Erreur upload DPAM Equity: " + await res.text());
+        }
+      }
+      
     } catch (e) {
       setErrorMsg("Erreur lors du traitement du fichier DPAM.");
     } finally {
@@ -2268,6 +2548,7 @@ const weightedDuration = fiHoldings.reduce((s, h) => {
     className="max-w-7xl mx-auto">
     <DpamTab
       bondsData={dpamBondsData}
+      equityData={dpamEquityData}
       onUpload={handleDpamUpload}
       uploading={dpamUploading}
       uploadSuccess={dpamUploadSuccess}
