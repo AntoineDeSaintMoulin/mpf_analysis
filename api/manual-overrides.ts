@@ -7,21 +7,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const overrides = await pool.query("SELECT * FROM manual_overrides ORDER BY updated_at DESC");
       return res.json(overrides.rows);
     }
-
     if (req.method === "POST") {
-      const {
-        original_asset_name,
-        manual_asset_name,
-        manual_isin,
-        manual_region,
-        manual_currency,
-        manual_category,
-        manual_instrument,
-        is_hedged,
-      } = req.body;
-
+      const { original_asset_name, manual_asset_name, manual_isin, manual_region, manual_currency, manual_category, manual_instrument, is_hedged } = req.body;
       if (!original_asset_name) return res.status(400).json({ error: "original_asset_name is required" });
-
       await pool.query(`
         INSERT INTO manual_overrides
           (original_asset_name, manual_asset_name, manual_isin, manual_region, manual_currency, manual_category, manual_instrument, is_hedged, updated_at)
@@ -36,7 +24,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           is_hedged = EXCLUDED.is_hedged,
           updated_at = NOW()
       `, [original_asset_name, manual_asset_name, manual_isin, manual_region, manual_currency, manual_category, manual_instrument, is_hedged ?? false]);
-
       await pool.query(`
         UPDATE holdings SET
           asset_name = COALESCE($1, asset_name),
@@ -47,10 +34,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           instrument = COALESCE($6, instrument)
         WHERE original_asset_name = $7
       `, [manual_asset_name, manual_isin, manual_region, manual_currency, manual_category, manual_instrument, original_asset_name]);
-
       return res.json({ success: true });
     }
-
+    if (req.method === "DELETE") {
+      const { id } = req.query;
+      await pool.query("DELETE FROM manual_overrides WHERE id = $1", [id]);
+      return res.json({ success: true });
+    }
     res.status(405).json({ error: "Method not allowed" });
   } catch (error) {
     console.error(error);
