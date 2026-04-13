@@ -34,6 +34,8 @@ export type CreditBreakdownEntry = {
 };
 export type CreditBreakdownMap = Record<string, CreditBreakdownEntry[]>;
 
+export type DurationsMap = Record<string, { duration: number; updated_at: string }>;
+
 export type BootstrapData = {
   portfolios: Portfolio[];
   overrides: ManualOverride[];
@@ -73,7 +75,7 @@ export async function saveManualOverride(override: Partial<ManualOverride>): Pro
 }
 
 export async function deleteManualOverride(id: number): Promise<{ success: boolean }> {
-  const data = await safeFetch<{ success: boolean }>(`/api/manual-overrides-delete?id=${id}`, {
+  const data = await safeFetch<{ success: boolean }>(`/api/manual-overrides?id=${id}`, {
     method: "DELETE",
   });
   return data ?? { success: false };
@@ -136,6 +138,25 @@ export async function deleteCreditBreakdown(isin: string): Promise<{ success: bo
   return data ?? { success: false };
 }
 
+// ── Durations ─────────────────────────────────────────────────────────────────
+export async function saveDuration(isin: string, duration: number): Promise<{ success: boolean }> {
+  const data = await safeFetch<{ success: boolean }>("/api/manual-data?resource=duration", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isin, duration }),
+  });
+  return data ?? { success: false };
+}
+
+export async function deleteDuration(isin: string): Promise<{ success: boolean }> {
+  const data = await safeFetch<{ success: boolean }>("/api/manual-data?resource=duration", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isin }),
+  });
+  return data ?? { success: false };
+}
+
 // ── Upload ────────────────────────────────────────────────────────────────────
 export async function uploadPortfolios(portfolios: any[]): Promise<{ success: boolean }> {
   const data = await safeFetch<{ success: boolean }>("/api/upload-data", {
@@ -159,25 +180,6 @@ export async function uploadTargetGrid(rows: any[]): Promise<{ success: boolean 
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ rows }),
-  });
-  return data ?? { success: false };
-}
-export type DurationsMap = Record<string, { duration: number; updated_at: string }>;
-
-export async function saveDuration(isin: string, duration: number): Promise<{ success: boolean }> {
-  const data = await safeFetch<{ success: boolean }>("/api/manual-data?resource=duration", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ isin, duration }),
-  });
-  return data ?? { success: false };
-}
-
-export async function deleteDuration(isin: string): Promise<{ success: boolean }> {
-  const data = await safeFetch<{ success: boolean }>("/api/manual-data?resource=duration", {
-    method: "DELETE",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ isin }),
   });
   return data ?? { success: false };
 }
