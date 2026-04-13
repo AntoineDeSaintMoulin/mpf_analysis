@@ -85,7 +85,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (type === "bonds") {
         const { instruments, globals, ratings, currencies, countries, sectors } = parsed;
 
-        // Instruments
         for (const inst of instruments) {
           await pool.query(
             `INSERT INTO dpam_bonds_instruments (import_id, col_index, name, category, currency, is_hedged)
@@ -94,7 +93,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           );
         }
 
-        // Globals
         for (const g of globals) {
           await pool.query(
             `INSERT INTO dpam_bonds_globals
@@ -104,7 +102,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           );
         }
 
-        // Ratings
         for (const r of ratings) {
           await pool.query(
             `INSERT INTO dpam_bonds_ratings (import_id, instrument_col, ig, hy, others)
@@ -113,7 +110,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           );
         }
 
-        // Currencies
         for (const c of currencies) {
           await pool.query(
             `INSERT INTO dpam_bonds_currencies (import_id, instrument_col, eur, usd, jpy, other)
@@ -122,7 +118,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           );
         }
 
-        // Countries
         for (const c of countries) {
           if ((c.weight ?? 0) > 0.001) {
             await pool.query(
@@ -133,7 +128,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }
         }
 
-        // Sectors
         for (const s of sectors) {
           if ((s.weight ?? 0) > 0.001) {
             await pool.query(
