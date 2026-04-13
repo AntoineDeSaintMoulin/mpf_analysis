@@ -760,26 +760,26 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
                     )}
                   </div>
  
-                  {/* ── KPI globaux (8 cards) ── */}
-                  {selGlobal && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {[
-                        { label: "Market Value", value: selGlobal.market_value != null ? fmtNum(selGlobal.market_value, 0) + " M€" : "—" },
-                        { label: "Nb Holdings", value: selGlobal.nb_holdings ?? "—" },
-                        { label: "Maturity", value: selGlobal.maturity != null ? fmtNum(selGlobal.maturity) + " ans" : "—" },
-                        { label: "YTW", value: fmtPct(selGlobal.ytw) },
-                        { label: "YTW Duration Weighted", value: fmtPct(selGlobal.ytw_duration_weighted) },
-                        { label: "Modified Duration", key: "modified_duration", fmt: (v: number) => fmtNum(v) },
-                        { label: "Duration", value: selGlobal.duration != null ? fmtNum(selGlobal.duration) + " ans" : "—" },
-                        { label: "Average Rating", value: selGlobal.average_rating ?? "—" },
-                      ].map(({ label, value }) => (
-                        <div key={label} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{label}</p>
-                          <p className="text-lg font-bold text-slate-900">{String(value)}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+{/* ── KPI globaux (8 cards) ── */}
+{selGlobal && (
+  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    {[
+      { label: "Market Value", value: selGlobal.market_value != null ? fmtNum(selGlobal.market_value, 0) + " M€" : "—" },
+      { label: "Nb Holdings", value: selGlobal.nb_holdings ?? "—" },
+      { label: "Maturity", value: selGlobal.maturity != null ? fmtNum(selGlobal.maturity) + " ans" : "—" },
+      { label: "YTW", value: fmtPct(selGlobal.ytw) },
+      { label: "YTW Duration Weighted", value: fmtPct(selGlobal.ytw_duration_weighted) },
+      { label: "Modified Duration", value: selGlobal.modified_duration != null ? fmtNum(selGlobal.modified_duration) : "—" },
+      { label: "Duration", value: selGlobal.duration != null ? fmtNum(selGlobal.duration) + " ans" : "—" },
+      { label: "Average Rating", value: selGlobal.average_rating ?? "—" },
+    ].map(({ label, value }) => (
+      <div key={label} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{label}</p>
+        <p className="text-lg font-bold text-slate-900">{String(value)}</p>
+      </div>
+    ))}
+  </div>
+)}
  
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* ── Ratings ── */}
