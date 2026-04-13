@@ -111,7 +111,7 @@ const PORTFOLIO_ORDER = [
   "Mixed - MIX_MH", "Mixed - MIX_HIGH", "Mixed - MIX_VH",
 ];
 
-type Tab = "SYNTHESE" | "Sicav" | "Mixed" | "INSTRUMENTS" | "MANUALS" | "TARGET_GRID";
+type Tab = "SYNTHESE" | "Sicav" | "Mixed" | "INSTRUMENTS" | "MANUALS" | "TARGET_GRID" | "DPAM";
 
 const RISK_PROFILES = ["LOW", "MEDLOW", "MEDIUM", "MEDHIGH", "HIGH"] as const;
 type RiskProfile = typeof RISK_PROFILES[number];
@@ -587,6 +587,403 @@ function BreakdownDeviationTable({
     </div>
   );
 }
+ 
+type DpamView = "Bonds" | "Equity";
+ 
+const RATING_COLORS: Record<string, string> = {
+  IG: "#10b981",
+  HY: "#f59e0b",
+  Others: "#94a3b8",
+};
+ 
+const CUR_COLORS: Record<string, string> = {
+  EUR: "#0ea5e9",
+  USD: "#10b981",
+  JPY: "#f59e0b",
+  Other: "#94a3b8",
+};
+ 
+function DpamTab({
+  bondsData,
+  onUpload,
+  uploading,
+  uploadSuccess,
+}: {
+  bondsData: any | null;
+  onUpload: (file: File) => void;
+  uploading: boolean;
+  uploadSuccess: boolean;
+}) {
+  const [view, setView] = React.useState<DpamView>("Bonds");
+  const [selectedCol, setSelectedCol] = React.useState<number | null>(null);
+ 
+  // Quand bondsData change, sélectionner le premier instrument par défaut
+  React.useEffect(() => {
+    if (bondsData?.instruments?.length > 0 && selectedCol === null) {
+      const first = bondsData.instruments.find((i: any) => !i.is_hedged);
+      if (first) setSelectedCol(first.col_index);
+    }
+  }, [bondsData]);
+ 
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) onUpload(file);
+  };
+ 
+  // Données pour l'instrument sélectionné
+  const selGlobal = bondsData?.globals?.find((g: any) => g.instrument_col === selectedCol);
+  const selRating = bondsData?.ratings?.find((r: any) => r.instrument_col === selectedCol);
+  const selCurrency = bondsData?.currencies?.find((c: any) => c.instrument_col === selectedCol);
+  const selCountries = (bondsData?.countries ?? [])
+    .filter((c: any) => c.instrument_col === selectedCol && (c.weight ?? 0) > 0.001)
+    .sort((a: any, b: any) => (b.weight ?? 0) - (a.weight ?? 0));
+  const selSectors = (bondsData?.sectors ?? [])
+    .filter((s: any) => s.instrument_col === selectedCol && (s.weight ?? 0) > 0.001)
+    .sort((a: any, b: any) => (b.weight ?? 0) - (a.weight ?? 0));
+ 
+  const selInstrument = bondsData?.instruments?.find((i: any) => i.col_index === selectedCol);
+ 
+  const fmtNum = (v: number | null, dec = 2) => v != null ? v.toFixed(dec) : "—";
+  const fmtPct = (v: number | null) => v != null ? v.toFixed(1) + "%" : "—";
+ 
+  // Vue résumé multi-colonnes : uniquement les instruments non-hedged
+  const mainInstruments = (bondsData?.instruments ?? []).filter((i: any) => !i.is_hedged);
+ 
+  return (
+    <div className="space-y-8">
+      {/* ── Header + Switch view ── */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">DPAM Fund Analysis</h2>
+          <p className="text-slate-500">Analyse détaillée des fonds DPAM.</p>
+        </div>
+        <div className="flex items-center bg-slate-100 p-1 rounded-xl">
+          {(["Bonds", "Equity"] as DpamView[]).map((v) => (
+            <button key={v} onClick={() => setView(v)}
+              className={cn("px-5 py-2 rounded-lg text-sm font-medium transition-all",
+                view === v ? "bg-white text-sky-700 shadow-sm" : "text-slate-500 hover:text-slate-700")}>
+              {v}
+            </button>
+          ))}
+        </div>
+      </div>
+ 
+      {/* ── 3 cases import (fixes, visibles sur les deux vues) ── */}
+      <div className="grid grid-cols-3 gap-4">
+        {/* Case import */}
+        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-3">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Importer un fichier</p>
+          <label className="flex flex-col items-center justify-center border border-dashed border-slate-200 rounded-xl p-5 hover:border-sky-400 transition-all group cursor-pointer gap-2">
+            <input type="file" accept=".xlsx" onChange={handleFile} className="hidden" />
+            <div className="bg-slate-50 p-2 rounded-lg group-hover:bg-sky-50 transition-colors">
+              <Upload className="h-5 w-5 text-slate-400 group-hover:text-sky-600" />
+            </div>
+            <p className="text-sm font-bold text-slate-900 text-center leading-tight">Equity / Bonds<br/>Funds Summary</p>
+            {uploading
+              ? <div className="flex items-center gap-1.5 bg-sky-50 px-2.5 py-1 rounded-lg"><Loader2 className="h-3.5 w-3.5 text-sky-600 animate-spin" /><span className="text-xs font-bold text-sky-700">Import…</span></div>
+              : uploadSuccess
+                ? <div className="flex items-center gap-1.5 bg-emerald-50 px-2.5 py-1 rounded-lg"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /><span className="text-xs font-bold text-emerald-700">Succès !</span></div>
+                : <p className="text-[10px] text-slate-400 uppercase font-bold bg-slate-50 px-2.5 py-1 rounded-lg">XLSX</p>
+            }
+          </label>
+        </div>
+ 
+        {/* Case Equity */}
+        <div className={cn("bg-white p-4 rounded-2xl border shadow-sm flex flex-col gap-2", false ? "border-slate-100" : "border-slate-100 opacity-60")}>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-sky-400" />
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Equity Funds Summary</p>
+          </div>
+          <p className="text-xs text-slate-300 italic">Aucun import</p>
+        </div>
+ 
+        {/* Case Bonds */}
+        <div className={cn("bg-white p-4 rounded-2xl border shadow-sm flex flex-col gap-2", bondsData ? "border-slate-100" : "border-slate-100 opacity-60")}>
+          <div className="flex items-center gap-2">
+            <div className={cn("w-2 h-2 rounded-full", bondsData ? "bg-emerald-400" : "bg-slate-200")} />
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Bonds Funds Summary</p>
+          </div>
+          {bondsData ? (
+            <>
+              <p className="text-xs font-bold text-slate-800 truncate" title={bondsData.importLog.filename}>
+                {bondsData.importLog.filename}
+              </p>
+              <p className="text-[10px] text-slate-400">
+                {new Date(bondsData.importLog.imported_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+                {" "}{new Date(bondsData.importLog.imported_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+              </p>
+            </>
+          ) : (
+            <p className="text-xs text-slate-300 italic">Aucun import</p>
+          )}
+        </div>
+      </div>
+ 
+      {/* ── VUE BONDS ── */}
+      {view === "Bonds" && (
+        <>
+          {!bondsData ? (
+            <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">
+              <TableIcon className="h-12 w-12 mx-auto mb-4 opacity-20" />
+              <p className="text-lg">Aucune donnée. Importez un fichier Bonds Funds Summary.</p>
+            </div>
+          ) : (
+            <>
+              {/* ── Selector instrument ── */}
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-4">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider shrink-0">Fonds</span>
+                <div className="flex flex-wrap gap-2 flex-1">
+                  {mainInstruments.map((inst: any) => (
+                    <button key={inst.col_index}
+                      onClick={() => setSelectedCol(inst.col_index)}
+                      className={cn("px-3 py-1.5 rounded-xl text-xs font-medium transition-all border",
+                        selectedCol === inst.col_index
+                          ? "bg-sky-600 text-white border-sky-600 shadow-sm"
+                          : "bg-white text-slate-600 border-slate-200 hover:border-sky-300")}>
+                      {inst.name.replace("DPAM B BONDS ", "").replace("DPAM L BONDS ", "")}
+                    </button>
+                  ))}
+                </div>
+              </div>
+ 
+              {/* ── Fiche détail instrument sélectionné ── */}
+              {selectedCol && selInstrument && (
+                <div className="space-y-6">
+                  {/* Nom + badges */}
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-xl font-bold text-slate-900">{selInstrument.name}</h3>
+                    {selInstrument.category && (
+                      <span className="bg-sky-100 text-sky-700 text-xs font-bold px-2.5 py-1 rounded-full">{selInstrument.category}</span>
+                    )}
+                    {selInstrument.currency && (
+                      <span className="bg-slate-100 text-slate-600 text-xs font-bold px-2.5 py-1 rounded-full">{selInstrument.currency}</span>
+                    )}
+                  </div>
+ 
+                  {/* ── KPI globaux (8 cards) ── */}
+                  {selGlobal && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {[
+                        { label: "Market Value", value: selGlobal.market_value != null ? fmtNum(selGlobal.market_value, 0) + " M€" : "—" },
+                        { label: "Nb Holdings", value: selGlobal.nb_holdings ?? "—" },
+                        { label: "Maturity", value: selGlobal.maturity != null ? fmtNum(selGlobal.maturity) + " ans" : "—" },
+                        { label: "YTW", value: fmtPct(selGlobal.ytw) },
+                        { label: "YTW Duration Weighted", value: fmtPct(selGlobal.ytw_duration_weighted) },
+                        { label: "Modified Duration", value: selGlobal.modified_duration != null ? fmtNum(selGlobal.modified_duration) + "%" : "—" },
+                        { label: "Duration", value: selGlobal.duration != null ? fmtNum(selGlobal.duration) + " ans" : "—" },
+                        { label: "Average Rating", value: selGlobal.average_rating ?? "—" },
+                      ].map(({ label, value }) => (
+                        <div key={label} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{label}</p>
+                          <p className="text-lg font-bold text-slate-900">{String(value)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+ 
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* ── Ratings ── */}
+                    {selRating && (
+                      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                        <h4 className="text-base font-bold text-slate-900 mb-4">Ratings</h4>
+                        <div className="space-y-3">
+                          {[
+                            { label: "Investment Grade", value: selRating.ig, color: RATING_COLORS.IG },
+                            { label: "High Yield", value: selRating.hy, color: RATING_COLORS.HY },
+                            { label: "Others / Cash", value: selRating.others, color: RATING_COLORS.Others },
+                          ].map(({ label, value, color }) => (
+                            <div key={label} className="flex items-center gap-3">
+                              <span className="text-xs font-bold w-36 shrink-0 text-slate-600">{label}</span>
+                              <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full transition-all"
+                                  style={{ width: `${Math.min(100, value ?? 0)}%`, backgroundColor: color }} />
+                              </div>
+                              <span className="text-xs font-bold text-slate-700 w-14 text-right shrink-0">{fmtPct(value)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+ 
+                    {/* ── Devises ── */}
+                    {selCurrency && (
+                      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                        <h4 className="text-base font-bold text-slate-900 mb-4">Exposition Devises</h4>
+                        <div className="space-y-3">
+                          {[
+                            { label: "EUR", value: selCurrency.eur },
+                            { label: "USD", value: selCurrency.usd },
+                            { label: "JPY", value: selCurrency.jpy },
+                            { label: "Other", value: selCurrency.other },
+                          ].filter(({ value }) => (value ?? 0) > 0.05).map(({ label, value }) => (
+                            <div key={label} className="flex items-center gap-3">
+                              <span className="text-xs font-bold w-10 shrink-0" style={{ color: CUR_COLORS[label] ?? "#94a3b8" }}>{label}</span>
+                              <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full transition-all"
+                                  style={{ width: `${Math.min(100, value ?? 0)}%`, backgroundColor: CUR_COLORS[label] ?? "#94a3b8" }} />
+                              </div>
+                              <span className="text-xs font-bold text-slate-700 w-14 text-right shrink-0">{fmtPct(value)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+ 
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* ── Pays ── */}
+                    {selCountries.length > 0 && (
+                      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                        <h4 className="text-base font-bold text-slate-900 mb-4">Exposition par Pays</h4>
+                        <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                          {selCountries.map(({ country, weight }: any) => (
+                            <div key={country} className="flex items-center gap-3">
+                              <span className="text-xs text-slate-600 w-36 shrink-0 truncate">{country}</span>
+                              <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full bg-sky-400 transition-all"
+                                  style={{ width: `${Math.min(100, weight ?? 0)}%` }} />
+                              </div>
+                              <span className="text-xs font-bold text-slate-700 w-14 text-right shrink-0">{fmtPct(weight)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+ 
+                    {/* ── Secteurs ── */}
+                    {selSectors.length > 0 && (
+                      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                        <h4 className="text-base font-bold text-slate-900 mb-4">Exposition par Secteur</h4>
+                        <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                          {selSectors.map(({ sector, weight }: any) => (
+                            <div key={sector} className="flex items-center gap-3">
+                              <span className="text-xs text-slate-600 w-40 shrink-0 truncate">{sector}</span>
+                              <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full bg-violet-400 transition-all"
+                                  style={{ width: `${Math.min(100, weight ?? 0)}%` }} />
+                              </div>
+                              <span className="text-xs font-bold text-slate-700 w-14 text-right shrink-0">{fmtPct(weight)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+ 
+              {/* ── Vue résumé multi-colonnes ── */}
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 mb-4">Vue Résumé — Tous les fonds</h3>
+                <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                  <div style={{ transform: "rotateX(180deg)", overflowX: "auto" }}
+                    className="[&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-slate-50 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full">
+                    <div style={{ transform: "rotateX(180deg)" }}>
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-slate-800">
+                            <th className="px-4 py-3 text-xs font-bold text-white/70 uppercase tracking-wider sticky left-0 bg-slate-800 z-10 min-w-[200px]">Métrique</th>
+                            {mainInstruments.map((inst: any) => (
+                              <th key={inst.col_index}
+                                className="px-3 py-3 text-[10px] font-bold text-white/70 uppercase tracking-wider text-center min-w-[120px] cursor-pointer hover:text-white transition-colors"
+                                onClick={() => setSelectedCol(inst.col_index)}>
+                                {inst.name.replace("DPAM B BONDS ", "").replace("DPAM L BONDS ", "")}
+                              </th>
+                            ))}
+                          </tr>
+                          <tr className="bg-slate-700">
+                            <td className="px-4 py-1.5 sticky left-0 bg-slate-700 z-10" />
+                            {mainInstruments.map((inst: any) => (
+                              <td key={inst.col_index} className="px-3 py-1.5 text-center">
+                                <span className="text-[9px] font-bold text-slate-300">{inst.category ?? "—"}</span>
+                              </td>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                          {/* KPI rows */}
+                          {[
+                            { label: "Market Value (M€)", key: "market_value", fmt: (v: number) => fmtNum(v, 0) },
+                            { label: "Nb Holdings", key: "nb_holdings", fmt: (v: number) => String(Math.round(v)) },
+                            { label: "Maturity (ans)", key: "maturity", fmt: (v: number) => fmtNum(v) },
+                            { label: "YTW (%)", key: "ytw", fmt: (v: number) => fmtPct(v) },
+                            { label: "YTW Duration Weighted (%)", key: "ytw_duration_weighted", fmt: (v: number) => fmtPct(v) },
+                            { label: "Modified Duration (%)", key: "modified_duration", fmt: (v: number) => fmtNum(v) + "%" },
+                            { label: "Duration (ans)", key: "duration", fmt: (v: number) => fmtNum(v) },
+                            { label: "Average Rating", key: "average_rating", fmt: (v: any) => String(v) },
+                          ].map(({ label, key, fmt }) => (
+                            <tr key={key} className="hover:bg-slate-50/50">
+                              <td className="px-4 py-2.5 font-medium text-slate-700 sticky left-0 bg-white hover:bg-slate-50/50 z-10">{label}</td>
+                              {mainInstruments.map((inst: any) => {
+                                const g = bondsData.globals?.find((g: any) => g.instrument_col === inst.col_index);
+                                const val = g?.[key];
+                                return (
+                                  <td key={inst.col_index} className="px-3 py-2.5 text-center text-slate-600">
+                                    {val != null ? fmt(val) : "—"}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                          {/* Separator */}
+                          <tr className="bg-slate-100">
+                            <td className="px-4 py-1.5 font-bold text-xs text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-100 z-10">Ratings</td>
+                            {mainInstruments.map((inst: any) => <td key={inst.col_index} />)}
+                          </tr>
+                          {[
+                            { label: "Investment Grade (%)", key: "ig" },
+                            { label: "High Yield (%)", key: "hy" },
+                            { label: "Others (%)", key: "others" },
+                          ].map(({ label, key }) => (
+                            <tr key={key} className="hover:bg-slate-50/50">
+                              <td className="px-4 py-2.5 font-medium text-slate-700 sticky left-0 bg-white hover:bg-slate-50/50 z-10">{label}</td>
+                              {mainInstruments.map((inst: any) => {
+                                const r = bondsData.ratings?.find((r: any) => r.instrument_col === inst.col_index);
+                                const val = r?.[key];
+                                return <td key={inst.col_index} className="px-3 py-2.5 text-center text-slate-600">{val != null ? fmtPct(val) : "—"}</td>;
+                              })}
+                            </tr>
+                          ))}
+                          {/* Separator */}
+                          <tr className="bg-slate-100">
+                            <td className="px-4 py-1.5 font-bold text-xs text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-100 z-10">Devises</td>
+                            {mainInstruments.map((inst: any) => <td key={inst.col_index} />)}
+                          </tr>
+                          {[
+                            { label: "EUR (%)", key: "eur" },
+                            { label: "USD (%)", key: "usd" },
+                            { label: "JPY (%)", key: "jpy" },
+                            { label: "Other (%)", key: "other" },
+                          ].map(({ label, key }) => (
+                            <tr key={key} className="hover:bg-slate-50/50">
+                              <td className="px-4 py-2.5 font-medium text-slate-700 sticky left-0 bg-white hover:bg-slate-50/50 z-10">{label}</td>
+                              {mainInstruments.map((inst: any) => {
+                                const c = bondsData.currencies?.find((c: any) => c.instrument_col === inst.col_index);
+                                const val = c?.[key];
+                                return <td key={inst.col_index} className="px-3 py-2.5 text-center text-slate-600">{val != null ? fmtPct(val) : "—"}</td>;
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </>
+      )}
+ 
+      {/* ── VUE EQUITY ── */}
+      {view === "Equity" && (
+        <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">
+          <p className="text-lg">Vue Equity — à venir.</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>("SYNTHESE");
@@ -633,6 +1030,9 @@ export default function App() {
   const [durations, setDurations] = useState<DurationsMap>({});
   const [showDurationDetail, setShowDurationDetail] = useState(false);
   const [showCurrencyDetail, setShowCurrencyDetail] = useState<string | null>(null);
+  const [dpamBondsData, setDpamBondsData] = useState<any>(null);
+  const [dpamUploading, setDpamUploading] = useState(false);
+  const [dpamUploadSuccess, setDpamUploadSuccess] = useState(false);
   
   async function safeArray<T>(fn: () => Promise<T[]>): Promise<T[]> {
     try {
@@ -683,6 +1083,13 @@ useEffect(() => {
       setCurrencyBreakdowns(data.currencyBreakdowns ?? {});
       setCreditBreakdowns(data.creditBreakdowns ?? {});
       setDurations(data.durations ?? {});
+            try {
+        const dpamRes = await fetch("/api/dpam-data");
+        if (dpamRes.ok) {
+          const dpam = await dpamRes.json();
+          if (dpam.bonds) setDpamBondsData(dpam.bonds);
+        }
+      } catch (e) { console.warn("DPAM load failed", e); }
       setImportLog(data.importLog);
       setTargetGridData(data.targetGrid ?? {});
 
@@ -733,6 +1140,13 @@ const refreshData = async () => {
     setCurrencyBreakdowns(data.currencyBreakdowns ?? {});
     setCreditBreakdowns(data.creditBreakdowns ?? {});
     setDurations(data.durations ?? {});
+          try {
+        const dpamRes = await fetch("/api/dpam-data");
+        if (dpamRes.ok) {
+          const dpam = await dpamRes.json();
+          if (dpam.bonds) setDpamBondsData(dpam.bonds);
+        }
+      } catch (e) { console.warn("DPAM load failed", e); }
     setImportLog(data.importLog);
     setTargetGridData(data.targetGrid ?? {});
     if (selectedId != null) {
@@ -760,7 +1174,119 @@ const refreshData = async () => {
       await refreshData();
     } catch (e) { setErrorMsg("Erreur lors de la sauvegarde."); }
   };
+  
+const handleDpamUpload = async (file: File) => {
+    setDpamUploading(true);
+    setDpamUploadSuccess(false);
+    try {
+      const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs" as any);
+      const buffer = await file.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const raw: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
 
+      const r = (row: number, col: number) => raw[row - 1]?.[col - 1] ?? null;
+      const toNum = (v: any) => (v != null && !isNaN(Number(v)) ? Number(v) : null);
+
+      const isBonds = file.name.toLowerCase().startsWith("bonds funds summary");
+      const isEquity = file.name.toLowerCase().startsWith("equity funds summary");
+
+      if (!isBonds && !isEquity) {
+        setErrorMsg("Le fichier doit commencer par 'Bonds Funds Summary' ou 'Equity Funds Summary'");
+        return;
+      }
+
+      if (isBonds) {
+        const instruments = [];
+        for (let col = 2; col <= 29; col++) {
+          const name = r(4, col);
+          if (!name) continue;
+          const cat5 = r(5, col);
+          const isHedged = cat5 === "HEDGED PARTS" || (col >= 26 && !r(5, col));
+          instruments.push({
+            colIndex: col,
+            name: String(name),
+            category: isHedged ? null : (cat5 ? String(cat5) : null),
+            currency: r(6, col) ? String(r(6, col)) : null,
+            isHedged,
+          });
+        }
+
+        const globals = instruments.map(inst => ({
+          colIndex: inst.colIndex,
+          marketValue: toNum(r(8, inst.colIndex)),
+          nbHoldings: toNum(r(9, inst.colIndex)),
+          maturity: toNum(r(10, inst.colIndex)),
+          ytw: toNum(r(11, inst.colIndex)),
+          ytwDurationWeighted: toNum(r(12, inst.colIndex)),
+          modifiedDuration: toNum(r(13, inst.colIndex)),
+          duration: toNum(r(14, inst.colIndex)),
+          averageRating: r(15, inst.colIndex) ? String(r(15, inst.colIndex)) : null,
+        }));
+
+        const ratings = instruments.map(inst => ({
+          colIndex: inst.colIndex,
+          ig: toNum(r(17, inst.colIndex)),
+          hy: toNum(r(28, inst.colIndex)),
+          others: toNum(r(38, inst.colIndex)),
+        }));
+
+        const currencies = instruments.map(inst => {
+          const eur = toNum(r(52, inst.colIndex));
+          const usd = toNum(r(58, inst.colIndex));
+          const jpy = toNum(r(60, inst.colIndex));
+          const other = Math.max(0, 100 - (eur ?? 0) - (usd ?? 0) - (jpy ?? 0));
+          return { colIndex: inst.colIndex, eur, usd, jpy, other: +other.toFixed(2) };
+        });
+
+        const countries = [];
+        for (let row = 91; row <= 145; row++) {
+          const country = r(row, 1);
+          if (!country) continue;
+          for (const inst of instruments) {
+            const w = toNum(r(row, inst.colIndex));
+            countries.push({ colIndex: inst.colIndex, country: String(country), weight: w });
+          }
+        }
+
+        const sectors = [];
+        for (let row = 147; row <= 178; row++) {
+          const sector = r(row, 1);
+          if (!sector) continue;
+          for (const inst of instruments) {
+            const w = toNum(r(row, inst.colIndex));
+            sectors.push({ colIndex: inst.colIndex, sector: String(sector), weight: w });
+          }
+        }
+
+        const res = await fetch("/api/dpam-data", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "bonds",
+            filename: file.name,
+            parsed: { instruments, globals, ratings, currencies, countries, sectors },
+          }),
+        });
+
+        if (res.ok) {
+          const fresh = await fetch("/api/dpam-data");
+          if (fresh.ok) {
+            const dpam = await fresh.json();
+            if (dpam.bonds) setDpamBondsData(dpam.bonds);
+          }
+          setDpamUploadSuccess(true);
+          setTimeout(() => setDpamUploadSuccess(false), 3000);
+        } else {
+          setErrorMsg("Erreur upload DPAM Bonds: " + await res.text());
+        }
+      }
+    } catch (e) {
+      setErrorMsg("Erreur lors du traitement du fichier DPAM.");
+    } finally {
+      setDpamUploading(false);
+    }
+  };
   const handleDeleteOverride = async (id: number) => {
     try { await deleteManualOverride(id); await refreshData(); }
     catch (e) { setErrorMsg("Erreur lors de la suppression."); }
@@ -1242,8 +1768,8 @@ const weightedDuration = fiHoldings.reduce((s, h) => {
           <h1 className="text-lg font-bold tracking-tight">Portfolio Insight</h1>
         </div>
         <div className="flex items-center bg-slate-100 p-1 rounded-xl">
-          {(["SYNTHESE", "INSTRUMENTS", "TARGET_GRID", "Sicav", "Mixed", "MANUALS"] as Tab[]).map((tab) => {
-            const labels: Record<Tab, string> = { SYNTHESE: "Breakdown Deviation", INSTRUMENTS: "Synthèse Instruments", TARGET_GRID: "Target Grid", Sicav: "Sicav", Mixed: "Mixed", MANUALS: "Manuals" };
+          {(["SYNTHESE", "INSTRUMENTS", "TARGET_GRID", "Sicav", "Mixed", "MANUALS", "DPAM"] as Tab[]).map((tab) => {
+            const labels: Record<Tab, string> = { SYNTHESE: "Breakdown Deviation", INSTRUMENTS: "Synthèse Instruments", TARGET_GRID: "Target Grid", Sicav: "Sicav", Mixed: "Mixed", MANUALS: "Manuals", DPAM: "DPAM" };
             const showDate = ["SYNTHESE", "Sicav", "Mixed", "TARGET_GRID"].includes(tab);
             const latestDate = (() => {
               if (!showDate) return null;
@@ -1736,7 +2262,18 @@ const weightedDuration = fiHoldings.reduce((s, h) => {
                 )}
               </motion.div>
             )}
-
+{/* ── DPAM ── */}
+{activeTab === "DPAM" && (
+  <motion.div key="dpam" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+    className="max-w-7xl mx-auto">
+    <DpamTab
+      bondsData={dpamBondsData}
+      onUpload={handleDpamUpload}
+      uploading={dpamUploading}
+      uploadSuccess={dpamUploadSuccess}
+    />
+  </motion.div>
+)}
    {/* ── SICAV / MIXED ── */}
             {(activeTab === "Sicav" || activeTab === "Mixed") && (
               <motion.div key={`detail-${selectedId ?? "none"}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-6xl mx-auto space-y-8">
