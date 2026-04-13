@@ -769,7 +769,7 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
                         { label: "Maturity", value: selGlobal.maturity != null ? fmtNum(selGlobal.maturity) + " ans" : "—" },
                         { label: "YTW", value: fmtPct(selGlobal.ytw) },
                         { label: "YTW Duration Weighted", value: fmtPct(selGlobal.ytw_duration_weighted) },
-                        { label: "Modified Duration", value: selGlobal.modified_duration != null ? fmtNum(selGlobal.modified_duration) + "%" : "—" },
+                        { label: "Modified Duration", key: "modified_duration", fmt: (v: number) => fmtNum(v) },
                         { label: "Duration", value: selGlobal.duration != null ? fmtNum(selGlobal.duration) + " ans" : "—" },
                         { label: "Average Rating", value: selGlobal.average_rating ?? "—" },
                       ].map(({ label, value }) => (
