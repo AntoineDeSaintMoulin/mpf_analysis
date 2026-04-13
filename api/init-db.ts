@@ -160,6 +160,48 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       sector TEXT NOT NULL,
       weight NUMERIC
     )`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS dpam_equity_instruments (
+  id SERIAL PRIMARY KEY,
+  import_id INTEGER REFERENCES dpam_import_log(id) ON DELETE CASCADE,
+  col_index INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  portfolio_code TEXT
+)`);
+
+await pool.query(`CREATE TABLE IF NOT EXISTS dpam_equity_globals (
+  id SERIAL PRIMARY KEY,
+  import_id INTEGER REFERENCES dpam_import_log(id) ON DELETE CASCADE,
+  instrument_col INTEGER NOT NULL,
+  market_value NUMERIC,
+  nb_holdings INTEGER,
+  dividend_yield NUMERIC
+)`);
+
+await pool.query(`CREATE TABLE IF NOT EXISTS dpam_equity_sectors (
+  id SERIAL PRIMARY KEY,
+  import_id INTEGER REFERENCES dpam_import_log(id) ON DELETE CASCADE,
+  instrument_col INTEGER NOT NULL,
+  sector TEXT NOT NULL,
+  weight NUMERIC
+)`);
+
+await pool.query(`CREATE TABLE IF NOT EXISTS dpam_equity_countries (
+  id SERIAL PRIMARY KEY,
+  import_id INTEGER REFERENCES dpam_import_log(id) ON DELETE CASCADE,
+  instrument_col INTEGER NOT NULL,
+  country TEXT NOT NULL,
+  weight NUMERIC
+)`);
+
+await pool.query(`CREATE TABLE IF NOT EXISTS dpam_equity_currencies (
+  id SERIAL PRIMARY KEY,
+  import_id INTEGER REFERENCES dpam_import_log(id) ON DELETE CASCADE,
+  instrument_col INTEGER NOT NULL,
+  eur NUMERIC,
+  usd NUMERIC,
+  jpy NUMERIC,
+  other NUMERIC
+)`);
     
     // Migrations - ajout de colonnes si elles n'existent pas encore
     await pool.query(`ALTER TABLE manual_overrides ADD COLUMN IF NOT EXISTS is_hedged BOOLEAN DEFAULT FALSE;`);
