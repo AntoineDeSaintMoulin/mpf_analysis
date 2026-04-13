@@ -643,8 +643,8 @@ function DpamTab({
  
   const selInstrument = bondsData?.instruments?.find((i: any) => i.col_index === selectedCol);
  
-  const fmtNum = (v: number | null, dec = 2) => v != null ? v.toFixed(dec) : "—";
-  const fmtPct = (v: number | null) => v != null ? v.toFixed(1) + "%" : "—";
+const fmtNum = (v: any, dec = 2) => v != null ? Number(v).toFixed(dec) : "—";
+const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
  
   // Vue résumé multi-colonnes : uniquement les instruments non-hedged
   const mainInstruments = (bondsData?.instruments ?? []).filter((i: any) => !i.is_hedged);
