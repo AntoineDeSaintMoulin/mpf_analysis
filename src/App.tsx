@@ -675,7 +675,7 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
         {/* Case import */}
         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-3">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Importer un fichier</p>
-          <label className="flex flex-col items-center justify-center border border-dashed border-slate-200 rounded-xl p-5 hover:border-sky-400 transition-all group cursor-pointer gap-2">
+          <label className="flex flex-col items-center justify-center border border-dashed border-slate-200 rounded-xl p-2 hover:border-sky-400 transition-all group cursor-pointer gap-1.5">
             <input type="file" accept=".xlsx" onChange={handleFile} className="hidden" />
             <div className="bg-slate-50 p-2 rounded-lg group-hover:bg-sky-50 transition-colors">
               <Upload className="h-5 w-5 text-slate-400 group-hover:text-sky-600" />
@@ -691,7 +691,7 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
         </div>
  
         {/* Case Equity */}
-        <div className={cn("bg-white p-4 rounded-2xl border shadow-sm flex flex-col gap-2", false ? "border-slate-100" : "border-slate-100 opacity-60")}>
+        <div className={cn("bg-white p-2 rounded-2xl border shadow-sm flex flex-col gap-2", false ? "border-slate-100" : "border-slate-100 opacity-60")}>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-sky-400" />
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Equity Funds Summary</p>
@@ -712,7 +712,7 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
         </div>
  
         {/* Case Bonds */}
-        <div className={cn("bg-white p-4 rounded-2xl border shadow-sm flex flex-col gap-2", bondsData ? "border-slate-100" : "border-slate-100 opacity-60")}>
+        <div className={cn("bg-white p-2 rounded-2xl border shadow-sm flex flex-col gap-2", bondsData ? "border-slate-100" : "border-slate-100 opacity-60")}>
           <div className="flex items-center gap-2">
             <div className={cn("w-2 h-2 rounded-full", bondsData ? "bg-emerald-400" : "bg-slate-200")} />
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Bonds Funds Summary</p>
