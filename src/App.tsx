@@ -731,7 +731,7 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
                         selectedCol === inst.col_index
                           ? "bg-sky-600 text-white border-sky-600 shadow-sm"
                           : "bg-white text-slate-600 border-slate-200 hover:border-sky-300")}>
-                      {inst.name.replace("DPAM B BONDS ", "").replace("DPAM L BONDS ", "")}
+                      {inst.name.replace("DPAM B BONDS ", "").replace("DPAM L BONDS ", "").trim()}
                     </button>
                   ))}
                 </div>
@@ -878,7 +878,7 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
                               <th key={inst.col_index}
                                 className="px-3 py-3 text-[10px] font-bold text-white/70 uppercase tracking-wider text-center min-w-[120px] cursor-pointer hover:text-white transition-colors"
                                 onClick={() => setSelectedCol(inst.col_index)}>
-                                {inst.name.replace("DPAM B BONDS ", "").replace("DPAM L BONDS ", "")}
+                                {inst.name.replace("DPAM B BONDS ", "").replace("DPAM L BONDS ", "").trim()}
                               </th>
                             ))}
                           </tr>
@@ -986,7 +986,11 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
                         selectedCol === inst.col_index
                           ? "bg-sky-600 text-white border-sky-600 shadow-sm"
                           : "bg-white text-slate-600 border-slate-200 hover:border-sky-300")}>
-                      {inst.name.replace("DPAM B EQUITIES ", "").replace("DPAM L EQUITIES ", "").replace("DPAM B REAL ESTATE ", "").replace("DPAM L ", "").replace("SELECT EQUITIES ", "").replace("DPAM DBI RDT B EQUITIES ", "")}
+                      {inst.name
+  .replace("DPAM B EQUITIES ", "")
+  .replace("DPAM L EQUITIES ", "")
+  .replace("DPAM B REAL ESTATE ", "REAL ESTATE ")
+  .replace("DPAM DBI RDT B EQUITIES ", "DBI RDT ")}
                     </button>
                   ))}
                 </div>
@@ -1108,7 +1112,11 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
                               <th key={inst.col_index}
                                 className="px-3 py-3 text-[10px] font-bold text-white/70 uppercase tracking-wider text-center min-w-[120px] cursor-pointer hover:text-white transition-colors"
                                 onClick={() => setSelectedCol(inst.col_index)}>
-                                {inst.name.replace("DPAM B EQUITIES ", "").replace("DPAM L EQUITIES ", "").replace("DPAM B REAL ESTATE ", "").replace("DPAM L ", "").replace("SELECT EQUITIES ", "").replace("DPAM DBI RDT B EQUITIES ", "")}
+                                {inst.name
+  .replace("DPAM B EQUITIES ", "")
+  .replace("DPAM L EQUITIES ", "")
+  .replace("DPAM B REAL ESTATE ", "REAL ESTATE ")
+  .replace("DPAM DBI RDT B EQUITIES ", "DBI RDT ")}
                               </th>
                             ))}
                           </tr>
