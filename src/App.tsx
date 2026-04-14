@@ -669,69 +669,46 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
           ))}
         </div>
       </div>
- 
-      {/* ── 3 cases import (fixes, visibles sur les deux vues) ── */}
-      <div className="grid grid-cols-3 gap-4">
-        {/* Case import */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-3">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Importer un fichier</p>
-          <label className="flex flex-col items-center justify-center border border-dashed border-slate-200 rounded-xl p-2 hover:border-sky-400 transition-all group cursor-pointer gap-1.5">
-            <input type="file" accept=".xlsx" onChange={handleFile} className="hidden" />
-            <div className="bg-slate-50 p-2 rounded-lg group-hover:bg-sky-50 transition-colors">
-              <Upload className="h-5 w-5 text-slate-400 group-hover:text-sky-600" />
-            </div>
-            <p className="text-sm font-bold text-slate-900 text-center leading-tight">Equity / Bonds<br/>Funds Summary</p>
-            {uploading
-              ? <div className="flex items-center gap-1.5 bg-sky-50 px-2.5 py-1 rounded-lg"><Loader2 className="h-3.5 w-3.5 text-sky-600 animate-spin" /><span className="text-xs font-bold text-sky-700">Import…</span></div>
-              : uploadSuccess
-                ? <div className="flex items-center gap-1.5 bg-emerald-50 px-2.5 py-1 rounded-lg"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /><span className="text-xs font-bold text-emerald-700">Succès !</span></div>
-                : <p className="text-[10px] text-slate-400 uppercase font-bold bg-slate-50 px-2.5 py-1 rounded-lg">XLSX</p>
-            }
-          </label>
-        </div>
- 
-        {/* Case Equity */}
-        <div className={cn("bg-white p-2 rounded-2xl border shadow-sm flex flex-col gap-2", false ? "border-slate-100" : "border-slate-100 opacity-60")}>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-sky-400" />
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Equity Funds Summary</p>
-          </div>
-            {equityData ? (
-            <>
-              <p className="text-xs font-bold text-slate-800 truncate" title={equityData.importLog.filename}>
-                {equityData.importLog.filename}
-              </p>
-              <p className="text-[10px] text-slate-400">
-                {new Date(equityData.importLog.imported_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" })}
-                {" "}{new Date(equityData.importLog.imported_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-              </p>
-            </>
-          ) : (
-            <p className="text-xs text-slate-300 italic">Aucun import</p>
-          )}
-        </div>
- 
-        {/* Case Bonds */}
-        <div className={cn("bg-white p-2 rounded-2xl border shadow-sm flex flex-col gap-2", bondsData ? "border-slate-100" : "border-slate-100 opacity-60")}>
-          <div className="flex items-center gap-2">
-            <div className={cn("w-2 h-2 rounded-full", bondsData ? "bg-emerald-400" : "bg-slate-200")} />
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Bonds Funds Summary</p>
-          </div>
-          {bondsData ? (
-            <>
-              <p className="text-xs font-bold text-slate-800 truncate" title={bondsData.importLog.filename}>
-                {bondsData.importLog.filename}
-              </p>
-              <p className="text-[10px] text-slate-400">
-                {new Date(bondsData.importLog.imported_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" })}
-                {" "}{new Date(bondsData.importLog.imported_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-              </p>
-            </>
-          ) : (
-            <p className="text-xs text-slate-300 italic">Aucun import</p>
-          )}
-        </div>
-      </div>
+
+{/* ── 3 cases import ── */}
+<div className="flex items-center gap-3 bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-2">
+  {/* Import */}
+  <label className="flex items-center gap-2 border border-dashed border-slate-200 rounded-xl px-3 py-1.5 hover:border-sky-400 transition-all group cursor-pointer shrink-0">
+    <input type="file" accept=".xlsx" onChange={handleFile} className="hidden" />
+    <Upload className="h-3.5 w-3.5 text-slate-400 group-hover:text-sky-600" />
+    <span className="text-xs font-bold text-slate-700">Importer</span>
+    {uploading
+      ? <Loader2 className="h-3 w-3 text-sky-600 animate-spin" />
+      : uploadSuccess
+        ? <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+        : null
+    }
+  </label>
+
+  <div className="w-px h-6 bg-slate-100 shrink-0" />
+
+  {/* Equity */}
+  <div className="flex items-center gap-2 flex-1 min-w-0">
+    <div className={cn("w-2 h-2 rounded-full shrink-0", equityData ? "bg-sky-400" : "bg-slate-200")} />
+    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider shrink-0">Equity</span>
+    {equityData
+      ? <span className="text-[10px] text-slate-400 truncate">{equityData.importLog.filename} · {new Date(equityData.importLog.imported_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" })}</span>
+      : <span className="text-[10px] text-slate-300 italic">Aucun import</span>
+    }
+  </div>
+
+  <div className="w-px h-6 bg-slate-100 shrink-0" />
+
+  {/* Bonds */}
+  <div className="flex items-center gap-2 flex-1 min-w-0">
+    <div className={cn("w-2 h-2 rounded-full shrink-0", bondsData ? "bg-emerald-400" : "bg-slate-200")} />
+    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider shrink-0">Bonds</span>
+    {bondsData
+      ? <span className="text-[10px] text-slate-400 truncate">{bondsData.importLog.filename} · {new Date(bondsData.importLog.imported_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" })}</span>
+      : <span className="text-[10px] text-slate-300 italic">Aucun import</span>
+    }
+  </div>
+</div>
  
       {/* ── VUE BONDS ── */}
       {view === "Bonds" && (
