@@ -202,6 +202,15 @@ await pool.query(`CREATE TABLE IF NOT EXISTS dpam_equity_currencies (
   jpy NUMERIC,
   other NUMERIC
 )`);
+
+    await pool.query(`CREATE TABLE IF NOT EXISTS dpam_isin_mapping (
+  id SERIAL PRIMARY KEY,
+  isin TEXT UNIQUE NOT NULL,
+  dpam_type TEXT NOT NULL,
+  col_index INTEGER NOT NULL,
+  instrument_name TEXT,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+)`);
     
     // Migrations - ajout de colonnes si elles n'existent pas encore
     await pool.query(`ALTER TABLE manual_overrides ADD COLUMN IF NOT EXISTS is_hedged BOOLEAN DEFAULT FALSE;`);
