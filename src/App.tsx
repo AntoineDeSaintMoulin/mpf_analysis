@@ -1197,6 +1197,7 @@ function SimulationTab({
   const [selectedPortfolioId, setSelectedPortfolioId] = React.useState<number | null>(null);
   const [simulatedWeights, setSimulatedWeights] = React.useState<Record<number, number>>({});
   const [search, setSearch] = React.useState("");
+  const [resetFlash, setResetFlash] = React.useState(false);
 
   const CREDIT_COLORS_SIM: Record<string, string> = {
     Govies: "#0ea5e9", IG: "#10b981", HY: "#f59e0b", NR: "#94a3b8", "EM Debt": "#8b5cf6",
@@ -1416,14 +1417,21 @@ function SimulationTab({
           </select>
           {/* Reset */}
           <button
-            onClick={() => {
-              const init: Record<number, number> = {};
-              (currentPortfolio.holdings ?? []).forEach((h: any) => { init[h.id] = Math.round((h.weight ?? 0) * 100) / 100; });
-              setSimulatedWeights(init);
-            }}
-            className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
-            Réinitialiser
-          </button>
+  onClick={() => {
+    const init: Record<number, number> = {};
+    (currentPortfolio.holdings ?? []).forEach((h: any) => { init[h.id] = Math.round((h.weight ?? 0) * 100) / 100; });
+    setSimulatedWeights(init);
+    setResetFlash(true);
+    setTimeout(() => setResetFlash(false), 600);
+  }}
+  className={cn(
+    "px-4 py-2.5 rounded-xl border text-sm font-bold transition-all shadow-sm",
+    resetFlash
+      ? "bg-emerald-500 text-white border-emerald-500"
+      : "border-slate-200 text-slate-600 hover:bg-slate-50"
+  )}>
+  {resetFlash ? "✓ Réinitialisé" : "Réinitialiser"}
+</button>
         </div>
       </div>
 
@@ -3014,9 +3022,8 @@ const labels: Record<Tab, string> = { SYNTHESE: "Breakdown Deviation", INSTRUMEN
 )}
 
             {/* ← COLLE ICI */}
-{activeTab === "SIMULATION" && (
-  <motion.div key="simulation" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-    className="max-w-7xl mx-auto">
+<div className={activeTab === "SIMULATION" ? "block" : "hidden"}>
+  <div className="max-w-7xl mx-auto">
     <SimulationTab
       allPortfolios={allPortfolios}
       breakdowns={breakdowns}
@@ -3026,8 +3033,8 @@ const labels: Record<Tab, string> = { SYNTHESE: "Breakdown Deviation", INSTRUMEN
       currencyBreakdowns={currencyBreakdowns}
       targetGridData={targetGridData}
     />
-  </motion.div>
-)}
+  </div>
+</div>
    {/* ── SICAV / MIXED ── */}
             {(activeTab === "Sicav" || activeTab === "Mixed") && (
               <motion.div key={`detail-${selectedId ?? "none"}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-6xl mx-auto space-y-8">
