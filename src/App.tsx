@@ -111,7 +111,7 @@ const PORTFOLIO_ORDER = [
   "Mixed - MIX_MH", "Mixed - MIX_HIGH", "Mixed - MIX_VH",
 ];
 
-type Tab = "SYNTHESE" | "Sicav" | "Mixed" | "INSTRUMENTS" | "MANUALS" | "TARGET_GRID" | "DPAM";
+type Tab = "SYNTHESE" | "Sicav" | "Mixed" | "INSTRUMENTS" | "MANUALS" | "TARGET_GRID" | "DPAM" | "SIMULATION";
 
 const RISK_PROFILES = ["LOW", "MEDLOW", "MEDIUM", "MEDHIGH", "HIGH"] as const;
 type RiskProfile = typeof RISK_PROFILES[number];
@@ -1173,6 +1173,478 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
     </div>
   );
 }
+// ════════════════════════════════════════════════════════════════════════════
+// SIMULATION TAB — à coller avant export default function App()
+// ════════════════════════════════════════════════════════════════════════════
+
+function SimulationTab({
+  allPortfolios,
+  breakdowns,
+  creditBreakdowns,
+  durations,
+  manualOverrides,
+  currencyBreakdowns,
+  targetGridData,
+}: {
+  allPortfolios: any[];
+  breakdowns: Record<string, any[]>;
+  creditBreakdowns: Record<string, any[]>;
+  durations: Record<string, { duration: number; updated_at: string }>;
+  manualOverrides: any[];
+  currencyBreakdowns: Record<string, any[]>;
+  targetGridData: Record<string, any>;
+}) {
+  const [selectedPortfolioId, setSelectedPortfolioId] = React.useState<number | null>(null);
+  const [simulatedWeights, setSimulatedWeights] = React.useState<Record<number, number>>({});
+  const [search, setSearch] = React.useState("");
+
+  const CREDIT_COLORS_SIM: Record<string, string> = {
+    Govies: "#0ea5e9", IG: "#10b981", HY: "#f59e0b", NR: "#94a3b8", "EM Debt": "#8b5cf6",
+  };
+  const CURRENCY_COLORS_SIM: Record<string, string> = {
+    EUR: "#0ea5e9", USD: "#10b981", JPY: "#f59e0b", Other: "#94a3b8",
+  };
+  const CATEGORY_COLORS = ["#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
+
+  // Portefeuilles triés
+  const sortedPortfolios = React.useMemo(() =>
+    [...allPortfolios].filter(p => p?.name).sort((a, b) => {
+      const order = [
+        "Sicav - SCV_BDS", "Sicav - SCV_LOW", "Sicav - SCV_ML", "Sicav - SCV_MED",
+        "Sicav - SCV_MH", "Sicav - SCV_HIGH", "Sicav - SCV_VH",
+        "Mixed - MIX_BDS", "Mixed - MIX_LOW", "Mixed - MIX_ML", "Mixed - MIX_MED",
+        "Mixed - MIX_MH", "Mixed - MIX_HIGH", "Mixed - MIX_VH",
+      ];
+      return (order.indexOf(a.name) === -1 ? 999 : order.indexOf(a.name)) -
+             (order.indexOf(b.name) === -1 ? 999 : order.indexOf(b.name));
+    }), [allPortfolios]);
+
+  const currentPortfolio = allPortfolios.find(p => p.id === selectedPortfolioId) ?? null;
+
+  // Init poids simulés quand on change de portefeuille
+  React.useEffect(() => {
+    if (!currentPortfolio) return;
+    const init: Record<number, number> = {};
+    (currentPortfolio.holdings ?? []).forEach((h: any) => {
+      init[h.id] = h.weight ?? 0;
+    });
+    setSimulatedWeights(init);
+    setSearch("");
+  }, [selectedPortfolioId]);
+
+  const totalSimulated = Object.values(simulatedWeights).reduce((s, v) => s + (Number(v) || 0), 0);
+  const totalOriginal = (currentPortfolio?.holdings ?? []).reduce((s: number, h: any) => s + (h.weight ?? 0), 0);
+
+  // Holdings avec poids simulés
+  const simulatedHoldings = React.useMemo(() => {
+    if (!currentPortfolio) return [];
+    return (currentPortfolio.holdings ?? []).map((h: any) => ({
+      ...h,
+      weight: simulatedWeights[h.id] ?? h.weight ?? 0,
+    }));
+  }, [currentPortfolio, simulatedWeights]);
+
+  // Holdings filtrés pour la table
+  const filteredHoldings = React.useMemo(() => {
+    if (!search) return currentPortfolio?.holdings ?? [];
+    const q = search.toLowerCase();
+    return (currentPortfolio?.holdings ?? []).filter((h: any) =>
+      (h.asset_name ?? "").toLowerCase().includes(q) ||
+      (h.isin ?? "").toLowerCase().includes(q)
+    );
+  }, [currentPortfolio, search]);
+
+  function normalizeRegion(r: string) {
+    if (["Europe", "Europe ex-Euroland", "Euroland"].includes(r)) return "Europe";
+    if (["US", "North America"].includes(r)) return "US";
+    if (["Emerging and Frontier Markets", "Emerging Markets"].includes(r)) return "EM";
+    if (["Other"].includes(r)) return "Others";
+    return r;
+  }
+
+  // ── Calculs AVANT / APRÈS ──
+
+  function computeCategoryData(holdings: any[]) {
+    const m = new Map<string, number>();
+    holdings.forEach(h => {
+      if (!h?.category) return;
+      m.set(h.category, (m.get(h.category) ?? 0) + (h.weight ?? 0));
+    });
+    return Array.from(m.entries()).map(([name, value]) => ({ name, value: +value.toFixed(2) }));
+  }
+
+  function computeRegionData(holdings: any[]) {
+    const m = new Map<string, number>();
+    holdings.filter(h => h?.category === "Equities").forEach(h => {
+      const bd = h.isin ? breakdowns[h.isin] : null;
+      if (bd && bd.length > 0) {
+        bd.forEach((e: any) => m.set(normalizeRegion(e.region), (m.get(normalizeRegion(e.region)) ?? 0) + (h.weight ?? 0) * e.weight / 100));
+      } else {
+        const r = normalizeRegion(h.region ?? "Other");
+        m.set(r, (m.get(r) ?? 0) + (h.weight ?? 0));
+      }
+    });
+    return Array.from(m.entries()).map(([name, value]) => ({ name, value: +value.toFixed(2) }));
+  }
+
+  function computeCurrencyData(holdings: any[]) {
+    const KEY = ["EUR", "USD", "JPY"];
+    const m = new Map<string, number>();
+    holdings.forEach(h => {
+      if (!h) return;
+      const cbd = h.isin ? currencyBreakdowns[h.isin] : null;
+      if (cbd && cbd.length > 0) {
+        cbd.forEach((e: any) => m.set(e.currency.toUpperCase(), (m.get(e.currency.toUpperCase()) ?? 0) + (h.weight ?? 0) * e.weight / 100));
+      } else {
+        const hedged = manualOverrides.some(ov =>
+          ((ov.manual_isin && ov.manual_isin === h.isin) ||
+          (ov.original_asset_name && ov.original_asset_name === (h.original_asset_name ?? h.asset_name)))
+          && ov.is_hedged === true
+        );
+        const cur = hedged ? "EUR" : (h.currency ?? "Other").toUpperCase();
+        m.set(cur, (m.get(cur) ?? 0) + (h.weight ?? 0));
+      }
+    });
+    const result: { label: string; value: number }[] = [];
+    let other = 0;
+    m.forEach((w, cur) => KEY.includes(cur) ? result.push({ label: cur, value: +w.toFixed(2) }) : (other += w));
+    if (other > 0.05) result.push({ label: "Other", value: +other.toFixed(2) });
+    const ord = ["EUR", "USD", "JPY", "Other"];
+    return result.sort((a, b) => (ord.indexOf(a.label) === -1 ? 99 : ord.indexOf(a.label)) - (ord.indexOf(b.label) === -1 ? 99 : ord.indexOf(b.label)));
+  }
+
+  function computeCreditData(holdings: any[]) {
+    const FI = ["Fixed Income", "Bonds"];
+    const m = new Map<string, number>();
+    holdings.forEach(h => {
+      if (!h || !FI.includes(h.category ?? "")) return;
+      const cbd = h.isin ? creditBreakdowns[h.isin] : null;
+      if (cbd) cbd.forEach((e: any) => m.set(e.credit_type, (m.get(e.credit_type) ?? 0) + (h.weight ?? 0) * e.weight / 100));
+    });
+    return ["Govies", "IG", "HY", "NR", "EM Debt"]
+      .filter(ct => (m.get(ct) ?? 0) > 0.01)
+      .map(ct => ({ name: ct, value: +((m.get(ct) ?? 0).toFixed(2)) }));
+  }
+
+  function computeDuration(holdings: any[]) {
+    const CATS = ["Fixed Income", "Bonds", "Liquidities"];
+    const fi = holdings.filter(h => h && CATS.includes(h.category ?? "") &&
+      (h.isin ? (durations[h.isin] || h.category === "Liquidities") : h.category === "Liquidities"));
+    const total = fi.reduce((s, h) => s + (h.weight ?? 0), 0);
+    if (total === 0) return null;
+    const weighted = fi.reduce((s, h) => s + (h.weight ?? 0) * (durations[h.isin!]?.duration ?? 0), 0);
+    return +(weighted / total).toFixed(2);
+  }
+
+  const originalHoldings = currentPortfolio?.holdings ?? [];
+  const beforeCat = React.useMemo(() => computeCategoryData(originalHoldings), [currentPortfolio]);
+  const afterCat = React.useMemo(() => computeCategoryData(simulatedHoldings), [simulatedHoldings]);
+  const beforeRegion = React.useMemo(() => computeRegionData(originalHoldings), [currentPortfolio, breakdowns]);
+  const afterRegion = React.useMemo(() => computeRegionData(simulatedHoldings), [simulatedHoldings, breakdowns]);
+  const beforeCurrency = React.useMemo(() => computeCurrencyData(originalHoldings), [currentPortfolio, currencyBreakdowns]);
+  const afterCurrency = React.useMemo(() => computeCurrencyData(simulatedHoldings), [simulatedHoldings, currencyBreakdowns]);
+  const beforeCredit = React.useMemo(() => computeCreditData(originalHoldings), [currentPortfolio, creditBreakdowns]);
+  const afterCredit = React.useMemo(() => computeCreditData(simulatedHoldings), [simulatedHoldings, creditBreakdowns]);
+  const beforeDuration = React.useMemo(() => computeDuration(originalHoldings), [currentPortfolio, durations]);
+  const afterDuration = React.useMemo(() => computeDuration(simulatedHoldings), [simulatedHoldings, durations]);
+
+  // Merge avant/après pour graphes combinés
+  function mergeData(before: { name: string; value: number }[], after: { name: string; value: number }[]) {
+    const keys = Array.from(new Set([...before.map(d => d.name), ...after.map(d => d.name)]));
+    return keys.map(name => ({
+      name,
+      before: before.find(d => d.name === name)?.value ?? 0,
+      after: after.find(d => d.name === name)?.value ?? 0,
+    }));
+  }
+
+  const catMerged = React.useMemo(() => mergeData(beforeCat, afterCat), [beforeCat, afterCat]);
+  const regionMerged = React.useMemo(() => mergeData(beforeRegion, afterRegion), [beforeRegion, afterRegion]);
+
+  const portfolioLabel = (name: string) => {
+    const parts = name.split(" - ");
+    return parts.length >= 2 ? parts[1] : name;
+  };
+
+  if (!currentPortfolio) {
+    return (
+      <div className="space-y-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Simulation</h2>
+            <p className="text-slate-500">Simulez l'impact d'un changement de pondération sur votre portefeuille.</p>
+          </div>
+        </div>
+        {/* Dropdown */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 max-w-sm">
+          <label className="block text-sm font-bold text-slate-700 mb-2">Choisir un portefeuille</label>
+          <select
+            value={selectedPortfolioId ?? ""}
+            onChange={e => setSelectedPortfolioId(Number(e.target.value))}
+            className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500 outline-none text-slate-700 bg-white">
+            <option value="">— Sélectionner —</option>
+            {sortedPortfolios.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-4">
+          <TrendingUp className="h-12 w-12 opacity-20" />
+          <p className="text-lg">Sélectionnez un portefeuille pour commencer.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Simulation</h2>
+          <p className="text-slate-500">Modifiez les poids et observez l'impact en temps réel.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {/* Dropdown */}
+          <select
+            value={selectedPortfolioId ?? ""}
+            onChange={e => setSelectedPortfolioId(Number(e.target.value))}
+            className="px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500 outline-none text-slate-700 bg-white text-sm font-medium shadow-sm">
+            {sortedPortfolios.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          {/* Reset */}
+          <button
+            onClick={() => {
+              const init: Record<number, number> = {};
+              (currentPortfolio.holdings ?? []).forEach((h: any) => { init[h.id] = h.weight ?? 0; });
+              setSimulatedWeights(init);
+            }}
+            className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
+            Réinitialiser
+          </button>
+        </div>
+      </div>
+
+      {/* Total + table positions */}
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+        {/* Header table */}
+        <div className="px-6 py-4 border-b border-slate-50 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 flex-1">
+            <Search className="h-4 w-4 text-slate-400 shrink-0" />
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Rechercher un instrument…"
+              className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400" />
+            {search && <button onClick={() => setSearch("")} className="p-0.5 hover:bg-slate-100 rounded"><X className="h-3.5 w-3.5 text-slate-400" /></button>}
+          </div>
+          {/* Total */}
+          <div className={cn(
+            "flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-colors",
+            Math.abs(totalSimulated - 100) < 0.05
+              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+              : "bg-rose-50 text-rose-700 border border-rose-200"
+          )}>
+            <span className="text-xs font-normal opacity-70">Total simulé</span>
+            <span>{totalSimulated.toFixed(2)}%</span>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50/50">
+                <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Instrument</th>
+                <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Catégorie</th>
+                <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Région</th>
+                <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Poids original</th>
+                <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Poids simulé</th>
+                <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Δ</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {filteredHoldings.map((h: any) => {
+                const simWeight = simulatedWeights[h.id] ?? h.weight ?? 0;
+                const delta = simWeight - (h.weight ?? 0);
+                const changed = Math.abs(delta) > 0.001;
+                return (
+                  <tr key={h.id} className={cn("transition-colors hover:bg-slate-50/50", changed && "bg-amber-50/30")}>
+                    <td className="px-6 py-3 font-medium text-slate-900 text-sm truncate max-w-[220px]">{h.asset_name ?? "—"}</td>
+                    <td className="px-6 py-3">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-sky-50 text-sky-700">{h.category ?? "—"}</span>
+                    </td>
+                    <td className="px-6 py-3 text-xs text-slate-500">{h.region ?? "—"}</td>
+                    <td className="px-6 py-3 text-right text-slate-500 text-sm">{(h.weight ?? 0).toFixed(2)}%</td>
+                    <td className="px-6 py-3 text-right">
+                      <input
+                        type="number"
+                        step={0.01}
+                        min={0}
+                        max={100}
+                        value={simulatedWeights[h.id] ?? h.weight ?? 0}
+                        onChange={e => setSimulatedWeights(prev => ({ ...prev, [h.id]: parseFloat(e.target.value) || 0 }))}
+                        className={cn(
+                          "w-20 px-2 py-1 text-right rounded-lg border text-sm font-bold outline-none transition-colors",
+                          changed
+                            ? "border-amber-300 bg-amber-50 text-amber-700 focus:ring-2 focus:ring-amber-400"
+                            : "border-slate-200 bg-white text-slate-700 focus:ring-2 focus:ring-sky-400"
+                        )}
+                      />
+                    </td>
+                    <td className="px-6 py-3 text-right text-xs font-bold">
+                      {changed
+                        ? <span className={delta > 0 ? "text-emerald-600" : "text-rose-600"}>
+                            {delta > 0 ? "+" : ""}{delta.toFixed(2)}%
+                          </span>
+                        : <span className="text-slate-300">—</span>
+                      }
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Comparaison KPI ── */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        {/* Duration */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Duration</p>
+          <div className="flex items-end gap-4">
+            <div>
+              <p className="text-[10px] text-slate-400 mb-0.5">Avant</p>
+              <p className="text-2xl font-bold text-slate-400">{beforeDuration ?? "—"}</p>
+            </div>
+            <ArrowRight className="h-4 w-4 text-slate-300 mb-1" />
+            <div>
+              <p className="text-[10px] text-sky-500 mb-0.5">Après</p>
+              <p className={cn("text-2xl font-bold", afterDuration !== beforeDuration ? "text-sky-600" : "text-slate-900")}>
+                {afterDuration ?? "—"}
+              </p>
+            </div>
+            {afterDuration != null && beforeDuration != null && afterDuration !== beforeDuration && (
+              <span className={cn("text-xs font-bold px-2 py-0.5 rounded-lg mb-1",
+                afterDuration > beforeDuration ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600")}>
+                {afterDuration > beforeDuration ? "+" : ""}{(afterDuration - beforeDuration).toFixed(2)}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Credit Quality */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm md:col-span-2">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Credit Quality</p>
+          <div className="space-y-2">
+            {Array.from(new Set([...beforeCredit.map(d => d.name), ...afterCredit.map(d => d.name)])).map(name => {
+              const bv = beforeCredit.find(d => d.name === name)?.value ?? 0;
+              const av = afterCredit.find(d => d.name === name)?.value ?? 0;
+              const color = CREDIT_COLORS_SIM[name] ?? "#94a3b8";
+              return (
+                <div key={name} className="flex items-center gap-3">
+                  <span className="text-xs font-bold w-16 shrink-0" style={{ color }}>{name}</span>
+                  <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden relative">
+                    <div className="absolute top-0 left-0 h-full rounded-full opacity-40 transition-all"
+                      style={{ width: `${Math.min(100, bv)}%`, backgroundColor: color }} />
+                    <div className="absolute top-0 left-0 h-full rounded-full transition-all"
+                      style={{ width: `${Math.min(100, av)}%`, backgroundColor: color, opacity: av !== bv ? 1 : 0.4 }} />
+                  </div>
+                  <span className="text-xs text-slate-400 w-10 text-right shrink-0">{bv.toFixed(1)}%</span>
+                  <ArrowRight className="h-3 w-3 text-slate-300 shrink-0" />
+                  <span className={cn("text-xs font-bold w-10 text-right shrink-0", av !== bv ? "text-sky-600" : "text-slate-400")}>{av.toFixed(1)}%</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Currency Exposure ── */}
+      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-4">Currency Exposure</p>
+        <div className="space-y-3">
+          {Array.from(new Set([...beforeCurrency.map(d => d.label), ...afterCurrency.map(d => d.label)])).map(label => {
+            const bv = beforeCurrency.find(d => d.label === label)?.value ?? 0;
+            const av = afterCurrency.find(d => d.label === label)?.value ?? 0;
+            const color = CURRENCY_COLORS_SIM[label] ?? "#94a3b8";
+            return (
+              <div key={label} className="flex items-center gap-3">
+                <span className="text-xs font-bold w-10 shrink-0" style={{ color }}>{label}</span>
+                <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden relative">
+                  <div className="absolute top-0 left-0 h-full rounded-full opacity-40 transition-all"
+                    style={{ width: `${Math.min(100, bv)}%`, backgroundColor: color }} />
+                  <div className="absolute top-0 left-0 h-full rounded-full transition-all"
+                    style={{ width: `${Math.min(100, av)}%`, backgroundColor: color, opacity: av !== bv ? 1 : 0.4 }} />
+                </div>
+                <span className="text-xs text-slate-400 w-12 text-right shrink-0">{bv.toFixed(1)}%</span>
+                <ArrowRight className="h-3 w-3 text-slate-300 shrink-0" />
+                <span className={cn("text-xs font-bold w-12 text-right shrink-0", av !== bv ? "text-sky-600" : "text-slate-400")}>{av.toFixed(1)}%</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Graphes catégorie + région ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Allocation par catégorie */}
+        <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+          <h3 className="text-base font-bold mb-2 flex items-center gap-2">
+            <PieChartIcon className="h-4 w-4 text-sky-600" />Allocation par Catégorie
+          </h3>
+          <div className="flex items-center gap-4 mb-4 text-xs">
+            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-slate-300" /><span className="text-slate-500">Avant</span></div>
+            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-sky-500" /><span className="text-slate-500">Après</span></div>
+          </div>
+          <div className="h-[280px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={catMerged} layout="vertical" margin={{ top: 0, right: 60, left: 20, bottom: 0 }}>
+                <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} tickFormatter={v => v + "%"} />
+                <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} width={90} />
+                <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "16px", border: "none" }}
+                  formatter={(v: number, name: string) => [v.toFixed(2) + "%", name === "before" ? "Avant" : "Après"]} />
+                <Bar dataKey="before" fill="#cbd5e1" radius={[0, 6, 6, 0]} barSize={8}>
+                  <LabelList dataKey="before" position="right" formatter={(v: number) => v > 0 ? v.toFixed(1) + "%" : ""} fill="#94a3b8" fontSize={10} />
+                </Bar>
+                <Bar dataKey="after" fill="#0ea5e9" radius={[0, 6, 6, 0]} barSize={8}>
+                  <LabelList dataKey="after" position="right" formatter={(v: number) => v > 0 ? v.toFixed(1) + "%" : ""} fill="#0ea5e9" fontSize={10} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Exposition régionale */}
+        <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+          <h3 className="text-base font-bold mb-2 flex items-center gap-2">
+            <Globe className="h-4 w-4 text-amber-600" />Exposition Régionale
+          </h3>
+          <div className="flex items-center gap-4 mb-4 text-xs">
+            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-slate-300" /><span className="text-slate-500">Avant</span></div>
+            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-amber-400" /><span className="text-slate-500">Après</span></div>
+          </div>
+          <div className="h-[280px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={regionMerged} margin={{ top: 20, right: 10, left: 0, bottom: 0 }}>
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
+                <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "16px", border: "none" }}
+                  formatter={(v: number, name: string) => [v.toFixed(2) + "%", name === "before" ? "Avant" : "Après"]} />
+                <Bar dataKey="before" fill="#cbd5e1" radius={[6, 6, 0, 0]} barSize={16}>
+                  <LabelList dataKey="before" position="top" formatter={(v: number) => v > 0 ? v.toFixed(1) + "%" : ""} fill="#94a3b8" fontSize={10} />
+                </Bar>
+                <Bar dataKey="after" fill="#f59e0b" radius={[6, 6, 0, 0]} barSize={16}>
+                  <LabelList dataKey="after" position="top" formatter={(v: number) => v > 0 ? v.toFixed(1) + "%" : ""} fill="#f59e0b" fontSize={10} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>("SYNTHESE");
@@ -2033,8 +2505,8 @@ const weightedDuration = fiHoldings.reduce((s, h) => {
           <h1 className="text-lg font-bold tracking-tight">Portfolio Insight</h1>
         </div>
         <div className="flex items-center bg-slate-100 p-1 rounded-xl">
-          {(["SYNTHESE", "INSTRUMENTS", "TARGET_GRID", "Sicav", "Mixed", "MANUALS", "DPAM"] as Tab[]).map((tab) => {
-            const labels: Record<Tab, string> = { SYNTHESE: "Breakdown Deviation", INSTRUMENTS: "Synthèse Instruments", TARGET_GRID: "Target Grid", Sicav: "Sicav", Mixed: "Mixed", MANUALS: "Manuals", DPAM: "DPAM" };
+          {(["SYNTHESE", "INSTRUMENTS", "TARGET_GRID", "Sicav", "Mixed", "MANUALS", "DPAM", "SIMULATION"] as Tab[]).map((tab) => {
+const labels: Record<Tab, string> = { SYNTHESE: "Breakdown Deviation", INSTRUMENTS: "Synthèse Instruments", TARGET_GRID: "Target Grid", Sicav: "Sicav", Mixed: "Mixed", MANUALS: "Manuals", DPAM: "DPAM", SIMULATION: "Simulation" };
             const showDate = ["SYNTHESE", "Sicav", "Mixed", "TARGET_GRID"].includes(tab);
             const latestDate = (() => {
               if (!showDate) return null;
@@ -2537,6 +3009,22 @@ const weightedDuration = fiHoldings.reduce((s, h) => {
       onUpload={handleDpamUpload}
       uploading={dpamUploading}
       uploadSuccess={dpamUploadSuccess}
+    />
+  </motion.div>
+)}
+
+            {/* ← COLLE ICI */}
+{activeTab === "SIMULATION" && (
+  <motion.div key="simulation" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+    className="max-w-7xl mx-auto">
+    <SimulationTab
+      allPortfolios={allPortfolios}
+      breakdowns={breakdowns}
+      creditBreakdowns={creditBreakdowns}
+      durations={durations}
+      manualOverrides={manualOverrides}
+      currencyBreakdowns={currencyBreakdowns}
+      targetGridData={targetGridData}
     />
   </motion.div>
 )}
