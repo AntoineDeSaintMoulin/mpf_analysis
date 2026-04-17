@@ -52,7 +52,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         };
       }
 
-      return res.json({ bonds: bondsData, equity: equityData });
+      const mappings = await pool.query(`SELECT * FROM dpam_isin_mapping ORDER BY updated_at DESC`);
+
+      return res.json({ bonds: bondsData, equity: equityData, mappings: mappings.rows });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  // ── DELETE ──
+  if (req.method === "DELETE") {
+    const { isin } = req.body;
+    if (!isin) return res.status(400).json({ error: "Missing isin" });
+    try {
+      await pool.query(`DELETE FROM dpam_isin_mapping WHERE isin=$1`, [isin]);
+      return res.json({ ok: true });
     } catch (e: any) {
       return res.status(500).json({ error: e.message });
     }
@@ -65,6 +79,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: "Missing fields" });
 
     try {
+      // ── Mapping ISIN ──
+      if (type === "mapping") {
+        const { isin, dpam_type, col_index, instrument_name } = parsed;
+        await pool.query(`
+          INSERT INTO dpam_isin_mapping (isin, dpam_type, col_index, instrument_name, updated_at)
+          VALUES ($1, $2, $3, $4, NOW())
+          ON CONFLICT(isin) DO UPDATE SET
+            dpam_type = EXCLUDED.dpam_type,
+            col_index = EXCLUDED.col_index,
+            instrument_name = EXCLUDED.instrument_name,
+            updated_at = NOW()
+        `, [isin, dpam_type, col_index, instrument_name]);
+        return res.json({ ok: true });
+      }
+
       // Supprimer les anciens imports du même type
       const oldLogs = await pool.query(`SELECT id FROM dpam_import_log WHERE type=$1`, [type]);
       for (const row of oldLogs.rows) {
@@ -77,6 +106,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       );
       const importId = logRes.rows[0].id;
 
+      // ── Bonds ──
       if (type === "bonds") {
         const { instruments, globals, ratings, currencies, countries, sectors } = parsed;
 
@@ -122,6 +152,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       }
 
+      // ── Equity ──
       if (type === "equity") {
         const { instruments, globals, sectors, countries, currencies } = parsed;
 
