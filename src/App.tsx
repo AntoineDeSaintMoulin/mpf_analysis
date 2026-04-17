@@ -2429,6 +2429,85 @@ if (isEquity) {
   }, [currentPortfolio, currencyBreakdowns]);
 
  // ── Credit exposure — agrégation par credit_type sur tout le portefeuille ──
+  const dpamLookup = useMemo(() => {
+  const result: Record<string, {
+    geoBreakdown: { region: string; weight: number }[] | null;
+    currencyBreakdown: { currency: string; weight: number }[] | null;
+    creditBreakdown: { credit_type: string; currency: string; weight: number }[] | null;
+  }> = {};
+ 
+  for (const mapping of dpamMappings) {
+    const { isin, dpam_type, col_index } = mapping;
+ 
+    if (dpam_type === "bonds" && dpamBondsData) {
+      // Geo : pas de geo bonds directs, on skip
+      const geo = null;
+ 
+      // Currency
+      const curRow = (dpamBondsData.currencies ?? []).find((c: any) => c.instrument_col === col_index);
+      const currency = curRow ? [
+        { currency: "EUR", weight: Number(curRow.eur ?? 0) },
+        { currency: "USD", weight: Number(curRow.usd ?? 0) },
+        { currency: "JPY", weight: Number(curRow.jpy ?? 0) },
+        { currency: "Other", weight: Number(curRow.other ?? 0) },
+      ].filter(e => e.weight > 0.01) : null;
+ 
+      // Credit
+      const creditRows = (dpamBondsData.ratings ?? []).find((r: any) => r.instrument_col === col_index);
+      const credit = creditRows ? [
+        { credit_type: "IG", currency: "EUR", weight: Number(creditRows.ig ?? 0) },
+        { credit_type: "HY", currency: "EUR", weight: Number(creditRows.hy ?? 0) },
+        { credit_type: "Others", currency: "EUR", weight: Number(creditRows.others ?? 0) },
+      ].filter(e => e.weight > 0.01) : null;
+ 
+      result[isin] = { geoBreakdown: geo, currencyBreakdown: currency, creditBreakdown: credit };
+    }
+ 
+    if (dpam_type === "equity" && dpamEquityData) {
+      // Currency
+      const curRow = (dpamEquityData.currencies ?? []).find((c: any) => c.instrument_col === col_index);
+      const currency = curRow ? [
+        { currency: "EUR", weight: Number(curRow.eur ?? 0) },
+        { currency: "USD", weight: Number(curRow.usd ?? 0) },
+        { currency: "JPY", weight: Number(curRow.jpy ?? 0) },
+        { currency: "Other", weight: Number(curRow.other ?? 0) },
+      ].filter(e => e.weight > 0.01) : null;
+ 
+      // Geo : pays → on mappe vers régions
+      const countryRows = (dpamEquityData.countries ?? [])
+        .filter((c: any) => c.instrument_col === col_index && Number(c.weight ?? 0) > 0.001);
+      
+      const COUNTRY_TO_REGION: Record<string, string> = {
+        "Belgium": "Europe", "France": "Europe", "Germany": "Europe", "Italy": "Europe",
+        "Spain": "Europe", "Netherlands": "Europe", "Ireland": "Europe", "Austria": "Europe",
+        "Denmark": "Europe", "Finland": "Europe", "Norway": "Europe", "Luxembourg": "Europe",
+        "Sweden": "Europe", "Switzerland": "Europe", "Portugal": "Europe", "Slovakia": "Europe",
+        "Croatia": "Europe", "Greece": "Europe", "Iceland": "Europe",
+        "United States": "US", "Canada": "US",
+        "Japan": "Japan",
+        "China": "EM", "South Korea": "EM", "India": "EM", "Brazil": "EM", "Taiwan": "EM",
+        "Mexico": "EM", "South Africa": "EM", "Malaysia": "EM", "Indonesia": "EM",
+        "Thailand": "EM", "Philippines": "EM", "Turkey": "EM", "Poland": "EM",
+        "Colombia": "EM", "Chile": "EM", "Peru": "EM", "Qatar": "EM",
+        "United Arab Emirates": "EM", "Korea": "EM",
+        "Australia": "Others", "New Zealand": "Others", "Hong Kong": "Others",
+        "Singapore": "Others", "United Kingdom": "Europe",
+      };
+ 
+      const regionMap = new Map<string, number>();
+      countryRows.forEach((c: any) => {
+        const region = COUNTRY_TO_REGION[c.country] ?? "Others";
+        regionMap.set(region, (regionMap.get(region) ?? 0) + Number(c.weight ?? 0));
+      });
+      const geo = Array.from(regionMap.entries()).map(([region, weight]) => ({ region, weight }));
+ 
+      result[isin] = { geoBreakdown: geo.length > 0 ? geo : null, currencyBreakdown: currency, creditBreakdown: null };
+    }
+  }
+ 
+  return result;
+}, [dpamMappings, dpamBondsData, dpamEquityData]);
+  
   const creditData = useMemo(() => {
     const FIXED_INCOME_CATS = ["Fixed Income", "Bonds"];
     const m = new Map<string, number>();
@@ -2480,7 +2559,9 @@ const weightedDuration = fiHoldings.reduce((s, h) => {
     "EM Debt": "#8b5cf6",
   };
    
-  const instrumentsSynthesis = useMemo(() => {
+
+
+ const instrumentsSynthesis = useMemo(() => {
     const im = new Map<string, { name: string; isin: string; weights: Record<string, number>; details: Partial<Holding> }>();
     const names = allPortfolios.map((p) => p?.name).filter(Boolean) as string[];
     allPortfolios.forEach((p) => {
@@ -2624,84 +2705,6 @@ const weightedDuration = fiHoldings.reduce((s, h) => {
     );
   }, [sortedInstruments, instrumentsSearch]);
 
-const dpamLookup = useMemo(() => {
-  const result: Record<string, {
-    geoBreakdown: { region: string; weight: number }[] | null;
-    currencyBreakdown: { currency: string; weight: number }[] | null;
-    creditBreakdown: { credit_type: string; currency: string; weight: number }[] | null;
-  }> = {};
- 
-  for (const mapping of dpamMappings) {
-    const { isin, dpam_type, col_index } = mapping;
- 
-    if (dpam_type === "bonds" && dpamBondsData) {
-      // Geo : pas de geo bonds directs, on skip
-      const geo = null;
- 
-      // Currency
-      const curRow = (dpamBondsData.currencies ?? []).find((c: any) => c.instrument_col === col_index);
-      const currency = curRow ? [
-        { currency: "EUR", weight: Number(curRow.eur ?? 0) },
-        { currency: "USD", weight: Number(curRow.usd ?? 0) },
-        { currency: "JPY", weight: Number(curRow.jpy ?? 0) },
-        { currency: "Other", weight: Number(curRow.other ?? 0) },
-      ].filter(e => e.weight > 0.01) : null;
- 
-      // Credit
-      const creditRows = (dpamBondsData.ratings ?? []).find((r: any) => r.instrument_col === col_index);
-      const credit = creditRows ? [
-        { credit_type: "IG", currency: "EUR", weight: Number(creditRows.ig ?? 0) },
-        { credit_type: "HY", currency: "EUR", weight: Number(creditRows.hy ?? 0) },
-        { credit_type: "Others", currency: "EUR", weight: Number(creditRows.others ?? 0) },
-      ].filter(e => e.weight > 0.01) : null;
- 
-      result[isin] = { geoBreakdown: geo, currencyBreakdown: currency, creditBreakdown: credit };
-    }
- 
-    if (dpam_type === "equity" && dpamEquityData) {
-      // Currency
-      const curRow = (dpamEquityData.currencies ?? []).find((c: any) => c.instrument_col === col_index);
-      const currency = curRow ? [
-        { currency: "EUR", weight: Number(curRow.eur ?? 0) },
-        { currency: "USD", weight: Number(curRow.usd ?? 0) },
-        { currency: "JPY", weight: Number(curRow.jpy ?? 0) },
-        { currency: "Other", weight: Number(curRow.other ?? 0) },
-      ].filter(e => e.weight > 0.01) : null;
- 
-      // Geo : pays → on mappe vers régions
-      const countryRows = (dpamEquityData.countries ?? [])
-        .filter((c: any) => c.instrument_col === col_index && Number(c.weight ?? 0) > 0.001);
-      
-      const COUNTRY_TO_REGION: Record<string, string> = {
-        "Belgium": "Europe", "France": "Europe", "Germany": "Europe", "Italy": "Europe",
-        "Spain": "Europe", "Netherlands": "Europe", "Ireland": "Europe", "Austria": "Europe",
-        "Denmark": "Europe", "Finland": "Europe", "Norway": "Europe", "Luxembourg": "Europe",
-        "Sweden": "Europe", "Switzerland": "Europe", "Portugal": "Europe", "Slovakia": "Europe",
-        "Croatia": "Europe", "Greece": "Europe", "Iceland": "Europe",
-        "United States": "US", "Canada": "US",
-        "Japan": "Japan",
-        "China": "EM", "South Korea": "EM", "India": "EM", "Brazil": "EM", "Taiwan": "EM",
-        "Mexico": "EM", "South Africa": "EM", "Malaysia": "EM", "Indonesia": "EM",
-        "Thailand": "EM", "Philippines": "EM", "Turkey": "EM", "Poland": "EM",
-        "Colombia": "EM", "Chile": "EM", "Peru": "EM", "Qatar": "EM",
-        "United Arab Emirates": "EM", "Korea": "EM",
-        "Australia": "Others", "New Zealand": "Others", "Hong Kong": "Others",
-        "Singapore": "Others", "United Kingdom": "Europe",
-      };
- 
-      const regionMap = new Map<string, number>();
-      countryRows.forEach((c: any) => {
-        const region = COUNTRY_TO_REGION[c.country] ?? "Others";
-        regionMap.set(region, (regionMap.get(region) ?? 0) + Number(c.weight ?? 0));
-      });
-      const geo = Array.from(regionMap.entries()).map(([region, weight]) => ({ region, weight }));
- 
-      result[isin] = { geoBreakdown: geo.length > 0 ? geo : null, currencyBreakdown: currency, creditBreakdown: null };
-    }
-  }
- 
-  return result;
-}, [dpamMappings, dpamBondsData, dpamEquityData]);
   
   if (loading) {
     return (
