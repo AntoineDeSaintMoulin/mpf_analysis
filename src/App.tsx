@@ -1225,9 +1225,9 @@ function SimulationTab({
   React.useEffect(() => {
     if (!currentPortfolio) return;
     const init: Record<number, number> = {};
-    (currentPortfolio.holdings ?? []).forEach((h: any) => {
-      init[h.id] = h.weight ?? 0;
-    });
+(currentPortfolio.holdings ?? []).forEach((h: any) => {
+  init[h.id] = Math.round((h.weight ?? 0) * 100) / 100;
+});
     setSimulatedWeights(init);
     setSearch("");
   }, [selectedPortfolioId]);
@@ -1418,7 +1418,7 @@ function SimulationTab({
           <button
             onClick={() => {
               const init: Record<number, number> = {};
-              (currentPortfolio.holdings ?? []).forEach((h: any) => { init[h.id] = h.weight ?? 0; });
+              (currentPortfolio.holdings ?? []).forEach((h: any) => { init[h.id] = Math.round((h.weight ?? 0) * 100) / 100; });
               setSimulatedWeights(init);
             }}
             className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
