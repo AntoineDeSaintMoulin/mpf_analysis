@@ -1482,7 +1482,7 @@ function SimulationTab({
                         min={0}
                         max={100}
                         value={simulatedWeights[h.id] ?? h.weight ?? 0}
-                        onChange={e => setSimulatedWeights(prev => ({ ...prev, [h.id]: parseFloat(e.target.value) || 0 }))}
+                        onChange={e => setSimulatedWeights(prev => ({ ...prev, [h.id]: Math.round((parseFloat(e.target.value) || 0) * 100) / 100 }))}
                         className={cn(
                           "w-20 px-2 py-1 text-right rounded-lg border text-sm font-bold outline-none transition-colors",
                           changed
