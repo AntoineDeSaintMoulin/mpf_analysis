@@ -1287,6 +1287,7 @@ function SimulationTab({
   manualOverrides,
   currencyBreakdowns,
   targetGridData,
+  dpamLookup,
 }: {
   allPortfolios: any[];
   breakdowns: Record<string, any[]>;
@@ -1295,7 +1296,8 @@ function SimulationTab({
   manualOverrides: any[];
   currencyBreakdowns: Record<string, any[]>;
   targetGridData: Record<string, any>;
-}) {
+  dpamLookup: Record<string, any>;
+}){
   const [selectedPortfolioId, setSelectedPortfolioId] = React.useState<number | null>(null);
   const [simulatedWeights, setSimulatedWeights] = React.useState<Record<number, number>>({});
   const [search, setSearch] = React.useState("");
@@ -1802,6 +1804,7 @@ export default function App() {
   const [showDurationDetail, setShowDurationDetail] = useState(false);
   const [showCurrencyDetail, setShowCurrencyDetail] = useState<string | null>(null);
   const [dpamBondsData, setDpamBondsData] = useState<any>(null);
+  const [dpamEquityData, setDpamEquityData] = useState<any>(null);
   const [dpamUploading, setDpamUploading] = useState(false);
   const [dpamUploadSuccess, setDpamUploadSuccess] = useState(false);
 const [dpamMappings, setDpamMappings] = useState<{
