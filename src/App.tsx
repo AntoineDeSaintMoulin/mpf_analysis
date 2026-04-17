@@ -609,16 +609,26 @@ function DpamTab({
   onUpload,
   uploading,
   uploadSuccess,
+  mappings,
+  onSaveMapping,
+  onDeleteMapping,
 }: {
   bondsData: any | null;
   equityData: any | null;
   onUpload: (file: File) => void;
   uploading: boolean;
   uploadSuccess: boolean;
+  mappings: any[];
+  onSaveMapping: (isin: string, dpam_type: string, col_index: number, instrument_name: string) => Promise<void>;
+  onDeleteMapping: (isin: string) => Promise<void>;
 }) {
   const [view, setView] = React.useState<DpamView>("Bonds");
   const [selectedCol, setSelectedCol] = React.useState<number | null>(null);
- 
+ const [newMappingIsin, setNewMappingIsin] = React.useState("");
+const [newMappingType, setNewMappingType] = React.useState<"bonds" | "equity">("bonds");
+const [newMappingCol, setNewMappingCol] = React.useState<number | null>(null);
+const [mappingSaving, setMappingSaving] = React.useState(false);
+  
   // Quand bondsData change, sélectionner le premier instrument par défaut
   React.useEffect(() => {
     if (bondsData?.instruments?.length > 0 && selectedCol === null) {
@@ -966,6 +976,7 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
         </>
       )}
  
+ {/* ── VUE EQUITY ── */}
       {view === "Equity" && (
         <>
           {!equityData ? (
@@ -987,10 +998,10 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
                           ? "bg-sky-600 text-white border-sky-600 shadow-sm"
                           : "bg-white text-slate-600 border-slate-200 hover:border-sky-300")}>
                       {inst.name
-  .replace("DPAM B EQUITIES ", "")
-  .replace("DPAM L EQUITIES ", "")
-  .replace("DPAM B REAL ESTATE ", "REAL ESTATE ")
-  .replace("DPAM DBI RDT B EQUITIES ", "DBI RDT ")}
+                        .replace("DPAM B EQUITIES ", "")
+                        .replace("DPAM L EQUITIES ", "")
+                        .replace("DPAM B REAL ESTATE ", "REAL ESTATE ")
+                        .replace("DPAM DBI RDT B EQUITIES ", "DBI RDT ")}
                     </button>
                   ))}
                 </div>
@@ -1011,10 +1022,7 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
                 if (!selInst) return null;
                 return (
                   <div className="space-y-6">
-                    {/* Nom */}
                     <h3 className="text-xl font-bold text-slate-900">{selInst.name}</h3>
- 
-                    {/* KPI globaux */}
                     {selGlob && (
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         {[
@@ -1029,9 +1037,7 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
                         ))}
                       </div>
                     )}
- 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Secteurs */}
                       {selSectors.length > 0 && (
                         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
                           <h4 className="text-base font-bold text-slate-900 mb-4">Exposition par Secteur</h4>
@@ -1040,8 +1046,7 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
                               <div key={sector} className="flex items-center gap-3">
                                 <span className="text-xs text-slate-600 w-40 shrink-0 truncate">{sector}</span>
                                 <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                                  <div className="h-full rounded-full bg-violet-400 transition-all"
-                                    style={{ width: `${Math.min(100, Number(weight) ?? 0)}%` }} />
+                                  <div className="h-full rounded-full bg-violet-400 transition-all" style={{ width: `${Math.min(100, Number(weight) ?? 0)}%` }} />
                                 </div>
                                 <span className="text-xs font-bold text-slate-700 w-14 text-right shrink-0">{fmtPct(weight)}</span>
                               </div>
@@ -1049,8 +1054,6 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
                           </div>
                         </div>
                       )}
- 
-                      {/* Pays */}
                       {selCountries.length > 0 && (
                         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
                           <h4 className="text-base font-bold text-slate-900 mb-4">Exposition par Pays</h4>
@@ -1059,8 +1062,7 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
                               <div key={country} className="flex items-center gap-3">
                                 <span className="text-xs text-slate-600 w-36 shrink-0 truncate">{country}</span>
                                 <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                                  <div className="h-full rounded-full bg-sky-400 transition-all"
-                                    style={{ width: `${Math.min(100, Number(weight) ?? 0)}%` }} />
+                                  <div className="h-full rounded-full bg-sky-400 transition-all" style={{ width: `${Math.min(100, Number(weight) ?? 0)}%` }} />
                                 </div>
                                 <span className="text-xs font-bold text-slate-700 w-14 text-right shrink-0">{fmtPct(weight)}</span>
                               </div>
@@ -1069,8 +1071,6 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
                         </div>
                       )}
                     </div>
- 
-                    {/* Devises */}
                     {selCur && (
                       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
                         <h4 className="text-base font-bold text-slate-900 mb-4">Exposition Devises</h4>
@@ -1113,10 +1113,10 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
                                 className="px-3 py-3 text-[10px] font-bold text-white/70 uppercase tracking-wider text-center min-w-[120px] cursor-pointer hover:text-white transition-colors"
                                 onClick={() => setSelectedCol(inst.col_index)}>
                                 {inst.name
-  .replace("DPAM B EQUITIES ", "")
-  .replace("DPAM L EQUITIES ", "")
-  .replace("DPAM B REAL ESTATE ", "REAL ESTATE ")
-  .replace("DPAM DBI RDT B EQUITIES ", "DBI RDT ")}
+                                  .replace("DPAM B EQUITIES ", "")
+                                  .replace("DPAM L EQUITIES ", "")
+                                  .replace("DPAM B REAL ESTATE ", "REAL ESTATE ")
+                                  .replace("DPAM DBI RDT B EQUITIES ", "DBI RDT ")}
                               </th>
                             ))}
                           </tr>
@@ -1132,15 +1132,10 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
                               {(equityData.instruments ?? []).map((inst: any) => {
                                 const g = (equityData.globals ?? []).find((g: any) => g.instrument_col === inst.col_index);
                                 const val = g?.[key];
-                                return (
-                                  <td key={inst.col_index} className="px-3 py-2.5 text-center text-slate-600">
-                                    {val != null ? fmt(val) : "—"}
-                                  </td>
-                                );
+                                return <td key={inst.col_index} className="px-3 py-2.5 text-center text-slate-600">{val != null ? fmt(val) : "—"}</td>;
                               })}
                             </tr>
                           ))}
-                          {/* Devises */}
                           <tr className="bg-slate-100">
                             <td className="px-4 py-1.5 font-bold text-xs text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-100 z-10">Devises</td>
                             {(equityData.instruments ?? []).map((inst: any) => <td key={inst.col_index} />)}
@@ -1170,9 +1165,114 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
           )}
         </>
       )}
+ 
+      {/* ── Mapping ISIN ── */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-xl font-bold text-slate-900">Mapping ISIN → Fonds DPAM</h3>
+            <p className="text-slate-500 text-sm mt-1">Associe un ISIN de portefeuille à un fonds DPAM pour utiliser ses expositions.</p>
+          </div>
+        </div>
+ 
+        {/* Formulaire ajout */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-wrap items-end gap-3">
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">ISIN</label>
+            <input type="text" value={newMappingIsin} onChange={e => setNewMappingIsin(e.target.value.toUpperCase())}
+              placeholder="Ex: LU0123456789"
+              className="px-3 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500 outline-none font-mono text-sm w-44" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Type</label>
+            <select value={newMappingType} onChange={e => { setNewMappingType(e.target.value as "bonds" | "equity"); setNewMappingCol(null); }}
+              className="px-3 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500 outline-none text-sm bg-white">
+              <option value="bonds">Bonds</option>
+              <option value="equity">Equity</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Fonds DPAM</label>
+            <select value={newMappingCol ?? ""} onChange={e => setNewMappingCol(Number(e.target.value))}
+              className="px-3 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500 outline-none text-sm bg-white max-w-xs">
+              <option value="">— Sélectionner —</option>
+              {(newMappingType === "bonds"
+                ? (bondsData?.instruments ?? []).filter((i: any) => !i.is_hedged)
+                : (equityData?.instruments ?? [])
+              ).map((inst: any) => (
+                <option key={inst.col_index} value={inst.col_index}>
+                  {inst.name
+                    .replace("DPAM B BONDS ", "")
+                    .replace("DPAM L BONDS ", "")
+                    .replace("DPAM B EQUITIES ", "")
+                    .replace("DPAM L EQUITIES ", "")
+                    .replace("DPAM B REAL ESTATE ", "REAL ESTATE ")
+                    .replace("DPAM DBI RDT B EQUITIES ", "DBI RDT ")}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            disabled={!newMappingIsin || !newMappingCol || mappingSaving}
+            onClick={async () => {
+              if (!newMappingIsin || !newMappingCol) return;
+              setMappingSaving(true);
+              const instName = (newMappingType === "bonds" ? bondsData?.instruments : equityData?.instruments)
+                ?.find((i: any) => i.col_index === newMappingCol)?.name ?? "";
+              try {
+                await onSaveMapping(newMappingIsin, newMappingType, newMappingCol, instName);
+                setNewMappingIsin("");
+                setNewMappingCol(null);
+              } finally { setMappingSaving(false); }
+            }}
+            className="flex items-center gap-2 bg-sky-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-sky-700 transition-all disabled:opacity-50">
+            {mappingSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Ajouter
+          </button>
+        </div>
+ 
+        {/* Liste mappings */}
+        {mappings.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center text-slate-400 italic text-sm">
+            Aucun mapping configuré.
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+            <table className="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr className="bg-slate-50/50">
+                  <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">ISIN</th>
+                  <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
+                  <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Fonds DPAM</th>
+                  <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {mappings.map((m: any) => (
+                  <tr key={m.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-5 py-3 font-mono text-sky-600 font-bold text-xs">{m.isin}</td>
+                    <td className="px-5 py-3">
+                      <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold",
+                        m.dpam_type === "bonds" ? "bg-emerald-50 text-emerald-700" : "bg-sky-50 text-sky-700")}>
+                        {m.dpam_type === "bonds" ? "Bonds" : "Equity"}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-slate-700 font-medium truncate max-w-[300px]">{m.instrument_name}</td>
+                    <td className="px-5 py-3 text-right">
+                      <button onClick={() => onDeleteMapping(m.isin)}
+                        className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+ 
     </div>
-  );
-}
 // ════════════════════════════════════════════════════════════════════════════
 // SIMULATION TAB — à coller avant export default function App()
 // ════════════════════════════════════════════════════════════════════════════
@@ -1702,7 +1802,9 @@ export default function App() {
   const [dpamBondsData, setDpamBondsData] = useState<any>(null);
   const [dpamUploading, setDpamUploading] = useState(false);
   const [dpamUploadSuccess, setDpamUploadSuccess] = useState(false);
-  const [dpamEquityData, setDpamEquityData] = useState<any>(null);
+const [dpamMappings, setDpamMappings] = useState<{
+  id: number; isin: string; dpam_type: string; col_index: number; instrument_name: string;
+}[]>([]);
   
   async function safeArray<T>(fn: () => Promise<T[]>): Promise<T[]> {
     try {
@@ -1759,6 +1861,7 @@ useEffect(() => {
           const dpam = await dpamRes.json();
           if (dpam.bonds) setDpamBondsData(dpam.bonds);
           if (dpam.equity) setDpamEquityData(dpam.equity);
+          if (dpam.mappings) setDpamMappings(dpam.mappings);
         }
       } catch (e) { console.warn("DPAM load failed", e); }
       setImportLog(data.importLog);
@@ -1817,6 +1920,7 @@ const refreshData = async () => {
           const dpam = await dpamRes.json();
           if (dpam.bonds) setDpamBondsData(dpam.bonds);
           if (dpam.equity) setDpamEquityData(dpam.equity);
+          if (dpam.mappings) setDpamMappings(dpam.mappings);
         }
       } catch (e) { console.warn("DPAM load failed", e); }
     setImportLog(data.importLog);
@@ -2190,8 +2294,18 @@ if (isEquity) {
         for (const entry of bd) {
           result.push({ region: normalizeRegion(entry.region), weight: (h.weight ?? 0) * entry.weight / 100 });
         }
-      } else {
-        result.push({ region: normalizeRegion(h.region ?? "Other"), weight: h.weight ?? 0 });
+} else {
+        // Priorité 2 : données DPAM geo
+        const dpamGeo = h.isin && (h.asset_name ?? "").startsWith("DPAM")
+          ? dpamLookup[h.isin]?.geoBreakdown
+          : null;
+        if (dpamGeo && dpamGeo.length > 0) {
+          for (const entry of dpamGeo) {
+            result.push({ region: normalizeRegion(entry.region), weight: (h.weight ?? 0) * entry.weight / 100 });
+          }
+        } else {
+          result.push({ region: normalizeRegion(h.region ?? "Other"), weight: h.weight ?? 0 });
+        }
       }
     }
     return result;
@@ -2272,13 +2386,23 @@ if (isEquity) {
           m.set(cur, (m.get(cur) ?? 0) + (h.weight ?? 0) * entry.weight / 100);
         }
 } else {
-  const hedged = manualOverrides.some(
-    ov => ((ov.manual_isin && ov.manual_isin === h.isin) ||
-    (ov.original_asset_name && ov.original_asset_name === (h.original_asset_name ?? h.asset_name)))
-    && ov.is_hedged === true
-  );
-  const cur = hedged ? "EUR" : (h.currency ?? "Other").toUpperCase().trim();
-  m.set(cur, (m.get(cur) ?? 0) + (h.weight ?? 0));
+  const dpamCur = h.isin && (h.asset_name ?? "").startsWith("DPAM")
+    ? dpamLookup[h.isin]?.currencyBreakdown
+    : null;
+  if (dpamCur && dpamCur.length > 0) {
+    for (const entry of dpamCur) {
+      const cur = entry.currency.toUpperCase().trim();
+      m.set(cur, (m.get(cur) ?? 0) + (h.weight ?? 0) * entry.weight / 100);
+    }
+  } else {
+    const hedged = manualOverrides.some(
+      ov => ((ov.manual_isin && ov.manual_isin === h.isin) ||
+      (ov.original_asset_name && ov.original_asset_name === (h.original_asset_name ?? h.asset_name)))
+      && ov.is_hedged === true
+    );
+    const cur = hedged ? "EUR" : (h.currency ?? "Other").toUpperCase().trim();
+    m.set(cur, (m.get(cur) ?? 0) + (h.weight ?? 0));
+  }
 }
     });
     const result: { label: string; value: number }[] = [];
@@ -2305,10 +2429,20 @@ if (isEquity) {
     const m = new Map<string, number>();
     (currentPortfolio?.holdings ?? []).forEach((h) => {
       if (!h || !FIXED_INCOME_CATS.includes(h.category ?? "")) return;
-      const cbd = h.isin ? creditBreakdowns[h.isin] : null;
+            const cbd = h.isin ? creditBreakdowns[h.isin] : null;
       if (cbd && cbd.length > 0) {
         for (const entry of cbd) {
           m.set(entry.credit_type, (m.get(entry.credit_type) ?? 0) + (h.weight ?? 0) * entry.weight / 100);
+        }
+      } else {
+        // Priorité 2 : données DPAM credit
+        const dpamCredit = h.isin && (h.asset_name ?? "").startsWith("DPAM")
+          ? dpamLookup[h.isin]?.creditBreakdown
+          : null;
+        if (dpamCredit && dpamCredit.length > 0) {
+          for (const entry of dpamCredit) {
+            m.set(entry.credit_type, (m.get(entry.credit_type) ?? 0) + (h.weight ?? 0) * entry.weight / 100);
+          }
         }
       }
     });
@@ -2340,7 +2474,85 @@ const weightedDuration = fiHoldings.reduce((s, h) => {
     "NR":      "#94a3b8",
     "EM Debt": "#8b5cf6",
   };
-  
+  const dpamLookup = useMemo(() => {
+  const result: Record<string, {
+    geoBreakdown: { region: string; weight: number }[] | null;
+    currencyBreakdown: { currency: string; weight: number }[] | null;
+    creditBreakdown: { credit_type: string; currency: string; weight: number }[] | null;
+  }> = {};
+ 
+  for (const mapping of dpamMappings) {
+    const { isin, dpam_type, col_index } = mapping;
+ 
+    if (dpam_type === "bonds" && dpamBondsData) {
+      // Geo : pas de geo bonds directs, on skip
+      const geo = null;
+ 
+      // Currency
+      const curRow = (dpamBondsData.currencies ?? []).find((c: any) => c.instrument_col === col_index);
+      const currency = curRow ? [
+        { currency: "EUR", weight: Number(curRow.eur ?? 0) },
+        { currency: "USD", weight: Number(curRow.usd ?? 0) },
+        { currency: "JPY", weight: Number(curRow.jpy ?? 0) },
+        { currency: "Other", weight: Number(curRow.other ?? 0) },
+      ].filter(e => e.weight > 0.01) : null;
+ 
+      // Credit
+      const creditRows = (dpamBondsData.ratings ?? []).find((r: any) => r.instrument_col === col_index);
+      const credit = creditRows ? [
+        { credit_type: "IG", currency: "EUR", weight: Number(creditRows.ig ?? 0) },
+        { credit_type: "HY", currency: "EUR", weight: Number(creditRows.hy ?? 0) },
+        { credit_type: "Others", currency: "EUR", weight: Number(creditRows.others ?? 0) },
+      ].filter(e => e.weight > 0.01) : null;
+ 
+      result[isin] = { geoBreakdown: geo, currencyBreakdown: currency, creditBreakdown: credit };
+    }
+ 
+    if (dpam_type === "equity" && dpamEquityData) {
+      // Currency
+      const curRow = (dpamEquityData.currencies ?? []).find((c: any) => c.instrument_col === col_index);
+      const currency = curRow ? [
+        { currency: "EUR", weight: Number(curRow.eur ?? 0) },
+        { currency: "USD", weight: Number(curRow.usd ?? 0) },
+        { currency: "JPY", weight: Number(curRow.jpy ?? 0) },
+        { currency: "Other", weight: Number(curRow.other ?? 0) },
+      ].filter(e => e.weight > 0.01) : null;
+ 
+      // Geo : pays → on mappe vers régions
+      const countryRows = (dpamEquityData.countries ?? [])
+        .filter((c: any) => c.instrument_col === col_index && Number(c.weight ?? 0) > 0.001);
+      
+      const COUNTRY_TO_REGION: Record<string, string> = {
+        "Belgium": "Europe", "France": "Europe", "Germany": "Europe", "Italy": "Europe",
+        "Spain": "Europe", "Netherlands": "Europe", "Ireland": "Europe", "Austria": "Europe",
+        "Denmark": "Europe", "Finland": "Europe", "Norway": "Europe", "Luxembourg": "Europe",
+        "Sweden": "Europe", "Switzerland": "Europe", "Portugal": "Europe", "Slovakia": "Europe",
+        "Croatia": "Europe", "Greece": "Europe", "Iceland": "Europe",
+        "United States": "US", "Canada": "US",
+        "Japan": "Japan",
+        "China": "EM", "South Korea": "EM", "India": "EM", "Brazil": "EM", "Taiwan": "EM",
+        "Mexico": "EM", "South Africa": "EM", "Malaysia": "EM", "Indonesia": "EM",
+        "Thailand": "EM", "Philippines": "EM", "Turkey": "EM", "Poland": "EM",
+        "Colombia": "EM", "Chile": "EM", "Peru": "EM", "Qatar": "EM",
+        "United Arab Emirates": "EM", "Korea": "EM",
+        "Australia": "Others", "New Zealand": "Others", "Hong Kong": "Others",
+        "Singapore": "Others", "United Kingdom": "Europe",
+      };
+ 
+      const regionMap = new Map<string, number>();
+      countryRows.forEach((c: any) => {
+        const region = COUNTRY_TO_REGION[c.country] ?? "Others";
+        regionMap.set(region, (regionMap.get(region) ?? 0) + Number(c.weight ?? 0));
+      });
+      const geo = Array.from(regionMap.entries()).map(([region, weight]) => ({ region, weight }));
+ 
+      result[isin] = { geoBreakdown: geo.length > 0 ? geo : null, currencyBreakdown: currency, creditBreakdown: null };
+    }
+  }
+ 
+  return result;
+}, [dpamMappings, dpamBondsData, dpamEquityData]);
+ 
   const instrumentsSynthesis = useMemo(() => {
     const im = new Map<string, { name: string; isin: string; weights: Record<string, number>; details: Partial<Holding> }>();
     const names = allPortfolios.map((p) => p?.name).filter(Boolean) as string[];
@@ -3011,28 +3223,48 @@ const labels: Record<Tab, string> = { SYNTHESE: "Breakdown Deviation", INSTRUMEN
 {activeTab === "DPAM" && (
   <motion.div key="dpam" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
     className="max-w-7xl mx-auto">
-    <DpamTab
-      bondsData={dpamBondsData}
-      equityData={dpamEquityData}
-      onUpload={handleDpamUpload}
-      uploading={dpamUploading}
-      uploadSuccess={dpamUploadSuccess}
-    />
+   <DpamTab
+  bondsData={dpamBondsData}
+  equityData={dpamEquityData}
+  onUpload={handleDpamUpload}
+  uploading={dpamUploading}
+  uploadSuccess={dpamUploadSuccess}
+  mappings={dpamMappings}
+  onSaveMapping={async (isin, dpam_type, col_index, instrument_name) => {
+    await fetch("/api/dpam-data", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "mapping", filename: "mapping", parsed: { isin, dpam_type, col_index, instrument_name } }),
+    });
+    const fresh = await fetch("/api/dpam-data");
+    if (fresh.ok) { const d = await fresh.json(); if (d.mappings) setDpamMappings(d.mappings); }
+  }}
+  onDeleteMapping={async (isin) => {
+    await fetch("/api/dpam-data", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isin }),
+    });
+    const fresh = await fetch("/api/dpam-data");
+    if (fresh.ok) { const d = await fresh.json(); if (d.mappings) setDpamMappings(d.mappings); }
+  }}
+/>
   </motion.div>
 )}
 
             {/* ← COLLE ICI */}
 <div className={activeTab === "SIMULATION" ? "block" : "hidden"}>
   <div className="max-w-7xl mx-auto">
-    <SimulationTab
-      allPortfolios={allPortfolios}
-      breakdowns={breakdowns}
-      creditBreakdowns={creditBreakdowns}
-      durations={durations}
-      manualOverrides={manualOverrides}
-      currencyBreakdowns={currencyBreakdowns}
-      targetGridData={targetGridData}
-    />
+<SimulationTab
+  allPortfolios={allPortfolios}
+  breakdowns={breakdowns}
+  creditBreakdowns={creditBreakdowns}
+  durations={durations}
+  manualOverrides={manualOverrides}
+  currencyBreakdowns={currencyBreakdowns}
+  targetGridData={targetGridData}
+  dpamLookup={dpamLookup}
+/>
   </div>
 </div>
    {/* ── SICAV / MIXED ── */}
