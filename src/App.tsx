@@ -628,6 +628,7 @@ function DpamTab({
 const [newMappingType, setNewMappingType] = React.useState<"bonds" | "equity">("bonds");
 const [newMappingCol, setNewMappingCol] = React.useState<number | null>(null);
 const [mappingSaving, setMappingSaving] = React.useState(false);
+  const [mappingSearch, setMappingSearch] = React.useState("");
   
   // Quand bondsData change, sélectionner le premier instrument par défaut
   React.useEffect(() => {
@@ -1191,27 +1192,40 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
               <option value="equity">Equity</option>
             </select>
           </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Fonds DPAM</label>
-            <select value={newMappingCol ?? ""} onChange={e => setNewMappingCol(Number(e.target.value))}
-              className="px-3 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500 outline-none text-sm bg-white max-w-xs">
-              <option value="">— Sélectionner —</option>
-              {(newMappingType === "bonds"
-                ? (bondsData?.instruments ?? []).filter((i: any) => !i.is_hedged)
-                : (equityData?.instruments ?? [])
-              ).map((inst: any) => (
-                <option key={inst.col_index} value={inst.col_index}>
-                  {inst.name
-                    .replace("DPAM B BONDS ", "")
-                    .replace("DPAM L BONDS ", "")
-                    .replace("DPAM B EQUITIES ", "")
-                    .replace("DPAM L EQUITIES ", "")
-                    .replace("DPAM B REAL ESTATE ", "REAL ESTATE ")
-                    .replace("DPAM DBI RDT B EQUITIES ", "DBI RDT ")}
-                </option>
-              ))}
-            </select>
-          </div>
+<div className="relative">
+  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Fonds DPAM</label>
+  <input
+    type="text"
+    value={mappingSearch || (newMappingCol ? (newMappingType === "bonds" ? bondsData?.instruments : equityData?.instruments)?.find((i: any) => i.col_index === newMappingCol)?.name?.replace("DPAM B BONDS ", "").replace("DPAM L BONDS ", "").replace("DPAM B EQUITIES ", "").replace("DPAM L EQUITIES ", "").replace("DPAM B REAL ESTATE ", "REAL ESTATE ").replace("DPAM DBI RDT B EQUITIES ", "DBI RDT ") ?? "" : "")}
+    onChange={e => { setMappingSearch(e.target.value); setNewMappingCol(null); }}
+    placeholder="Rechercher un fonds…"
+    className="px-3 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500 outline-none text-sm w-64"
+  />
+  {mappingSearch && (
+    <div className="absolute z-20 top-full mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+      {(newMappingType === "bonds"
+        ? (bondsData?.instruments ?? []).filter((i: any) => !i.is_hedged)
+        : (equityData?.instruments ?? [])
+      ).filter((inst: any) => inst.name.toLowerCase().includes(mappingSearch.toLowerCase()))
+       .map((inst: any) => {
+        const label = inst.name.replace("DPAM B BONDS ", "").replace("DPAM L BONDS ", "").replace("DPAM B EQUITIES ", "").replace("DPAM L EQUITIES ", "").replace("DPAM B REAL ESTATE ", "REAL ESTATE ").replace("DPAM DBI RDT B EQUITIES ", "DBI RDT ");
+        return (
+          <button key={inst.col_index}
+            onClick={() => { setNewMappingCol(inst.col_index); setMappingSearch(""); }}
+            className="w-full text-left px-3 py-2 text-sm hover:bg-sky-50 text-slate-700 hover:text-sky-700 transition-colors">
+            {label}
+          </button>
+        );
+      })}
+      {(newMappingType === "bonds"
+        ? (bondsData?.instruments ?? []).filter((i: any) => !i.is_hedged)
+        : (equityData?.instruments ?? [])
+      ).filter((inst: any) => inst.name.toLowerCase().includes(mappingSearch.toLowerCase())).length === 0 && (
+        <p className="px-3 py-2 text-sm text-slate-400 italic">Aucun résultat</p>
+      )}
+    </div>
+  )}
+</div>
           <button
             disabled={!newMappingIsin || !newMappingCol || mappingSaving}
             onClick={async () => {
