@@ -629,6 +629,8 @@ const [newMappingType, setNewMappingType] = React.useState<"bonds" | "equity">("
 const [newMappingCol, setNewMappingCol] = React.useState<number | null>(null);
 const [mappingSaving, setMappingSaving] = React.useState(false);
   const [mappingSearch, setMappingSearch] = React.useState("");
+  const [bondsSearch, setBondsSearch] = React.useState("");
+const [equitySearch, setEquitySearch] = React.useState("");
   
   // Quand bondsData change, sélectionner le premier instrument par défaut
   React.useEffect(() => {
@@ -732,9 +734,21 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
           ) : (
             <>
               {/* ── Selector instrument ── */}
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-4">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider shrink-0">Fonds</span>
-                <div className="flex flex-wrap gap-2 flex-1">
+             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 space-y-3">
+  <div className="flex items-center gap-3">
+    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider shrink-0">Fonds</span>
+    <div className="flex items-center gap-2 flex-1 bg-slate-50 rounded-xl px-3 py-1.5 border border-slate-100">
+      <Search className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+      <input type="text" value={view === "Bonds" ? bondsSearch : equitySearch}
+        onChange={e => view === "Bonds" ? setBondsSearch(e.target.value) : setEquitySearch(e.target.value)}
+        placeholder="Rechercher un fonds…"
+        className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400" />
+    </div>
+  </div>
+  <div className="flex flex-wrap gap-2">
+    {mainInstruments
+      .filter((inst: any) => inst.name.toLowerCase().includes(bondsSearch.toLowerCase()))
+      .map((inst: any) => (
                   {mainInstruments.map((inst: any) => (
                     <button key={inst.col_index}
                       onClick={() => setSelectedCol(inst.col_index)}
@@ -988,10 +1002,21 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
           ) : (
             <>
               {/* ── Selector instrument ── */}
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-4">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider shrink-0">Fonds</span>
-                <div className="flex flex-wrap gap-2 flex-1">
-                  {(equityData.instruments ?? []).map((inst: any) => (
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 space-y-3">
+  <div className="flex items-center gap-3">
+    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider shrink-0">Fonds</span>
+    <div className="flex items-center gap-2 flex-1 bg-slate-50 rounded-xl px-3 py-1.5 border border-slate-100">
+      <Search className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+      <input type="text" value={view === "Bonds" ? bondsSearch : equitySearch}
+        onChange={e => view === "Bonds" ? setBondsSearch(e.target.value) : setEquitySearch(e.target.value)}
+        placeholder="Rechercher un fonds…"
+        className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400" />
+    </div>
+  </div>
+  <div className="flex flex-wrap gap-2">
+    {mainInstruments
+      .filter((inst: any) => inst.name.toLowerCase().includes(bondsSearch.toLowerCase()))
+      .map((inst: any) => (
                     <button key={inst.col_index}
                       onClick={() => setSelectedCol(inst.col_index)}
                       className={cn("px-3 py-1.5 rounded-xl text-xs font-medium transition-all border",
