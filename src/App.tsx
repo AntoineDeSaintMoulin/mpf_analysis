@@ -1979,7 +1979,7 @@ const handleDpamUpload = async (file: File) => {
 
       if (isBonds) {
         const instruments = [];
-        for (let col = 2; col <= 29; col++) {
+        for (let col = 2; col <= 100; col++) {
           const name = r(4, col);
           if (!name) continue;
           const cat5 = r(5, col);
@@ -2066,7 +2066,7 @@ const handleDpamUpload = async (file: File) => {
 
 if (isEquity) {
         const instruments = [];
-        for (let col = 2; col <= 35; col++) {
+        for (let col = 2; col <= 100; col++) {
           const name = r(4, col);
           if (!name) continue;
           instruments.push({
