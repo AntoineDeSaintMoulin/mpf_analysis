@@ -1820,16 +1820,55 @@ interface SamdpInstrument {
   wght_pct: number | null;
 }
  
+type SamdpView = "Equities" | "Debt" | "Export";
+ 
+interface SamdpInstrument {
+  id?: number;
+  name: string;
+  isin: string;
+  instrument_type: string | null;
+  msci_sector_1: string | null;
+  dom_country: string | null;
+  msci_sector_2: string | null;
+  msci_sector_3: string | null;
+  style: string | null;
+  secular: string | null;
+  mkt_cap: number | null;
+  pl_ptf: number | null;
+  pl_local: number | null;
+  currency: string | null;
+  quantity: number | null;
+  quote: number | null;
+  quote_date: string | null;
+  mtm_local: number | null;
+  mtm_ptf: number | null;
+  expo_pct: number | null;
+  wght_pct: number | null;
+}
+ 
 function SamdpTab() {
   const [view, setView] = React.useState<SamdpView>("Equities");
   const [equityData, setEquityData] = React.useState<SamdpInstrument[]>([]);
+  const [importLog, setImportLog] = React.useState<{ filename: string; imported_at: string } | null>(null);
   const [uploading, setUploading] = React.useState(false);
   const [uploadSuccess, setUploadSuccess] = React.useState(false);
   const [equitySearch, setEquitySearch] = React.useState("");
   const [sortConfig, setSortConfig] = React.useState<{ key: string; direction: "asc" | "desc" } | null>({ key: "wght_pct", direction: "desc" });
-  const [exportTitle] = React.useState("SAMDP");
   const [exportText, setExportText] = React.useState("");
-  const [uploadDate, setUploadDate] = React.useState<string | null>(null);
+ 
+  // Charger les données au montage
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/samdp-data");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.instruments?.length > 0) setEquityData(data.instruments);
+          if (data.importLog) setImportLog(data.importLog);
+        }
+      } catch (e) { console.warn("SAMDP load failed", e); }
+    })();
+  }, []);
  
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1840,45 +1879,91 @@ function SamdpTab() {
     try {
       const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs" as any);
       const buffer = await file.arrayBuffer();
-const wb = XLSX.read(buffer, { type: "array", cellDates: true, WTF: false });
-console.log("Sheet names:", wb.SheetNames);
-console.log("Sheet range:", wb.Sheets[wb.SheetNames[0]]['!ref']);
+      const wb = XLSX.read(buffer, { type: "array", cellDates: true });
       const ws = wb.Sheets[wb.SheetNames[0]];
-const raw: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: false });
- console.log("Total rows read:", raw.length);
-console.log("All rows:", raw);
-      
+ 
+      // Lire toutes les cellules manuellement pour contourner le problème des row groups
+      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+      const allRows: any[][] = [];
+ 
+      for (let r = range.s.r; r <= range.e.r; r++) {
+        const row: any[] = [];
+        for (let c = range.s.c; c <= range.e.c; c++) {
+          const cellAddr = XLSX.utils.encode_cell({ r, c });
+          const cell = ws[cellAddr];
+          row.push(cell ? cell.v : null);
+        }
+        allRows.push(row);
+      }
+ 
+      // Chercher aussi les lignes cachées via !rows
+      const rowMeta = ws['!rows'] || [];
+      const hiddenRows = new Set<number>();
+      rowMeta.forEach((r: any, i: number) => { if (r?.hidden) hiddenRows.add(i); });
+ 
+      // Lire toutes les clés de cellules pour trouver des lignes hors range
+      const allCellKeys = Object.keys(ws).filter(k => !k.startsWith('!'));
+      const maxRow = allCellKeys.reduce((max, key) => {
+        const decoded = XLSX.utils.decode_cell(key);
+        return Math.max(max, decoded.r);
+      }, 0);
+ 
+      // Si des lignes existent au-delà du range déclaré, les lire aussi
+      const extendedRows: any[][] = [...allRows];
+      if (maxRow > range.e.r) {
+        for (let r = range.e.r + 1; r <= maxRow; r++) {
+          const row: any[] = [];
+          for (let c = range.s.c; c <= range.e.c; c++) {
+            const cellAddr = XLSX.utils.encode_cell({ r, c });
+            const cell = ws[cellAddr];
+            row.push(cell ? cell.v : null);
+          }
+          extendedRows.push(row);
+        }
+      }
+ 
+      console.log("Extended rows count:", extendedRows.length);
+      console.log("Max row found:", maxRow);
+ 
+      const toNum = (v: any) => v != null && !isNaN(Number(v)) ? Number(v) : null;
+      const toStr = (v: any) => v != null && String(v).trim() !== '' ? String(v).trim() : null;
+ 
       const seen = new Set<string>();
       const instruments: SamdpInstrument[] = [];
  
-console.log("Raw row 1 (headers):", raw[0]);
-console.log("Raw row 26:", raw[25]);
-for (let i = 1; i < raw.length; i++) {
-  const row = raw[i];
-  if (!row) continue;
-  console.log(`Row ${i+1}: col1=${row[0]}, col2=${row[1]}, col3=${row[2]}, col4=${row[3]}, col5=${row[4]}`);
-  const isin = row[1];
-  const type = row[3];
-  if (type !== "ETF EQUITIES") continue;
-        if (!isin || seen.has(isin)) continue;
+      // Chercher les lignes ETF EQUITIES dans toutes les lignes (y compris cachées)
+      // En lisant directement les cellules par clé
+      const instrumentRows: Map<number, any[]> = new Map();
+      allCellKeys.forEach(key => {
+        const decoded = XLSX.utils.decode_cell(key);
+        if (!instrumentRows.has(decoded.r)) instrumentRows.set(decoded.r, []);
+        const row = instrumentRows.get(decoded.r)!;
+        row[decoded.c] = ws[key]?.v;
+      });
+ 
+      instrumentRows.forEach((row, rowIdx) => {
+        if (rowIdx === 0) return; // skip header
+        const isin = toStr(row[1]);
+        const type = toStr(row[3]);
+        if (type !== "ETF EQUITIES") return;
+        if (!isin || seen.has(isin)) return;
         seen.add(isin);
  
-        const toNum = (v: any) => v != null && !isNaN(Number(v)) ? Number(v) : null;
-        const toStr = (v: any) => v != null ? String(v) : null;
-        const toDate = (v: any) => {
-          if (!v) return null;
-          if (typeof v === "string") return v.slice(0, 10);
-          if (v instanceof Date) return v.toISOString().slice(0, 10);
-          // SheetJS date serial
-          const d = XLSX.SSF.parse_date_code(v);
-          if (d) return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
-          return String(v).slice(0, 10);
-        };
+        const quoteRaw = row[16];
+        let quoteDate: string | null = null;
+        if (quoteRaw instanceof Date) quoteDate = quoteRaw.toISOString().slice(0, 10);
+        else if (quoteRaw) {
+          try {
+            const d = XLSX.SSF?.parse_date_code?.(quoteRaw);
+            if (d) quoteDate = `${d.y}-${String(d.m).padStart(2,"0")}-${String(d.d).padStart(2,"0")}`;
+            else quoteDate = String(quoteRaw).slice(0, 10);
+          } catch { quoteDate = null; }
+        }
  
         instruments.push({
           name: toStr(row[0]) ?? "",
           isin,
-          type,
+          instrument_type: type,
           msci_sector_1: toStr(row[4]),
           dom_country: toStr(row[5]),
           msci_sector_2: toStr(row[6]),
@@ -1891,28 +1976,49 @@ for (let i = 1; i < raw.length; i++) {
           currency: toStr(row[13]),
           quantity: toNum(row[14]),
           quote: toNum(row[15]),
-          quote_date: toDate(row[16]),
+          quote_date: quoteDate,
           mtm_local: toNum(row[17]),
           mtm_ptf: toNum(row[18]),
           expo_pct: toNum(row[19]),
           wght_pct: toNum(row[22]),
         });
+      });
+ 
+      console.log("Instruments found:", instruments.length);
+ 
+      if (instruments.length === 0) {
+        alert("Aucun instrument ETF EQUITIES trouvé dans ce fichier.");
+        return;
       }
  
-      setEquityData(instruments);
-      setUploadDate(new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" }));
-      setUploadSuccess(true);
-      setTimeout(() => setUploadSuccess(false), 3000);
+      // Envoyer à l'API
+      const apiRes = await fetch("/api/samdp-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name, instruments }),
+      });
+ 
+      if (apiRes.ok) {
+        setEquityData(instruments);
+        setImportLog({ filename: file.name, imported_at: new Date().toISOString() });
+        setUploadSuccess(true);
+        setTimeout(() => setUploadSuccess(false), 3000);
+      } else {
+        const err = await apiRes.text();
+        console.error("API error:", err);
+        alert("Erreur lors de la sauvegarde: " + err);
+      }
     } catch (err) {
       console.error("SAMDP upload error:", err);
+      alert("Erreur lors du traitement du fichier.");
     } finally {
       setUploading(false);
     }
   };
  
-  const fmtPct = (v: number | null) => v == null ? "—" : (v * 100).toFixed(2) + "%";
+  const fmtPct = (v: number | null) => v == null ? "—" : (Number(v) * 100).toFixed(2) + "%";
   const fmtNum = (v: number | null, dec = 2) => v == null ? "—" : Number(v).toLocaleString("fr-FR", { minimumFractionDigits: dec, maximumFractionDigits: dec });
-  const fmtM = (v: number | null) => v == null ? "—" : (v / 1_000_000).toFixed(1) + "M";
+  const fmtM = (v: number | null) => v == null ? "—" : (Number(v) / 1_000_000).toFixed(1) + "M";
  
   const handleSort = (key: string) => {
     setSortConfig(prev => {
@@ -1932,8 +2038,8 @@ for (let i = 1; i < raw.length; i++) {
     });
     if (sortConfig) {
       list = [...list].sort((a, b) => {
-        const av = (a as any)[sortConfig.key] ?? "";
-        const bv = (b as any)[sortConfig.key] ?? "";
+        const av = (a as any)[sortConfig.key] ?? 0;
+        const bv = (b as any)[sortConfig.key] ?? 0;
         const dir = sortConfig.direction === "asc" ? 1 : -1;
         if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
         return String(av).localeCompare(String(bv)) * dir;
@@ -1942,15 +2048,19 @@ for (let i = 1; i < raw.length; i++) {
     return list;
   }, [equityData, equitySearch, sortConfig]);
  
-  const totalWght = equityData.reduce((s, i) => s + (i.wght_pct ?? 0), 0);
-  const totalMtm = equityData.reduce((s, i) => s + (i.mtm_ptf ?? 0), 0);
-  const totalPl = equityData.reduce((s, i) => s + (i.pl_ptf ?? 0), 0);
+  const totalWght = equityData.reduce((s, i) => s + Number(i.wght_pct ?? 0), 0);
+  const totalMtm = equityData.reduce((s, i) => s + Number(i.mtm_ptf ?? 0), 0);
+  const totalPl = equityData.reduce((s, i) => s + Number(i.pl_ptf ?? 0), 0);
  
   const SortBtn = ({ k }: { k: string }) => {
     const active = sortConfig?.key === k;
     return (
       <button onClick={() => handleSort(k)} className="inline-flex items-center gap-0.5 hover:text-slate-900 transition-colors">
-        {active ? (sortConfig?.direction === "asc" ? <ChevronUp className="h-3 w-3 text-sky-600" /> : <ChevronDown className="h-3 w-3 text-sky-600" />) : <ChevronsUpDown className="h-3 w-3 opacity-30" />}
+        {active
+          ? (sortConfig?.direction === "asc"
+            ? <ChevronUp className="h-3 w-3 text-sky-600" />
+            : <ChevronDown className="h-3 w-3 text-sky-600" />)
+          : <ChevronsUpDown className="h-3 w-3 opacity-30" />}
       </button>
     );
   };
@@ -1990,8 +2100,10 @@ for (let i = 1; i < raw.length; i++) {
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <div className={cn("w-2 h-2 rounded-full shrink-0", equityData.length > 0 ? "bg-sky-400" : "bg-slate-200")} />
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider shrink-0">Equities</span>
-          {equityData.length > 0
-            ? <span className="text-[10px] text-slate-400 truncate">{equityData.length} instruments · importé le {uploadDate}</span>
+          {importLog
+            ? <span className="text-[10px] text-slate-400 truncate">
+                {importLog.filename} · {new Date(importLog.imported_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+              </span>
             : <span className="text-[10px] text-slate-300 italic">Aucun import</span>}
         </div>
       </div>
@@ -2063,8 +2175,8 @@ for (let i = 1; i < raw.length; i++) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
-                      {filteredEquity.map((inst, i) => {
-                        const pl = inst.pl_ptf ?? 0;
+                      {filteredEquity.map((inst) => {
+                        const pl = Number(inst.pl_ptf ?? 0);
                         return (
                           <tr key={inst.isin} className="hover:bg-slate-50/50 transition-colors">
                             <td className="px-4 py-3 font-medium text-slate-900 truncate max-w-[200px]">{inst.name}</td>
@@ -2080,7 +2192,7 @@ for (let i = 1; i < raw.length; i++) {
                             <td className="px-4 py-3 text-right font-bold text-slate-900">{fmtNum(inst.mtm_ptf, 0)}</td>
                             <td className="px-4 py-3 text-right text-slate-600">{fmtNum(inst.mtm_local, 0)}</td>
                             <td className={cn("px-4 py-3 text-right font-bold", pl >= 0 ? "text-emerald-600" : "text-rose-600")}>{fmtNum(inst.pl_ptf, 0)}</td>
-                            <td className={cn("px-4 py-3 text-right", (inst.pl_local ?? 0) >= 0 ? "text-emerald-500" : "text-rose-500")}>{fmtNum(inst.pl_local, 0)}</td>
+                            <td className={cn("px-4 py-3 text-right", Number(inst.pl_local ?? 0) >= 0 ? "text-emerald-500" : "text-rose-500")}>{fmtNum(inst.pl_local, 0)}</td>
                             <td className="px-4 py-3 text-right font-bold text-slate-700">{fmtPct(inst.expo_pct)}</td>
                             <td className="px-4 py-3 text-right font-bold text-sky-600">{fmtPct(inst.wght_pct)}</td>
                           </tr>
@@ -2119,7 +2231,6 @@ for (let i = 1; i < raw.length; i++) {
       {view === "Export" && (
         <div className="space-y-6">
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-            {/* Preview A4 */}
             <div className="p-8 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
               <p className="text-sm font-bold text-slate-600">Prévisualisation A4</p>
               <button className="flex items-center gap-2 bg-sky-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-sky-700 transition-all">
@@ -2127,16 +2238,9 @@ for (let i = 1; i < raw.length; i++) {
                 Exporter PDF
               </button>
             </div>
-            {/* Page A4 simulée */}
             <div className="flex items-center justify-center p-8 bg-slate-100 min-h-[600px]">
-              <div
-                className="bg-white shadow-2xl"
-                style={{ width: "595px", minHeight: "842px", padding: "48px", boxSizing: "border-box" }}>
-                {/* Titre */}
-                <h1 className="text-3xl font-bold text-slate-900 mb-8 border-b border-slate-200 pb-4">
-                  {exportTitle}
-                </h1>
-                {/* Zone de texte éditable */}
+              <div className="bg-white shadow-2xl" style={{ width: "595px", minHeight: "842px", padding: "48px", boxSizing: "border-box" }}>
+                <h1 className="text-3xl font-bold text-slate-900 mb-8 border-b border-slate-200 pb-4">SAMDP</h1>
                 <textarea
                   value={exportText}
                   onChange={e => setExportText(e.target.value)}
@@ -2152,7 +2256,6 @@ for (let i = 1; i < raw.length; i++) {
     </div>
   );
 }
-
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>("SYNTHESE");
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
