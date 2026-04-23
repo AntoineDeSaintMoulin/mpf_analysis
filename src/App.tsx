@@ -1847,10 +1847,12 @@ function SamdpTab() {
       const seen = new Set<string>();
       const instruments: SamdpInstrument[] = [];
  
+console.log("Raw row 1 (headers):", raw[0]);
+console.log("Raw row 26:", raw[25]);
 for (let i = 1; i < raw.length; i++) {
   const row = raw[i];
   if (!row) continue;
-  console.log(`Row ${i+1}: col1=${row[0]}, col2=${row[1]}, col4=${row[3]}`);
+  console.log(`Row ${i+1}: col1=${row[0]}, col2=${row[1]}, col3=${row[2]}, col4=${row[3]}, col5=${row[4]}`);
   const isin = row[1];
   const type = row[3];
   if (type !== "ETF EQUITIES") continue;
