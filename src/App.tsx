@@ -1840,7 +1840,9 @@ function SamdpTab() {
     try {
       const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs" as any);
       const buffer = await file.arrayBuffer();
-      const wb = XLSX.read(buffer, { type: "array" });
+const wb = XLSX.read(buffer, { type: "array", cellDates: true, WTF: false });
+console.log("Sheet names:", wb.SheetNames);
+console.log("Sheet range:", wb.Sheets[wb.SheetNames[0]]['!ref']);
       const ws = wb.Sheets[wb.SheetNames[0]];
 const raw: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: false });
  console.log("Total rows read:", raw.length);
