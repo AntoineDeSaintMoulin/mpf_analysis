@@ -2576,8 +2576,15 @@ if (isEquity) {
         const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs" as any);
         const buffer = await file.arrayBuffer();
         const wb = XLSX.read(buffer, { type: "array" });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const raw: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+const ws = wb.Sheets[wb.SheetNames[0]];
+console.log("Original range:", ws['!ref']);
+const raw: any[][] = XLSX.utils.sheet_to_json(ws, { 
+  header: 1, 
+  defval: null, 
+  raw: true,
+  blankrows: true 
+});
+console.log("Total rows read:", raw.length);
         const PROFILE_COLS: Record<string, [number, number, number]> = {
           LOW: [2, 4, 6], MEDLOW: [9, 11, 13], MEDIUM: [17, 19, 21], MEDHIGH: [24, 26, 28], HIGH: [31, 33, 35],
         };
