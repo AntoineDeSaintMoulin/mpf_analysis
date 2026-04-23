@@ -111,7 +111,7 @@ const PORTFOLIO_ORDER = [
   "Mixed - MIX_MH", "Mixed - MIX_HIGH", "Mixed - MIX_VH",
 ];
 
-type Tab = "SYNTHESE" | "Sicav" | "Mixed" | "INSTRUMENTS" | "MANUALS" | "TARGET_GRID" | "DPAM" | "SIMULATION";
+type Tab = "SYNTHESE" | "Sicav" | "Mixed" | "INSTRUMENTS" | "MANUALS" | "TARGET_GRID" | "DPAM" | "SIMULATION" | "SAMDP";
 
 const RISK_PROFILES = ["LOW", "MEDLOW", "MEDIUM", "MEDHIGH", "HIGH"] as const;
 type RiskProfile = typeof RISK_PROFILES[number];
@@ -1795,6 +1795,356 @@ function SimulationTab({
     </div>
   );
 }
+type SamdpView = "Equities" | "Debt" | "Export";
+ 
+interface SamdpInstrument {
+  name: string;
+  isin: string;
+  type: string;
+  msci_sector_1: string | null;
+  dom_country: string | null;
+  msci_sector_2: string | null;
+  msci_sector_3: string | null;
+  style: string | null;
+  secular: string | null;
+  mkt_cap: number | null;
+  pl_ptf: number | null;
+  pl_local: number | null;
+  currency: string | null;
+  quantity: number | null;
+  quote: number | null;
+  quote_date: string | null;
+  mtm_local: number | null;
+  mtm_ptf: number | null;
+  expo_pct: number | null;
+  wght_pct: number | null;
+}
+ 
+function SamdpTab() {
+  const [view, setView] = React.useState<SamdpView>("Equities");
+  const [equityData, setEquityData] = React.useState<SamdpInstrument[]>([]);
+  const [uploading, setUploading] = React.useState(false);
+  const [uploadSuccess, setUploadSuccess] = React.useState(false);
+  const [equitySearch, setEquitySearch] = React.useState("");
+  const [sortConfig, setSortConfig] = React.useState<{ key: string; direction: "asc" | "desc" } | null>({ key: "wght_pct", direction: "desc" });
+  const [exportTitle] = React.useState("SAMDP");
+  const [exportText, setExportText] = React.useState("");
+  const [uploadDate, setUploadDate] = React.useState<string | null>(null);
+ 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setUploadSuccess(false);
+ 
+    try {
+      const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs" as any);
+      const buffer = await file.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const raw: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+ 
+      const seen = new Set<string>();
+      const instruments: SamdpInstrument[] = [];
+ 
+      for (let i = 1; i < raw.length; i++) {
+        const row = raw[i];
+        if (!row) continue;
+        const isin = row[1];
+        const type = row[3];
+        if (type !== "ETF EQUITIES") continue;
+        if (!isin || seen.has(isin)) continue;
+        seen.add(isin);
+ 
+        const toNum = (v: any) => v != null && !isNaN(Number(v)) ? Number(v) : null;
+        const toStr = (v: any) => v != null ? String(v) : null;
+        const toDate = (v: any) => {
+          if (!v) return null;
+          if (typeof v === "string") return v.slice(0, 10);
+          if (v instanceof Date) return v.toISOString().slice(0, 10);
+          // SheetJS date serial
+          const d = XLSX.SSF.parse_date_code(v);
+          if (d) return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
+          return String(v).slice(0, 10);
+        };
+ 
+        instruments.push({
+          name: toStr(row[0]) ?? "",
+          isin,
+          type,
+          msci_sector_1: toStr(row[4]),
+          dom_country: toStr(row[5]),
+          msci_sector_2: toStr(row[6]),
+          msci_sector_3: toStr(row[7]),
+          style: toStr(row[8]),
+          secular: toStr(row[9]),
+          mkt_cap: toNum(row[10]),
+          pl_ptf: toNum(row[11]),
+          pl_local: toNum(row[12]),
+          currency: toStr(row[13]),
+          quantity: toNum(row[14]),
+          quote: toNum(row[15]),
+          quote_date: toDate(row[16]),
+          mtm_local: toNum(row[17]),
+          mtm_ptf: toNum(row[18]),
+          expo_pct: toNum(row[19]),
+          wght_pct: toNum(row[22]),
+        });
+      }
+ 
+      setEquityData(instruments);
+      setUploadDate(new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" }));
+      setUploadSuccess(true);
+      setTimeout(() => setUploadSuccess(false), 3000);
+    } catch (err) {
+      console.error("SAMDP upload error:", err);
+    } finally {
+      setUploading(false);
+    }
+  };
+ 
+  const fmtPct = (v: number | null) => v == null ? "—" : (v * 100).toFixed(2) + "%";
+  const fmtNum = (v: number | null, dec = 2) => v == null ? "—" : Number(v).toLocaleString("fr-FR", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  const fmtM = (v: number | null) => v == null ? "—" : (v / 1_000_000).toFixed(1) + "M";
+ 
+  const handleSort = (key: string) => {
+    setSortConfig(prev => {
+      if (prev?.key === key) {
+        if (prev.direction === "asc") return { key, direction: "desc" };
+        return null;
+      }
+      return { key, direction: "desc" };
+    });
+  };
+ 
+  const filteredEquity = React.useMemo(() => {
+    let list = equityData.filter(inst => {
+      if (!equitySearch) return true;
+      const q = equitySearch.toLowerCase();
+      return (inst.name ?? "").toLowerCase().includes(q) || (inst.isin ?? "").toLowerCase().includes(q);
+    });
+    if (sortConfig) {
+      list = [...list].sort((a, b) => {
+        const av = (a as any)[sortConfig.key] ?? "";
+        const bv = (b as any)[sortConfig.key] ?? "";
+        const dir = sortConfig.direction === "asc" ? 1 : -1;
+        if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
+        return String(av).localeCompare(String(bv)) * dir;
+      });
+    }
+    return list;
+  }, [equityData, equitySearch, sortConfig]);
+ 
+  const totalWght = equityData.reduce((s, i) => s + (i.wght_pct ?? 0), 0);
+  const totalMtm = equityData.reduce((s, i) => s + (i.mtm_ptf ?? 0), 0);
+  const totalPl = equityData.reduce((s, i) => s + (i.pl_ptf ?? 0), 0);
+ 
+  const SortBtn = ({ k }: { k: string }) => {
+    const active = sortConfig?.key === k;
+    return (
+      <button onClick={() => handleSort(k)} className="inline-flex items-center gap-0.5 hover:text-slate-900 transition-colors">
+        {active ? (sortConfig?.direction === "asc" ? <ChevronUp className="h-3 w-3 text-sky-600" /> : <ChevronDown className="h-3 w-3 text-sky-600" />) : <ChevronsUpDown className="h-3 w-3 opacity-30" />}
+      </button>
+    );
+  };
+ 
+  return (
+    <div className="space-y-8">
+      {/* ── Header + Switch view ── */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">SAMDP</h2>
+          <p className="text-slate-500">Analyse des holdings du portefeuille SAMDP.</p>
+        </div>
+        <div className="flex items-center bg-slate-100 p-1 rounded-xl">
+          {(["Equities", "Debt", "Export"] as SamdpView[]).map(v => (
+            <button key={v} onClick={() => setView(v)}
+              className={cn("px-5 py-2 rounded-lg text-sm font-medium transition-all",
+                view === v ? "bg-white text-sky-700 shadow-sm" : "text-slate-500 hover:text-slate-700")}>
+              {v === "Export" ? "📄 Export" : v}
+            </button>
+          ))}
+        </div>
+      </div>
+ 
+      {/* ── Import bar ── */}
+      <div className="flex items-center gap-3 bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-2">
+        <label className="flex items-center gap-2 border border-dashed border-slate-200 rounded-xl px-3 py-1.5 hover:border-sky-400 transition-all group cursor-pointer shrink-0">
+          <input type="file" accept=".xls,.xlsx" onChange={handleFileUpload} className="hidden" />
+          <Upload className="h-3.5 w-3.5 text-slate-400 group-hover:text-sky-600" />
+          <span className="text-xs font-bold text-slate-700">Importer Holdings</span>
+          {uploading
+            ? <Loader2 className="h-3 w-3 text-sky-600 animate-spin" />
+            : uploadSuccess
+              ? <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+              : null}
+        </label>
+        <div className="w-px h-6 bg-slate-100 shrink-0" />
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className={cn("w-2 h-2 rounded-full shrink-0", equityData.length > 0 ? "bg-sky-400" : "bg-slate-200")} />
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider shrink-0">Equities</span>
+          {equityData.length > 0
+            ? <span className="text-[10px] text-slate-400 truncate">{equityData.length} instruments · importé le {uploadDate}</span>
+            : <span className="text-[10px] text-slate-300 italic">Aucun import</span>}
+        </div>
+      </div>
+ 
+      {/* ── VUE EQUITIES ── */}
+      {view === "Equities" && (
+        <>
+          {equityData.length === 0 ? (
+            <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">
+              <TableIcon className="h-12 w-12 mx-auto mb-4 opacity-20" />
+              <p className="text-lg">Aucune donnée. Importez un fichier Holdings AM Transparency.</p>
+            </div>
+          ) : (
+            <>
+              {/* KPI cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { label: "Instruments", value: equityData.length.toString(), sub: "ETF Equities" },
+                  { label: "Poids Total", value: fmtPct(totalWght), sub: "Expo% cumulée" },
+                  { label: "MtM Total", value: fmtM(totalMtm), sub: "EUR" },
+                  { label: "P/L Total", value: fmtM(totalPl), sub: totalPl >= 0 ? "Gain" : "Perte", color: totalPl >= 0 ? "text-emerald-600" : "text-rose-600" },
+                ].map(({ label, value, sub, color }) => (
+                  <div key={label} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{label}</p>
+                    <p className={cn("text-2xl font-bold text-slate-900", color)}>{value}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">{sub}</p>
+                  </div>
+                ))}
+              </div>
+ 
+              {/* Table */}
+              <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-slate-50 flex items-center gap-3">
+                  <Search className="h-4 w-4 text-slate-400 shrink-0" />
+                  <input type="text" value={equitySearch} onChange={e => setEquitySearch(e.target.value)}
+                    placeholder="Rechercher un instrument ou ISIN…"
+                    className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400" />
+                  {equitySearch && <button onClick={() => setEquitySearch("")} className="p-0.5 hover:bg-slate-100 rounded"><X className="h-3.5 w-3.5 text-slate-400" /></button>}
+                  <span className="text-xs text-slate-400 shrink-0">{filteredEquity.length} résultat{filteredEquity.length !== 1 ? "s" : ""}</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-50/50">
+                        {[
+                          { key: "name", label: "Instrument", align: "left" },
+                          { key: "isin", label: "ISIN", align: "left" },
+                          { key: "currency", label: "Devise", align: "left" },
+                          { key: "dom_country", label: "Pays", align: "left" },
+                          { key: "msci_sector_1", label: "Secteur MSCI", align: "left" },
+                          { key: "style", label: "Style", align: "left" },
+                          { key: "quantity", label: "Quantité", align: "right" },
+                          { key: "quote", label: "Quote", align: "right" },
+                          { key: "quote_date", label: "Date Quote", align: "right" },
+                          { key: "mkt_cap", label: "Mkt Cap", align: "right" },
+                          { key: "mtm_ptf", label: "MtM (EUR)", align: "right" },
+                          { key: "mtm_local", label: "MtM (Local)", align: "right" },
+                          { key: "pl_ptf", label: "P/L (EUR)", align: "right" },
+                          { key: "pl_local", label: "P/L (Local)", align: "right" },
+                          { key: "expo_pct", label: "Expo%", align: "right" },
+                          { key: "wght_pct", label: "Wght%", align: "right" },
+                        ].map(({ key, label, align }) => (
+                          <th key={key} className={cn("px-4 py-3 font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap", align === "right" ? "text-right" : "text-left")}>
+                            <span className="flex items-center gap-1" style={{ justifyContent: align === "right" ? "flex-end" : "flex-start" }}>
+                              {label} <SortBtn k={key} />
+                            </span>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {filteredEquity.map((inst, i) => {
+                        const pl = inst.pl_ptf ?? 0;
+                        return (
+                          <tr key={inst.isin} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-4 py-3 font-medium text-slate-900 truncate max-w-[200px]">{inst.name}</td>
+                            <td className="px-4 py-3 font-mono text-sky-600 font-bold">{inst.isin}</td>
+                            <td className="px-4 py-3 text-slate-600">{inst.currency ?? "—"}</td>
+                            <td className="px-4 py-3 text-slate-600">{inst.dom_country ?? "—"}</td>
+                            <td className="px-4 py-3 text-slate-600 truncate max-w-[120px]">{inst.msci_sector_1 ?? "—"}</td>
+                            <td className="px-4 py-3 text-slate-600">{inst.style ?? "—"}</td>
+                            <td className="px-4 py-3 text-right text-slate-600">{fmtNum(inst.quantity, 0)}</td>
+                            <td className="px-4 py-3 text-right text-slate-600">{fmtNum(inst.quote, 3)}</td>
+                            <td className="px-4 py-3 text-right text-slate-400">{inst.quote_date ?? "—"}</td>
+                            <td className="px-4 py-3 text-right text-slate-600">{fmtM(inst.mkt_cap)}</td>
+                            <td className="px-4 py-3 text-right font-bold text-slate-900">{fmtNum(inst.mtm_ptf, 0)}</td>
+                            <td className="px-4 py-3 text-right text-slate-600">{fmtNum(inst.mtm_local, 0)}</td>
+                            <td className={cn("px-4 py-3 text-right font-bold", pl >= 0 ? "text-emerald-600" : "text-rose-600")}>{fmtNum(inst.pl_ptf, 0)}</td>
+                            <td className={cn("px-4 py-3 text-right", (inst.pl_local ?? 0) >= 0 ? "text-emerald-500" : "text-rose-500")}>{fmtNum(inst.pl_local, 0)}</td>
+                            <td className="px-4 py-3 text-right font-bold text-slate-700">{fmtPct(inst.expo_pct)}</td>
+                            <td className="px-4 py-3 text-right font-bold text-sky-600">{fmtPct(inst.wght_pct)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-slate-50 border-t border-slate-200">
+                        <td colSpan={10} className="px-4 py-3 font-bold text-slate-700">Total</td>
+                        <td className="px-4 py-3 text-right font-bold text-slate-900">{fmtNum(totalMtm, 0)}</td>
+                        <td className="px-4 py-3" />
+                        <td className={cn("px-4 py-3 text-right font-bold", totalPl >= 0 ? "text-emerald-600" : "text-rose-600")}>{fmtNum(totalPl, 0)}</td>
+                        <td className="px-4 py-3" />
+                        <td className="px-4 py-3 text-right font-bold text-slate-700">{fmtPct(totalWght)}</td>
+                        <td className="px-4 py-3 text-right font-bold text-sky-600">{fmtPct(totalWght)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+        </>
+      )}
+ 
+      {/* ── VUE DEBT ── */}
+      {view === "Debt" && (
+        <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">
+          <TableIcon className="h-12 w-12 mx-auto mb-4 opacity-20" />
+          <p className="text-lg font-medium text-slate-500">SAMDP Debt & Currencies</p>
+          <p className="text-sm mt-2">Importez le fichier SAMDP Debt & Currencies pour voir les données.</p>
+        </div>
+      )}
+ 
+      {/* ── VUE EXPORT ── */}
+      {view === "Export" && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+            {/* Preview A4 */}
+            <div className="p-8 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+              <p className="text-sm font-bold text-slate-600">Prévisualisation A4</p>
+              <button className="flex items-center gap-2 bg-sky-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-sky-700 transition-all">
+                <FileText className="h-4 w-4" />
+                Exporter PDF
+              </button>
+            </div>
+            {/* Page A4 simulée */}
+            <div className="flex items-center justify-center p-8 bg-slate-100 min-h-[600px]">
+              <div
+                className="bg-white shadow-2xl"
+                style={{ width: "595px", minHeight: "842px", padding: "48px", boxSizing: "border-box" }}>
+                {/* Titre */}
+                <h1 className="text-3xl font-bold text-slate-900 mb-8 border-b border-slate-200 pb-4">
+                  {exportTitle}
+                </h1>
+                {/* Zone de texte éditable */}
+                <textarea
+                  value={exportText}
+                  onChange={e => setExportText(e.target.value)}
+                  placeholder="Cliquez ici pour ajouter du contenu à votre rapport SAMDP..."
+                  className="w-full text-slate-700 text-sm leading-relaxed outline-none resize-none bg-transparent placeholder:text-slate-300"
+                  style={{ minHeight: "600px", fontFamily: "inherit" }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>("SYNTHESE");
@@ -2795,9 +3145,7 @@ const weightedDuration = fiHoldings.reduce((s, h) => {
           <h1 className="text-lg font-bold tracking-tight">Portfolio Insight</h1>
         </div>
         <div className="flex items-center bg-slate-100 p-1 rounded-xl">
-          {(["SYNTHESE", "INSTRUMENTS", "TARGET_GRID", "Sicav", "Mixed", "MANUALS", "DPAM", "SIMULATION"] as Tab[]).map((tab) => {
-const labels: Record<Tab, string> = { SYNTHESE: "Breakdown Deviation", INSTRUMENTS: "Synthèse Instruments", TARGET_GRID: "Target Grid", Sicav: "Sicav", Mixed: "Mixed", MANUALS: "Manuals", DPAM: "DPAM", SIMULATION: "Simulation" };
-            const showDate = ["SYNTHESE", "Sicav", "Mixed", "TARGET_GRID"].includes(tab);
+(["SYNTHESE", "INSTRUMENTS", "TARGET_GRID", "Sicav", "Mixed", "MANUALS", "DPAM", "SIMULATION", "SAMDP"] as Tab[]).map((tab) => {const labels: Record<Tab, string> = { SYNTHESE: "Breakdown Deviation", INSTRUMENTS: "Synthèse Instruments", TARGET_GRID: "Target Grid", Sicav: "Sicav", Mixed: "Mixed", MANUALS: "Manuals", DPAM: "DPAM", SIMULATION: "Simulation", SAMDP: "SAMDP" };            const showDate = ["SYNTHESE", "Sicav", "Mixed", "TARGET_GRID"].includes(tab);
             const latestDate = (() => {
               if (!showDate) return null;
               if (tab === "TARGET_GRID") return importLog.target_grid ? new Date(importLog.target_grid.imported_at) : null;
@@ -3322,7 +3670,6 @@ const labels: Record<Tab, string> = { SYNTHESE: "Breakdown Deviation", INSTRUMEN
   </motion.div>
 )}
 
-            {/* ← COLLE ICI */}
 <div className={activeTab === "SIMULATION" ? "block" : "hidden"}>
   <div className="max-w-7xl mx-auto">
 <SimulationTab
@@ -3337,6 +3684,13 @@ const labels: Record<Tab, string> = { SYNTHESE: "Breakdown Deviation", INSTRUMEN
 />
   </div>
 </div>
+
+  {activeTab === "SAMDP" && (
+  <motion.div key="samdp" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+    className="max-w-7xl mx-auto">
+    <SamdpTab />
+  </motion.div>
+)}
    {/* ── SICAV / MIXED ── */}
             {(activeTab === "Sicav" || activeTab === "Mixed") && (
               <motion.div key={`detail-${selectedId ?? "none"}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-6xl mx-auto space-y-8">
