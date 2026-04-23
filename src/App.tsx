@@ -2462,7 +2462,8 @@ if (isEquity) {
       result[isin] = { geoBreakdown: geo.length > 0 ? geo : null, currencyBreakdown: currency, creditBreakdown: null };
     }
   }
- 
+ console.log("dpamLookup:", result);
+console.log("LU2799769836:", result["LU2799769836"]);
   return result;
 }, [dpamMappings, dpamBondsData, dpamEquityData]);
 
