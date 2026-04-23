@@ -2489,11 +2489,11 @@ console.log("LU2799769836:", result["LU2799769836"]);
   const regionData = useMemo(() => {
     const m = new Map<string, number>();
     const equityHoldings = (currentPortfolio?.holdings ?? []).filter(h => h?.category === "Equities");
-    applyLookThrough(equityHoldings).forEach(({ region, weight }) => {
-      if (normalizeRegion(region) === "Cash") return;
-      m.set(region, (m.get(region) ?? 0) + weight);
-    });
-    const profile = detectRiskProfile(currentPortfolio?.name);
+   applyLookThrough(equityHoldings).forEach(({ region, weight }) => {
+  if (normalizeRegion(region) === "Cash") return;
+  if (normalizeRegion(region) === "Others") return; // ← ajouter si besoin
+  m.set(region, (m.get(region) ?? 0) + weight);
+});    const profile = detectRiskProfile(currentPortfolio?.name);
     return Array.from(m.entries()).map(([name, value]) => {
       const gridId = REGION_TO_GRID[name];
       const target = profile && gridId ? targetGridData[gridId]?.[profile]?.["target"] ?? null : null;
