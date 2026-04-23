@@ -2669,25 +2669,41 @@ const weightedDuration = fiHoldings.reduce((s, h) => {
       return holdings.filter(h => h?.category === drillDownFilter.value);
     }
     return holdings
-      .filter(h => {
-        if (!h) return false;
-        if (h.category !== "Equities") return false;
-        const bd = h.isin ? breakdowns[h.isin] : null;
-        if (bd && bd.length > 0) {
-          return bd.some(e => normalizeRegion(e.region) === drillDownFilter.value && normalizeRegion(e.region) !== "Cash");
-        }
-        return normalizeRegion(h.region ?? "Others") === drillDownFilter.value;
-      })
+  .filter(h => {
+    if (!h) return false;
+    if (h.category !== "Equities") return false;
+    const bd = h.isin ? breakdowns[h.isin] : null;
+    if (bd && bd.length > 0) {
+      return bd.some(e => normalizeRegion(e.region) === drillDownFilter.value && normalizeRegion(e.region) !== "Cash");
+    }
+    // Priorité 2 : données DPAM geo
+    const dpamGeo = h.isin && (h.asset_name ?? "").startsWith("DPAM")
+      ? dpamLookup[h.isin]?.geoBreakdown
+      : null;
+    if (dpamGeo && dpamGeo.length > 0) {
+      return dpamGeo.some(e => normalizeRegion(e.region) === drillDownFilter.value);
+    }
+    return normalizeRegion(h.region ?? "Others") === drillDownFilter.value;
+  })
       .map(h => {
-        const bd = h.isin ? breakdowns[h.isin] : null;
-        if (bd && bd.length > 0) {
-          const totalWeight = bd
-            .filter(e => normalizeRegion(e.region) === drillDownFilter.value && e.region !== "Cash")
-            .reduce((s, e) => s + (h.weight ?? 0) * e.weight / 100, 0);
-          return { ...h, weight: totalWeight };
-        }
-        return h;
-      })
+  const bd = h.isin ? breakdowns[h.isin] : null;
+  if (bd && bd.length > 0) {
+    const totalWeight = bd
+      .filter(e => normalizeRegion(e.region) === drillDownFilter.value && e.region !== "Cash")
+      .reduce((s, e) => s + (h.weight ?? 0) * e.weight / 100, 0);
+    return { ...h, weight: totalWeight };
+  }
+  const dpamGeo = h.isin && (h.asset_name ?? "").startsWith("DPAM")
+    ? dpamLookup[h.isin]?.geoBreakdown
+    : null;
+  if (dpamGeo && dpamGeo.length > 0) {
+    const totalWeight = dpamGeo
+      .filter(e => normalizeRegion(e.region) === drillDownFilter.value)
+      .reduce((s, e) => s + (h.weight ?? 0) * e.weight / 100, 0);
+    return { ...h, weight: totalWeight };
+  }
+  return h;
+})
       .filter(h => (h.weight ?? 0) > 0);
   }, [currentPortfolio, drillDownFilter, breakdowns]);
 
