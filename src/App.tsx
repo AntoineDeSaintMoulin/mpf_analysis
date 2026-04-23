@@ -3106,8 +3106,7 @@ const weightedDuration = fiHoldings.reduce((s, h) => {
     }
     return list;
   }, [currentPortfolio, holdingsSearch, holdingsSortConfig]);
-
-  const filteredInstruments = useMemo(() => {
+const filteredInstruments = useMemo(() => {
     if (!instrumentsSearch) return sortedInstruments;
     const q = instrumentsSearch.toLowerCase();
     return sortedInstruments.filter((row) =>
@@ -3116,7 +3115,6 @@ const weightedDuration = fiHoldings.reduce((s, h) => {
     );
   }, [sortedInstruments, instrumentsSearch]);
 
-  
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50">
@@ -3130,41 +3128,36 @@ const weightedDuration = fiHoldings.reduce((s, h) => {
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 font-sans text-slate-900">
-
-      {errorMsg && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-rose-50 border border-rose-200 text-rose-700 px-5 py-3 rounded-2xl shadow-lg max-w-sm">
-          <AlertTriangle className="h-5 w-5 shrink-0" />
-          <span className="text-sm font-medium">{errorMsg}</span>
-          <button onClick={() => setErrorMsg(null)} className="ml-2 p-1 hover:bg-rose-100 rounded-lg"><X className="h-4 w-4" /></button>
-        </div>
-      )}
-
       <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between z-20 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="bg-sky-600 p-1.5 rounded-lg"><TrendingUp className="text-white h-4 w-4" /></div>
           <h1 className="text-lg font-bold tracking-tight">Portfolio Insight</h1>
         </div>
         <div className="flex items-center bg-slate-100 p-1 rounded-xl">
-(["SYNTHESE", "INSTRUMENTS", "TARGET_GRID", "Sicav", "Mixed", "MANUALS", "DPAM", "SIMULATION", "SAMDP"] as Tab[]).map((tab) => {const labels: Record<Tab, string> = { SYNTHESE: "Breakdown Deviation", INSTRUMENTS: "Synthèse Instruments", TARGET_GRID: "Target Grid", Sicav: "Sicav", Mixed: "Mixed", MANUALS: "Manuals", DPAM: "DPAM", SIMULATION: "Simulation", SAMDP: "SAMDP" };            const showDate = ["SYNTHESE", "Sicav", "Mixed", "TARGET_GRID"].includes(tab);
-            const latestDate = (() => {
-              if (!showDate) return null;
-              if (tab === "TARGET_GRID") return importLog.target_grid ? new Date(importLog.target_grid.imported_at) : null;
-              const all = [importLog.quick_valuation, ...importLog.samdp, importLog.target_grid, importLog.other]
-                .filter(Boolean).map(e => new Date(e!.imported_at).getTime());
-              return all.length > 0 ? new Date(Math.max(...all)) : null;
-            })();
-            return (
-              <button key={tab} onClick={() => setActiveTab(tab)}
-                className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex flex-col items-center", activeTab === tab ? "bg-white text-sky-700 shadow-sm" : "text-slate-500 hover:text-slate-700")}>
-                <span>{labels[tab]}</span>
-                {showDate && latestDate && (
-                  <span className="text-[9px] italic font-normal opacity-60 leading-none">
-                    {latestDate.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" })}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+          {(() => {
+            const labels: Record<Tab, string> = { SYNTHESE: "Breakdown Deviation", INSTRUMENTS: "Synthèse Instruments", TARGET_GRID: "Target Grid", Sicav: "Sicav", Mixed: "Mixed", MANUALS: "Manuals", DPAM: "DPAM", SIMULATION: "Simulation", SAMDP: "SAMDP" };
+            return (["SYNTHESE", "INSTRUMENTS", "TARGET_GRID", "Sicav", "Mixed", "MANUALS", "DPAM", "SIMULATION", "SAMDP"] as Tab[]).map((tab) => {
+              const showDate = ["SYNTHESE", "Sicav", "Mixed", "TARGET_GRID"].includes(tab);
+              const latestDate = (() => {
+                if (!showDate) return null;
+                if (tab === "TARGET_GRID") return importLog.target_grid ? new Date(importLog.target_grid.imported_at) : null;
+                const all = [importLog.quick_valuation, ...importLog.samdp, importLog.target_grid, importLog.other]
+                  .filter(Boolean).map(e => new Date(e!.imported_at).getTime());
+                return all.length > 0 ? new Date(Math.max(...all)) : null;
+              })();
+              return (
+                <button key={tab} onClick={() => setActiveTab(tab)}
+                  className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex flex-col items-center", activeTab === tab ? "bg-white text-sky-700 shadow-sm" : "text-slate-500 hover:text-slate-700")}>
+                  <span>{labels[tab]}</span>
+                  {showDate && latestDate && (
+                    <span className="text-[9px] italic font-normal opacity-60 leading-none">
+                      {latestDate.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+                    </span>
+                  )}
+                </button>
+              );
+            });
+          })()}
         </div>
         <div className="w-32" />
       </header>
@@ -3192,7 +3185,7 @@ const weightedDuration = fiHoldings.reduce((s, h) => {
         <main className="flex-1 overflow-y-auto p-10 bg-slate-50/50">
           <AnimatePresence mode="wait">
 
-                       {/* ── BREAKDOWN DEVIATION ── */}
+            {/* ── BREAKDOWN DEVIATION ── */}
             {activeTab === "SYNTHESE" && (
               <motion.div key="synthese" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-7xl mx-auto space-y-8">
                 <div className="flex items-center justify-between mb-8">
@@ -3215,8 +3208,6 @@ const weightedDuration = fiHoldings.reduce((s, h) => {
                 )}
               </motion.div>
             )}
-
-
             {/* ── INSTRUMENTS ── */}
             {activeTab === "INSTRUMENTS" && (
               <motion.div key="instruments" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-7xl mx-auto space-y-8">
