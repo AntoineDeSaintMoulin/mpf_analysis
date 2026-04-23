@@ -1006,25 +1006,29 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
     <span className="text-xs font-bold text-slate-500 uppercase tracking-wider shrink-0">Fonds</span>
     <div className="flex items-center gap-2 flex-1 bg-slate-50 rounded-xl px-3 py-1.5 border border-slate-100">
       <Search className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-      <input type="text" value={bondsSearch}
-        onChange={e => setBondsSearch(e.target.value)}
+<input type="text" value={equitySearch}
+  onChange={e => setEquitySearch(e.target.value)}
         placeholder="Rechercher un fonds…"
         className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400" />
     </div>
   </div>
   <div className="flex flex-wrap gap-2">
-    {mainInstruments
-      .filter((inst: any) => inst.name.toLowerCase().includes(bondsSearch.toLowerCase()))
-      .map((inst: any) => (
-        <button key={inst.col_index}
-          onClick={() => setSelectedCol(inst.col_index)}
-          className={cn("px-3 py-1.5 rounded-xl text-xs font-medium transition-all border",
-            selectedCol === inst.col_index
-              ? "bg-sky-600 text-white border-sky-600 shadow-sm"
-              : "bg-white text-slate-600 border-slate-200 hover:border-sky-300")}>
-          {inst.name.replace("DPAM B BONDS ", "").replace("DPAM L BONDS ", "").trim()}
-        </button>
-      ))}
+    {(equityData.instruments ?? [])
+  .filter((inst: any) => inst.name.toLowerCase().includes(equitySearch.toLowerCase()))
+  .map((inst: any) => (
+    <button key={inst.col_index}
+      onClick={() => setSelectedCol(inst.col_index)}
+      className={cn("px-3 py-1.5 rounded-xl text-xs font-medium transition-all border",
+        selectedCol === inst.col_index
+          ? "bg-sky-600 text-white border-sky-600 shadow-sm"
+          : "bg-white text-slate-600 border-slate-200 hover:border-sky-300")}>
+      {inst.name
+        .replace("DPAM B EQUITIES ", "")
+        .replace("DPAM L EQUITIES ", "")
+        .replace("DPAM B REAL ESTATE ", "REAL ESTATE ")
+        .replace("DPAM DBI RDT B EQUITIES ", "DBI RDT ")}
+    </button>
+  ))}
   </div>
 </div>
  
