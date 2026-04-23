@@ -2453,12 +2453,16 @@ if (isEquity) {
       };
  
       const regionMap = new Map<string, number>();
-      countryRows.forEach((c: any) => {
-        const region = COUNTRY_TO_REGION[c.country] ?? "Others";
-        regionMap.set(region, (regionMap.get(region) ?? 0) + Number(c.weight ?? 0));
-      });
-      const geo = Array.from(regionMap.entries()).map(([region, weight]) => ({ region, weight }));
- 
+const CASH_LABELS = ["Cash and Derivatives", "Cash", "Derivatives", "Other"];
+countryRows.forEach((c: any) => {
+  if (CASH_LABELS.includes(c.country)) return;
+  const region = COUNTRY_TO_REGION[c.country] ?? "Others";
+  regionMap.set(region, (regionMap.get(region) ?? 0) + Number(c.weight ?? 0));
+});
+      const geo = Array.from(regionMap.entries())
+  .filter(([region]) => region !== "Others" || true) // garder pour l'instant
+  .map(([region, weight]) => ({ region, weight }));
+      
       result[isin] = { geoBreakdown: geo.length > 0 ? geo : null, currencyBreakdown: currency, creditBreakdown: null };
     }
   }
