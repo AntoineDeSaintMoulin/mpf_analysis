@@ -1842,8 +1842,10 @@ function SamdpTab() {
       const buffer = await file.arrayBuffer();
       const wb = XLSX.read(buffer, { type: "array" });
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const raw: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
- 
+const raw: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: false });
+ console.log("Total rows read:", raw.length);
+console.log("All rows:", raw);
+      
       const seen = new Set<string>();
       const instruments: SamdpInstrument[] = [];
  
