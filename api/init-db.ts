@@ -160,59 +160,92 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       sector TEXT NOT NULL,
       weight NUMERIC
     )`);
+
     await pool.query(`CREATE TABLE IF NOT EXISTS dpam_equity_instruments (
-  id SERIAL PRIMARY KEY,
-  import_id INTEGER REFERENCES dpam_import_log(id) ON DELETE CASCADE,
-  col_index INTEGER NOT NULL,
-  name TEXT NOT NULL,
-  portfolio_code TEXT
-)`);
+      id SERIAL PRIMARY KEY,
+      import_id INTEGER REFERENCES dpam_import_log(id) ON DELETE CASCADE,
+      col_index INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      portfolio_code TEXT
+    )`);
 
-await pool.query(`CREATE TABLE IF NOT EXISTS dpam_equity_globals (
-  id SERIAL PRIMARY KEY,
-  import_id INTEGER REFERENCES dpam_import_log(id) ON DELETE CASCADE,
-  instrument_col INTEGER NOT NULL,
-  market_value NUMERIC,
-  nb_holdings INTEGER,
-  dividend_yield NUMERIC
-)`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS dpam_equity_globals (
+      id SERIAL PRIMARY KEY,
+      import_id INTEGER REFERENCES dpam_import_log(id) ON DELETE CASCADE,
+      instrument_col INTEGER NOT NULL,
+      market_value NUMERIC,
+      nb_holdings INTEGER,
+      dividend_yield NUMERIC
+    )`);
 
-await pool.query(`CREATE TABLE IF NOT EXISTS dpam_equity_sectors (
-  id SERIAL PRIMARY KEY,
-  import_id INTEGER REFERENCES dpam_import_log(id) ON DELETE CASCADE,
-  instrument_col INTEGER NOT NULL,
-  sector TEXT NOT NULL,
-  weight NUMERIC
-)`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS dpam_equity_sectors (
+      id SERIAL PRIMARY KEY,
+      import_id INTEGER REFERENCES dpam_import_log(id) ON DELETE CASCADE,
+      instrument_col INTEGER NOT NULL,
+      sector TEXT NOT NULL,
+      weight NUMERIC
+    )`);
 
-await pool.query(`CREATE TABLE IF NOT EXISTS dpam_equity_countries (
-  id SERIAL PRIMARY KEY,
-  import_id INTEGER REFERENCES dpam_import_log(id) ON DELETE CASCADE,
-  instrument_col INTEGER NOT NULL,
-  country TEXT NOT NULL,
-  weight NUMERIC
-)`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS dpam_equity_countries (
+      id SERIAL PRIMARY KEY,
+      import_id INTEGER REFERENCES dpam_import_log(id) ON DELETE CASCADE,
+      instrument_col INTEGER NOT NULL,
+      country TEXT NOT NULL,
+      weight NUMERIC
+    )`);
 
-await pool.query(`CREATE TABLE IF NOT EXISTS dpam_equity_currencies (
-  id SERIAL PRIMARY KEY,
-  import_id INTEGER REFERENCES dpam_import_log(id) ON DELETE CASCADE,
-  instrument_col INTEGER NOT NULL,
-  eur NUMERIC,
-  usd NUMERIC,
-  jpy NUMERIC,
-  other NUMERIC
-)`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS dpam_equity_currencies (
+      id SERIAL PRIMARY KEY,
+      import_id INTEGER REFERENCES dpam_import_log(id) ON DELETE CASCADE,
+      instrument_col INTEGER NOT NULL,
+      eur NUMERIC,
+      usd NUMERIC,
+      jpy NUMERIC,
+      other NUMERIC
+    )`);
 
     await pool.query(`CREATE TABLE IF NOT EXISTS dpam_isin_mapping (
-  id SERIAL PRIMARY KEY,
-  isin TEXT UNIQUE NOT NULL,
-  dpam_type TEXT NOT NULL,
-  col_index INTEGER NOT NULL,
-  instrument_name TEXT,
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-)`);
-    
-    // Migrations - ajout de colonnes si elles n'existent pas encore
+      id SERIAL PRIMARY KEY,
+      isin TEXT UNIQUE NOT NULL,
+      dpam_type TEXT NOT NULL,
+      col_index INTEGER NOT NULL,
+      instrument_name TEXT,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+
+    // ── SAMDP tables ──
+    await pool.query(`CREATE TABLE IF NOT EXISTS samdp_import_log (
+      id SERIAL PRIMARY KEY,
+      filename TEXT NOT NULL,
+      imported_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+
+    await pool.query(`CREATE TABLE IF NOT EXISTS samdp_instruments (
+      id SERIAL PRIMARY KEY,
+      import_id INTEGER REFERENCES samdp_import_log(id) ON DELETE CASCADE,
+      name TEXT,
+      isin TEXT,
+      instrument_type TEXT,
+      msci_sector_1 TEXT,
+      dom_country TEXT,
+      msci_sector_2 TEXT,
+      msci_sector_3 TEXT,
+      style TEXT,
+      secular TEXT,
+      mkt_cap NUMERIC,
+      pl_ptf NUMERIC,
+      pl_local NUMERIC,
+      currency TEXT,
+      quantity NUMERIC,
+      quote NUMERIC,
+      quote_date TEXT,
+      mtm_local NUMERIC,
+      mtm_ptf NUMERIC,
+      expo_pct NUMERIC,
+      wght_pct NUMERIC
+    )`);
+
+    // Migrations
     await pool.query(`ALTER TABLE manual_overrides ADD COLUMN IF NOT EXISTS is_hedged BOOLEAN DEFAULT FALSE;`);
 
     return res.json({ success: true, message: "Tables créées ou déjà existantes." });
