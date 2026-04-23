@@ -2495,7 +2495,7 @@ console.log("LU2799769836:", result["LU2799769836"]);
       const target = profile && gridId ? targetGridData[gridId]?.[profile]?.["target"] ?? null : null;
       return { name, value: +value.toFixed(1), target };
     });
-  }, [currentPortfolio, breakdowns, targetGridData]);
+  }, [currentPortfolio, breakdowns, targetGridData, dpamLookup]);
 
   const currencyData = useMemo(() => {
     const KEY_CURRENCIES = ["EUR", "USD", "JPY"];
@@ -2632,7 +2632,7 @@ const weightedDuration = fiHoldings.reduce((s, h) => {
   const synthesisRegions = useMemo(() =>
     Array.from(new Set(sortedPortfolios.flatMap((p) =>
       applyLookThrough(p.holdings ?? []).map(({ region }) => region).filter(Boolean)
-    ))), [sortedPortfolios, breakdowns]);
+    ))), [sortedPortfolios, breakdowns, dpamLookup]);
 
   const synthesisData = useMemo(() =>
     sortedPortfolios.map((p) => {
@@ -2642,7 +2642,7 @@ const weightedDuration = fiHoldings.reduce((s, h) => {
         rw[region] = (rw[region] ?? 0) + weight;
       });
       return { name: p.name ?? "—", type: p.type ?? "—", ...rw };
-    }), [sortedPortfolios, synthesisRegions, breakdowns]);
+    }), [sortedPortfolios, synthesisRegions, breakdowns, dpamLookup]);
 
   const sortedInstruments = useMemo(() => {
     if (!sortConfig) return instrumentsSynthesis;
@@ -2706,7 +2706,7 @@ const weightedDuration = fiHoldings.reduce((s, h) => {
   return h;
 })
       .filter(h => (h.weight ?? 0) > 0);
-  }, [currentPortfolio, drillDownFilter, breakdowns]);
+  }, [currentPortfolio, drillDownFilter, breakdowns, dpamLookup]);
 
   const currencyDrillDownHoldings = useMemo(() => {
     if (!drillDownFilter || drillDownFilter.type !== "currency") return [];
