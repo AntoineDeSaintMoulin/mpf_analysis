@@ -1846,29 +1846,17 @@ interface SamdpInstrument {
   wght_pct: number | null;
 }
  
-function SamdpTab() {
+function SamdpTab({ equityData, importLog, manualOverrides }: {
+  equityData: any[];
+  importLog: any | null;
+  manualOverrides: any[];
+}) {
   const [view, setView] = React.useState<SamdpView>("Equities");
-  const [equityData, setEquityData] = React.useState<SamdpInstrument[]>([]);
-  const [importLog, setImportLog] = React.useState<{ filename: string; imported_at: string } | null>(null);
   const [uploading, setUploading] = React.useState(false);
   const [uploadSuccess, setUploadSuccess] = React.useState(false);
   const [equitySearch, setEquitySearch] = React.useState("");
   const [sortConfig, setSortConfig] = React.useState<{ key: string; direction: "asc" | "desc" } | null>({ key: "wght_pct", direction: "desc" });
   const [exportText, setExportText] = React.useState("");
- 
-  // Charger les données au montage
-  React.useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/dpam-data?section=samdp");
-        if (res.ok) {
-          const data = await res.json();
-          if (data.instruments?.length > 0) setEquityData(data.instruments);
-          if (data.importLog) setImportLog(data.importLog);
-        }
-      } catch (e) { console.warn("SAMDP load failed", e); }
-    })();
-  }, []);
  
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -2133,7 +2121,99 @@ function SamdpTab() {
                   </div>
                 ))}
               </div>
- 
+ {/* ── Expositions régionale + devise ── */}
+{equityData.length > 0 && (() => {
+  const COUNTRY_TO_REGION: Record<string, string> = {
+    "United States": "US", "Canada": "US",
+    "Belgium": "Europe", "France": "Europe", "Germany": "Europe", "Italy": "Europe",
+    "Spain": "Europe", "Netherlands": "Europe", "Ireland": "Europe", "Austria": "Europe",
+    "Denmark": "Europe", "Finland": "Europe", "Norway": "Europe", "Luxembourg": "Europe",
+    "Sweden": "Europe", "Switzerland": "Europe", "Portugal": "Europe",
+    "United Kingdom": "Europe",
+    "Japan": "Japan",
+    "China": "EM", "South Korea": "EM", "Korea": "EM", "India": "EM", "Brazil": "EM",
+    "Taiwan": "EM", "Mexico": "EM", "South Africa": "EM", "Malaysia": "EM",
+    "Indonesia": "EM", "Thailand": "EM", "Philippines": "EM", "Turkey": "EM",
+    "Poland": "EM", "Colombia": "EM", "Chile": "EM", "Peru": "EM", "Qatar": "EM",
+    "United Arab Emirates": "EM", "Hong Kong": "Others",
+    "Australia": "Others", "New Zealand": "Others", "Singapore": "Others",
+  };
+  const REGION_COLORS: Record<string, string> = {
+    "US": "#0ea5e9", "Europe": "#10b981", "EM": "#f59e0b",
+    "Japan": "#8b5cf6", "Others": "#94a3b8",
+  };
+  const CUR_COLORS_LOCAL: Record<string, string> = {
+    "EUR": "#0ea5e9", "USD": "#10b981", "JPY": "#f59e0b",
+    "GBP": "#8b5cf6", "CHF": "#ec4899",
+  };
+  const regionMap = new Map<string, number>();
+  const currencyMap = new Map<string, number>();
+  equityData.forEach(inst => {
+    const w = Number(inst.wght_pct ?? 0) * 100;
+    if (w === 0) return;
+    const manualRegion = manualOverrides.find(
+      ov => (ov.manual_isin && ov.manual_isin === inst.isin) ||
+            (ov.original_asset_name && ov.original_asset_name === inst.name)
+    )?.manual_region;
+    const region = manualRegion ? manualRegion : COUNTRY_TO_REGION[inst.dom_country ?? ""] ?? "Others";
+    regionMap.set(region, (regionMap.get(region) ?? 0) + w);
+    const manualCurrency = manualOverrides.find(
+      ov => (ov.manual_isin && ov.manual_isin === inst.isin) ||
+            (ov.original_asset_name && ov.original_asset_name === inst.name)
+    )?.manual_currency;
+    const currency = (manualCurrency || inst.currency || "Other").toUpperCase();
+    currencyMap.set(currency, (currencyMap.get(currency) ?? 0) + w);
+  });
+  const regionData = Array.from(regionMap.entries())
+    .map(([name, value]) => ({ name, value: +value.toFixed(2) }))
+    .sort((a, b) => b.value - a.value);
+  const currencyData = Array.from(currencyMap.entries())
+    .map(([label, value]) => ({ label, value: +value.toFixed(2) }))
+    .sort((a, b) => b.value - a.value);
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+        <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+          <Globe className="h-4 w-4 text-amber-600" />Exposition Régionale
+        </h3>
+        <div className="space-y-3">
+          {regionData.map(({ name, value }) => (
+            <div key={name} className="flex items-center gap-3">
+              <span className="text-xs font-bold w-16 shrink-0" style={{ color: REGION_COLORS[name] ?? "#94a3b8" }}>{name}</span>
+              <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all"
+                  style={{ width: `${Math.min(100, value)}%`, backgroundColor: REGION_COLORS[name] ?? "#94a3b8" }} />
+              </div>
+              <span className="text-xs font-bold text-slate-700 w-14 text-right shrink-0">{value.toFixed(1)}%</span>
+            </div>
+          ))}
+        </div>
+        <p className="text-[10px] text-slate-400 italic mt-3">Basé sur dom_country ou overrides manuels · pondéré par Wght%</p>
+      </div>
+      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+        <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+          <Coins className="h-4 w-4 text-sky-600" />Exposition Devise
+        </h3>
+        <div className="space-y-3">
+          {currencyData.map(({ label, value }) => (
+            <div key={label} className="flex items-center gap-3">
+              <span className="text-xs font-bold w-10 shrink-0" style={{ color: CUR_COLORS_LOCAL[label] ?? "#94a3b8" }}>{label}</span>
+              <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all"
+                  style={{ width: `${Math.min(100, value)}%`, backgroundColor: CUR_COLORS_LOCAL[label] ?? "#94a3b8" }} />
+              </div>
+              <span className="text-xs font-bold text-slate-700 w-14 text-right shrink-0">{value.toFixed(1)}%</span>
+            </div>
+          ))}
+        </div>
+        <p className="text-[10px] text-slate-400 italic mt-3">Basé sur la devise de chaque instrument · pondéré par Wght%</p>
+      </div>
+    </div>
+  );
+})()}
+
+{/* Table */}
+<div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
               {/* Table */}
               <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-50 flex items-center gap-3">
@@ -2305,9 +2385,11 @@ export default function App() {
   const [dpamEquityData, setDpamEquityData] = useState<any>(null);
   const [dpamUploading, setDpamUploading] = useState(false);
   const [dpamUploadSuccess, setDpamUploadSuccess] = useState(false);
-const [dpamMappings, setDpamMappings] = useState<{
-  id: number; isin: string; dpam_type: string; col_index: number; instrument_name: string;
-}[]>([]);
+  const [dpamMappings, setDpamMappings] = useState<{
+    id: number; isin: string; dpam_type: string; col_index: number; instrument_name: string;
+      }[]>([]);
+  const [samdpInstruments, setSamdpInstruments] = useState<any[]>([]);
+  const [samdpImportLog, setSamdpImportLog] = useState<any>(null);
   
   async function safeArray<T>(fn: () => Promise<T[]>): Promise<T[]> {
     try {
@@ -2367,6 +2449,14 @@ useEffect(() => {
           if (dpam.mappings) setDpamMappings(dpam.mappings);
         }
       } catch (e) { console.warn("DPAM load failed", e); }
+try {
+  const samdpRes = await fetch("/api/dpam-data?section=samdp");
+  if (samdpRes.ok) {
+    const samdp = await samdpRes.json();
+    if (samdp.instruments) setSamdpInstruments(samdp.instruments);
+    if (samdp.importLog) setSamdpImportLog(samdp.importLog);
+  }
+} catch (e) { console.warn("SAMDP load failed", e); }
       setImportLog(data.importLog);
       setTargetGridData(data.targetGrid ?? {});
 
@@ -2425,7 +2515,15 @@ const refreshData = async () => {
           if (dpam.equity) setDpamEquityData(dpam.equity);
           if (dpam.mappings) setDpamMappings(dpam.mappings);
         }
-      } catch (e) { console.warn("DPAM load failed", e); }
+} catch (e) { console.warn("DPAM load failed", e); }
+try {
+  const samdpRes = await fetch("/api/dpam-data?section=samdp");
+  if (samdpRes.ok) {
+    const samdp = await samdpRes.json();
+    if (samdp.instruments) setSamdpInstruments(samdp.instruments);
+    if (samdp.importLog) setSamdpImportLog(samdp.importLog);
+  }
+} catch (e) { console.warn("SAMDP load failed", e); }
     setImportLog(data.importLog);
     setTargetGridData(data.targetGrid ?? {});
     if (selectedId != null) {
@@ -3090,8 +3188,32 @@ const weightedDuration = fiHoldings.reduce((s, h) => {
         if (h.isin && !e.isin) e.isin = h.isin;
       });
     });
-    return Array.from(im.values());
-  }, [allPortfolios]);
+// Ajouter les instruments SAMDP avec badge
+samdpInstruments.forEach((inst: any) => {
+  const key = inst.isin ?? inst.name;
+  if (!key) return;
+  if (!im.has(key)) {
+    const w: Record<string, number> = {};
+    names.forEach((n) => (w[n] = 0));
+    im.set(key, {
+      name: inst.name ?? "",
+      isin: inst.isin ?? "",
+      weights: w,
+      details: {
+        asset_name: inst.name,
+        isin: inst.isin,
+        category: "Equities",
+        region: inst.dom_country ?? "—",
+        currency: inst.currency ?? "—",
+        instrument: inst.instrument_type ?? "ETF",
+      },
+      isSamdp: true,
+      samdpWght: inst.wght_pct,
+    });
+  }
+});
+return Array.from(im.values());
+}, [allPortfolios, samdpInstruments]);
 
   const sortedPortfolios = useMemo(() =>
     [...allPortfolios].filter((p) => p?.name).sort((a, b) => {
@@ -3431,15 +3553,26 @@ const filteredInstruments = useMemo(() => {
                             {filteredInstruments.map((row, i) => (
                               <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
                                 <td className="px-8 py-4 sticky left-0 bg-white group-hover:bg-slate-50">
-                                  <button onClick={() => setSelectedInstrument(row.details as Holding)} className="flex items-center gap-2 text-sky-600 font-bold hover:underline text-left">
-                                    {row.name} <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                  </button>
+<button onClick={() => setSelectedInstrument(row.details as Holding)} className="flex items-center gap-2 text-sky-600 font-bold hover:underline text-left">
+  {row.name}
+  {(row as any).isSamdp && (
+    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-600 uppercase tracking-wider shrink-0">SAMDP</span>
+  )}
+  <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+</button>
                                 </td>
                                 <td className="px-8 py-4 text-xs font-mono text-slate-400">{row.isin || "—"}</td>
-                                {sortedPortfolios.map((p) => {
-                                  const w = row.weights[p.name] ?? 0;
-                                  return <td key={p.id} className="px-4 py-4 text-right font-medium text-slate-600 text-sm">{w > 0 ? `${w.toFixed(1)}%` : "—"}</td>;
-                                })}
+{sortedPortfolios.map((p) => {
+  const w = row.weights[p.name] ?? 0;
+  const samdpW = (row as any).isSamdp ? (row as any).samdpWght : null;
+  return (
+    <td key={p.id} className="px-4 py-4 text-right font-medium text-slate-600 text-sm">
+      {w > 0 ? `${w.toFixed(1)}%` : samdpW != null ? (
+        <span className="text-violet-500 text-xs">{(Number(samdpW) * 100).toFixed(1)}%</span>
+      ) : "—"}
+    </td>
+  );
+})}
                               </tr>
                             ))}
                           </tbody>
@@ -3796,7 +3929,11 @@ const filteredInstruments = useMemo(() => {
   {activeTab === "SAMDP" && (
   <motion.div key="samdp" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
     className="max-w-7xl mx-auto">
-    <SamdpTab />
+<SamdpTab
+  equityData={samdpInstruments}
+  importLog={samdpImportLog}
+  manualOverrides={manualOverrides}
+/>
   </motion.div>
 )}
    {/* ── SICAV / MIXED ── */}
