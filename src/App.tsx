@@ -2211,93 +2211,86 @@ function SamdpTab({ equityData, importLog, manualOverrides }: {
     </div>
   );
 })()}
-
 {/* Table */}
 <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-              {/* Table */}
-              <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-50 flex items-center gap-3">
-                  <Search className="h-4 w-4 text-slate-400 shrink-0" />
-                  <input type="text" value={equitySearch} onChange={e => setEquitySearch(e.target.value)}
-                    placeholder="Rechercher un instrument ou ISIN…"
-                    className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400" />
-                  {equitySearch && <button onClick={() => setEquitySearch("")} className="p-0.5 hover:bg-slate-100 rounded"><X className="h-3.5 w-3.5 text-slate-400" /></button>}
-                  <span className="text-xs text-slate-400 shrink-0">{filteredEquity.length} résultat{filteredEquity.length !== 1 ? "s" : ""}</span>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="bg-slate-50/50">
-                        {[
-                          { key: "name", label: "Instrument", align: "left" },
-                          { key: "isin", label: "ISIN", align: "left" },
-                          { key: "currency", label: "Devise", align: "left" },
-                          { key: "dom_country", label: "Pays", align: "left" },
-                          { key: "msci_sector_1", label: "Secteur MSCI", align: "left" },
-                          { key: "style", label: "Style", align: "left" },
-                          { key: "quantity", label: "Quantité", align: "right" },
-                          { key: "quote", label: "Quote", align: "right" },
-                          { key: "quote_date", label: "Date Quote", align: "right" },
-                          { key: "mkt_cap", label: "Mkt Cap", align: "right" },
-                          { key: "mtm_ptf", label: "MtM (EUR)", align: "right" },
-                          { key: "mtm_local", label: "MtM (Local)", align: "right" },
-                          { key: "pl_ptf", label: "P/L (EUR)", align: "right" },
-                          { key: "pl_local", label: "P/L (Local)", align: "right" },
-                          { key: "expo_pct", label: "Expo%", align: "right" },
-                          { key: "wght_pct", label: "Wght%", align: "right" },
-                        ].map(({ key, label, align }) => (
-                          <th key={key} className={cn("px-4 py-3 font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap", align === "right" ? "text-right" : "text-left")}>
-                            <span className="flex items-center gap-1" style={{ justifyContent: align === "right" ? "flex-end" : "flex-start" }}>
-                              {label} <SortBtn k={key} />
-                            </span>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                      {filteredEquity.map((inst) => {
-                        const pl = Number(inst.pl_ptf ?? 0);
-                        return (
-                          <tr key={inst.isin} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="px-4 py-3 font-medium text-slate-900 truncate max-w-[200px]">{inst.name}</td>
-                            <td className="px-4 py-3 font-mono text-sky-600 font-bold">{inst.isin}</td>
-                            <td className="px-4 py-3 text-slate-600">{inst.currency ?? "—"}</td>
-                            <td className="px-4 py-3 text-slate-600">{inst.dom_country ?? "—"}</td>
-                            <td className="px-4 py-3 text-slate-600 truncate max-w-[120px]">{inst.msci_sector_1 ?? "—"}</td>
-                            <td className="px-4 py-3 text-slate-600">{inst.style ?? "—"}</td>
-                            <td className="px-4 py-3 text-right text-slate-600">{fmtNum(inst.quantity, 0)}</td>
-                            <td className="px-4 py-3 text-right text-slate-600">{fmtNum(inst.quote, 3)}</td>
-                            <td className="px-4 py-3 text-right text-slate-400">{inst.quote_date ?? "—"}</td>
-                            <td className="px-4 py-3 text-right text-slate-600">{fmtM(inst.mkt_cap)}</td>
-                            <td className="px-4 py-3 text-right font-bold text-slate-900">{fmtNum(inst.mtm_ptf, 0)}</td>
-                            <td className="px-4 py-3 text-right text-slate-600">{fmtNum(inst.mtm_local, 0)}</td>
-                            <td className={cn("px-4 py-3 text-right font-bold", pl >= 0 ? "text-emerald-600" : "text-rose-600")}>{fmtNum(inst.pl_ptf, 0)}</td>
-                            <td className={cn("px-4 py-3 text-right", Number(inst.pl_local ?? 0) >= 0 ? "text-emerald-500" : "text-rose-500")}>{fmtNum(inst.pl_local, 0)}</td>
-                            <td className="px-4 py-3 text-right font-bold text-slate-700">{fmtPct(inst.expo_pct)}</td>
-                            <td className="px-4 py-3 text-right font-bold text-sky-600">{fmtPct(inst.wght_pct)}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-slate-50 border-t border-slate-200">
-                        <td colSpan={10} className="px-4 py-3 font-bold text-slate-700">Total</td>
-                        <td className="px-4 py-3 text-right font-bold text-slate-900">{fmtNum(totalMtm, 0)}</td>
-                        <td className="px-4 py-3" />
-                        <td className={cn("px-4 py-3 text-right font-bold", totalPl >= 0 ? "text-emerald-600" : "text-rose-600")}>{fmtNum(totalPl, 0)}</td>
-                        <td className="px-4 py-3" />
-                        <td className="px-4 py-3 text-right font-bold text-slate-700">{fmtPct(totalWght)}</td>
-                        <td className="px-4 py-3 text-right font-bold text-sky-600">{fmtPct(totalWght)}</td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              </div>
-            </>
-          )}
-        </>
-      )}
- 
+  <div className="px-6 py-4 border-b border-slate-50 flex items-center gap-3">
+    <Search className="h-4 w-4 text-slate-400 shrink-0" />
+    <input type="text" value={equitySearch} onChange={e => setEquitySearch(e.target.value)}
+      placeholder="Rechercher un instrument ou ISIN…"
+      className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400" />
+    {equitySearch && <button onClick={() => setEquitySearch("")} className="p-0.5 hover:bg-slate-100 rounded"><X className="h-3.5 w-3.5 text-slate-400" /></button>}
+    <span className="text-xs text-slate-400 shrink-0">{filteredEquity.length} résultat{filteredEquity.length !== 1 ? "s" : ""}</span>
+  </div>
+  <div className="overflow-x-auto">
+    <table className="w-full text-left border-collapse text-xs">
+      <thead>
+        <tr className="bg-slate-50/50">
+          {[
+            { key: "name", label: "Instrument", align: "left" },
+            { key: "isin", label: "ISIN", align: "left" },
+            { key: "currency", label: "Devise", align: "left" },
+            { key: "dom_country", label: "Pays", align: "left" },
+            { key: "msci_sector_1", label: "Secteur MSCI", align: "left" },
+            { key: "style", label: "Style", align: "left" },
+            { key: "quantity", label: "Quantité", align: "right" },
+            { key: "quote", label: "Quote", align: "right" },
+            { key: "quote_date", label: "Date Quote", align: "right" },
+            { key: "mkt_cap", label: "Mkt Cap", align: "right" },
+            { key: "mtm_ptf", label: "MtM (EUR)", align: "right" },
+            { key: "mtm_local", label: "MtM (Local)", align: "right" },
+            { key: "pl_ptf", label: "P/L (EUR)", align: "right" },
+            { key: "pl_local", label: "P/L (Local)", align: "right" },
+            { key: "expo_pct", label: "Expo%", align: "right" },
+            { key: "wght_pct", label: "Wght%", align: "right" },
+          ].map(({ key, label, align }) => (
+            <th key={key} className={cn("px-4 py-3 font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap", align === "right" ? "text-right" : "text-left")}>
+              <span className="flex items-center gap-1" style={{ justifyContent: align === "right" ? "flex-end" : "flex-start" }}>
+                {label} <SortBtn k={key} />
+              </span>
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-slate-50">
+        {filteredEquity.map((inst) => {
+          const pl = Number(inst.pl_ptf ?? 0);
+          return (
+            <tr key={inst.isin} className="hover:bg-slate-50/50 transition-colors">
+              <td className="px-4 py-3 font-medium text-slate-900 truncate max-w-[200px]">{inst.name}</td>
+              <td className="px-4 py-3 font-mono text-sky-600 font-bold">{inst.isin}</td>
+              <td className="px-4 py-3 text-slate-600">{inst.currency ?? "—"}</td>
+              <td className="px-4 py-3 text-slate-600">{inst.dom_country ?? "—"}</td>
+              <td className="px-4 py-3 text-slate-600 truncate max-w-[120px]">{inst.msci_sector_1 ?? "—"}</td>
+              <td className="px-4 py-3 text-slate-600">{inst.style ?? "—"}</td>
+              <td className="px-4 py-3 text-right text-slate-600">{fmtNum(inst.quantity, 0)}</td>
+              <td className="px-4 py-3 text-right text-slate-600">{fmtNum(inst.quote, 3)}</td>
+              <td className="px-4 py-3 text-right text-slate-400">{inst.quote_date ?? "—"}</td>
+              <td className="px-4 py-3 text-right text-slate-600">{fmtM(inst.mkt_cap)}</td>
+              <td className="px-4 py-3 text-right font-bold text-slate-900">{fmtNum(inst.mtm_ptf, 0)}</td>
+              <td className="px-4 py-3 text-right text-slate-600">{fmtNum(inst.mtm_local, 0)}</td>
+              <td className={cn("px-4 py-3 text-right font-bold", pl >= 0 ? "text-emerald-600" : "text-rose-600")}>{fmtNum(inst.pl_ptf, 0)}</td>
+              <td className={cn("px-4 py-3 text-right", Number(inst.pl_local ?? 0) >= 0 ? "text-emerald-500" : "text-rose-500")}>{fmtNum(inst.pl_local, 0)}</td>
+              <td className="px-4 py-3 text-right font-bold text-slate-700">{fmtPct(inst.expo_pct)}</td>
+              <td className="px-4 py-3 text-right font-bold text-sky-600">{fmtPct(inst.wght_pct)}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+      <tfoot>
+        <tr className="bg-slate-50 border-t border-slate-200">
+          <td colSpan={10} className="px-4 py-3 font-bold text-slate-700">Total</td>
+          <td className="px-4 py-3 text-right font-bold text-slate-900">{fmtNum(totalMtm, 0)}</td>
+          <td className="px-4 py-3" />
+          <td className={cn("px-4 py-3 text-right font-bold", totalPl >= 0 ? "text-emerald-600" : "text-rose-600")}>{fmtNum(totalPl, 0)}</td>
+          <td className="px-4 py-3" />
+          <td className="px-4 py-3 text-right font-bold text-slate-700">{fmtPct(totalWght)}</td>
+          <td className="px-4 py-3 text-right font-bold text-sky-600">{fmtPct(totalWght)}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+              
       {/* ── VUE DEBT ── */}
       {view === "Debt" && (
         <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">
