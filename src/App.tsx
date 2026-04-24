@@ -3685,7 +3685,7 @@ const filteredInstruments = useMemo(() => {
                     <div className="divide-y divide-slate-50">
                       {Object.entries(breakdowns).map(([isin, entries]) => {
 const holding = allPortfolios.flatMap(p => p.holdings ?? []).find(h => h.isin === isin);
-const samdpInst = samdpInstruments.find((s: any) => s.isin === isin);
+const samdpInst = !holding ? samdpInstruments.find((s: any) => s.isin === isin) : null;
 const name = holding?.asset_name ?? samdpInst?.name ?? isin;
                         const total = entries.reduce((s, e) => s + e.weight, 0);
                         const updatedAt = entries[0]?.updated_at;
