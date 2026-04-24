@@ -2211,6 +2211,7 @@ function SamdpTab({ equityData, importLog, manualOverrides }: {
     </div>
   );
 })()}
+              
 {/* Table */}
 <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
   <div className="px-6 py-4 border-b border-slate-50 flex items-center gap-3">
@@ -2290,7 +2291,11 @@ function SamdpTab({ equityData, importLog, manualOverrides }: {
     </table>
   </div>
 </div>
-              
+          </>
+        )}
+      </>
+      )}
+
       {/* ── VUE DEBT ── */}
       {view === "Debt" && (
         <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">
