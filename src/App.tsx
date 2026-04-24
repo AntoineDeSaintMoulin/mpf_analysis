@@ -2300,7 +2300,7 @@ function SamdpTab({ equityData, importLog, manualOverrides }: {
         </div>
       )}
  
-      {/* ── VUE EXPORT ── */}
+ {/* ── VUE EXPORT ── */}
       {view === "Export" && (
         <div className="space-y-6">
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
@@ -2329,7 +2329,9 @@ function SamdpTab({ equityData, importLog, manualOverrides }: {
     </div>
   );
 }
+
 export default function App() {
+  
   const [activeTab, setActiveTab] = useState<Tab>("SYNTHESE");
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [allPortfolios, setAllPortfolios] = useState<Portfolio[]>([]);
