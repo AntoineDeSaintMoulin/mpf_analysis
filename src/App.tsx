@@ -2260,16 +2260,17 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument }
           return (
             <tr key={inst.isin} className="hover:bg-slate-50/50 transition-colors">
 <td className="px-4 py-3 truncate max-w-[200px]">
-onClick={() => onSelectInstrument({
-  asset_name: inst.name,
-  original_asset_name: inst.name,
-  isin: inst.isin,
-  category: "Equities",
-  region: inst.dom_country ?? "",
-  currency: inst.currency ?? "",
-  instrument: inst.instrument_type ?? "ETF",
-  weight: Number(inst.wght_pct ?? 0) * 100,
-} as any)}
+  <button
+    onClick={() => onSelectInstrument({
+      asset_name: inst.name,
+      original_asset_name: inst.name,
+      isin: inst.isin,
+      category: "Equities",
+      region: inst.dom_country ?? "",
+      currency: inst.currency ?? "",
+      instrument: inst.instrument_type ?? "ETF",
+      weight: Number(inst.wght_pct ?? 0) * 100,
+    } as any)}
     className="font-medium text-sky-600 hover:underline text-left truncate">
     {inst.name}
   </button>
