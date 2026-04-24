@@ -1860,7 +1860,7 @@ function SamdpTab() {
   React.useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/samdp-data");
+        const res = await fetch("/api/dpam-data?section=samdp");
         if (res.ok) {
           const data = await res.json();
           if (data.instruments?.length > 0) setEquityData(data.instruments);
@@ -1992,7 +1992,7 @@ function SamdpTab() {
       }
  
       // Envoyer à l'API
-      const apiRes = await fetch("/api/samdp-data", {
+      const apiRes = await fetch("/api/dpam-data?section=samdp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ filename: file.name, instruments }),
