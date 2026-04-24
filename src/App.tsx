@@ -2221,22 +2221,23 @@ const avgDuration = debtData.length > 0
  
       {/* ── Import bar ── */}
 <div className="flex items-center gap-3 bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-2">
-  {/* Import Equities */}
   <label className="flex items-center gap-2 border border-dashed border-slate-200 rounded-xl px-3 py-1.5 hover:border-sky-400 transition-all group cursor-pointer shrink-0">
-    <input type="file" accept=".xls,.xlsx" onChange={handleFileUpload} className="hidden" />
-    <Upload className="h-3.5 w-3.5 text-slate-400 group-hover:text-sky-600" />
-    <span className="text-xs font-bold text-slate-700">Equities</span>
-    {uploading && <Loader2 className="h-3 w-3 text-sky-600 animate-spin" />}
-    {uploadSuccess && <CheckCircle2 className="h-3 w-3 text-emerald-500" />}
-  </label>
-  <div className="w-px h-6 bg-slate-100 shrink-0" />
-  {/* Import Debt */}
-  <label className="flex items-center gap-2 border border-dashed border-slate-200 rounded-xl px-3 py-1.5 hover:border-emerald-400 transition-all group cursor-pointer shrink-0">
-    <input type="file" accept=".xls,.xlsx" onChange={handleDebtFileUpload} className="hidden" />
-    <Upload className="h-3.5 w-3.5 text-slate-400 group-hover:text-emerald-600" />
-    <span className="text-xs font-bold text-slate-700">Debt</span>
-  </label>
-  <div className="w-px h-6 bg-slate-100 shrink-0" />
+  <input type="file" accept=".xls,.xlsx" onChange={(e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.name.toLowerCase().startsWith("holdings am transparency")) {
+      handleFileUpload(e);
+    } else if (file.name.toLowerCase().startsWith("fi holdings")) {
+      handleDebtFileUpload(e);
+    } else {
+      alert("Le fichier doit commencer par 'Holdings AM Transparency' ou 'FI Holdings'");
+    }
+  }} className="hidden" />
+  <Upload className="h-3.5 w-3.5 text-slate-400 group-hover:text-sky-600" />
+  <span className="text-xs font-bold text-slate-700">Importer</span>
+  {uploading && <Loader2 className="h-3 w-3 text-sky-600 animate-spin" />}
+  {uploadSuccess && <CheckCircle2 className="h-3 w-3 text-emerald-500" />}
+</label>
   {/* Status Equities */}
   <div className="flex items-center gap-2 flex-1 min-w-0">
     <div className={cn("w-2 h-2 rounded-full shrink-0", equityData.length > 0 ? "bg-sky-400" : "bg-slate-200")} />
