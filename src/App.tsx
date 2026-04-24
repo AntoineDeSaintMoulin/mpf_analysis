@@ -1846,11 +1846,13 @@ interface SamdpInstrument {
   wght_pct: number | null;
 }
  
-function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument }: {
+function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, debtData, debtImportLog }: {
   equityData: any[];
   importLog: any | null;
   manualOverrides: any[];
   onSelectInstrument: (inst: any) => void;
+  debtData: any[];
+  debtImportLog: any | null;
 }) {
   
   const [view, setView] = React.useState<SamdpView>("Equities");
@@ -1859,7 +1861,125 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument }
   const [equitySearch, setEquitySearch] = React.useState("");
   const [sortConfig, setSortConfig] = React.useState<{ key: string; direction: "asc" | "desc" } | null>({ key: "wght_pct", direction: "desc" });
   const [exportText, setExportText] = React.useState("");
+  const [debtSearch, setDebtSearch] = React.useState("");
+  const [debtSortConfig, setDebtSortConfig] = React.useState<{ key: string; direction: "asc" | "desc" } | null>({ key: "wght_pct", direction: "desc" });
+  const handleDebtFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  setUploading(true);
+  setUploadSuccess(false);
+  try {
+    const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs" as any);
+    const buffer = await file.arrayBuffer();
+    const wb = XLSX.read(buffer, { type: "array", cellDates: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
  
+    // Lire toutes les cellules par clé (contourne les row groups cachés)
+    const allCellKeys = Object.keys(ws).filter(k => !k.startsWith('!'));
+    const instrumentRows: Map<number, any[]> = new Map();
+    allCellKeys.forEach((key: string) => {
+      const decoded = XLSX.utils.decode_cell(key);
+      if (!instrumentRows.has(decoded.r)) instrumentRows.set(decoded.r, []);
+      const row = instrumentRows.get(decoded.r)!;
+      row[decoded.c] = ws[key]?.v;
+    });
+ 
+    const VALID_TYPES = ["ETF BONDS", "FIXED RATE BOND", "FLOATING RATE BOND", "CONVERTIBLE BOND", "BOND"];
+    const seen = new Set<string>();
+    const instruments: any[] = [];
+ 
+    const toNum = (v: any) => v != null && !isNaN(Number(v)) ? Number(v) : null;
+    const toStr = (v: any) => v != null && String(v).trim() !== '' ? String(v).trim() : null;
+    const toDate = (v: any) => {
+      if (!v) return null;
+      if (v instanceof Date) return v.toISOString().slice(0, 10);
+      if (typeof v === 'string') return v.slice(0, 10);
+      try {
+        const d = XLSX.SSF?.parse_date_code?.(v);
+        if (d) return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
+      } catch {}
+      return String(v).slice(0, 10);
+    };
+ 
+    instrumentRows.forEach((row, rowIdx) => {
+      if (rowIdx <= 1) return; // skip headers
+      const isin = toStr(row[1]); // col B = index 1
+      const type = toStr(row[46]); // col AV = index 46 (instrument type)
+      if (!type || !VALID_TYPES.some(t => type.toUpperCase().includes(t.replace("BOND", "").trim()) || type === t)) return;
+      if (!isin || seen.has(isin)) return;
+      seen.add(isin);
+ 
+      instruments.push({
+        name: toStr(row[0]) ?? "",
+        isin,
+        instrument_type: type,
+        issuer: toStr(row[3]),
+        coupon_rate: toNum(row[4]),
+        maturity_date: toDate(row[5]),
+        currency: toStr(row[7]),
+        seniority: toStr(row[8]),
+        quote_date: toDate(row[9]),
+        quote: toNum(row[10]),
+        accrued_int: toNum(row[11]),
+        quantity: toNum(row[14]),
+        nominal: toNum(row[16]),
+        mtm_ptf: toNum(row[17]),
+        wght_pct: toNum(row[18]),
+        expo_pct: toNum(row[19]),
+        ytw: toNum(row[20]),
+        ytm: toNum(row[21]),
+        modified_duration: toNum(row[28]),
+        gov_spread: toNum(row[26]),
+        bics_sector_1: toStr(row[35]),
+        bics_sector_2: toStr(row[36]),
+        issuer_country: toStr(row[37]),
+        dom_country: toStr(row[38]),
+        geo_area: toStr(row[40]),
+        rating_moodys: toStr(row[41]),
+        rating_sp: toStr(row[42]),
+        rating_fitch: toStr(row[43]),
+        rating_cai: toStr(row[44]),
+        ig_hy: toStr(row[45]),
+        esg_score: toNum(row[48]),
+        mat_y: toNum(row[60]),
+        bondsegment: toStr(row[58]),
+      });
+    });
+ 
+    console.log("Debt instruments found:", instruments.length);
+ 
+    if (instruments.length === 0) {
+      alert("Aucun instrument obligataire trouvé dans ce fichier.");
+      return;
+    }
+ 
+    const apiRes = await fetch("/api/dpam-data?section=samdp_debt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: file.name, instruments }),
+    });
+ 
+    if (apiRes.ok) {
+      // Recharger depuis l'API
+      const fresh = await fetch("/api/dpam-data?section=samdp_debt");
+      if (fresh.ok) {
+        const data = await fresh.json();
+        // Mettre à jour via le parent — signaler le rechargement
+        window.dispatchEvent(new CustomEvent("samdp-debt-updated"));
+      }
+      setUploadSuccess(true);
+      setTimeout(() => setUploadSuccess(false), 3000);
+    } else {
+      alert("Erreur lors de la sauvegarde: " + await apiRes.text());
+    }
+  } catch (err) {
+    console.error("Debt upload error:", err);
+    alert("Erreur lors du traitement du fichier.");
+  } finally {
+    setUploading(false);
+  }
+};
+  
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -2019,7 +2139,32 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument }
       return { key, direction: "desc" };
     });
   };
+ const filteredDebt = React.useMemo(() => {
+  let list = debtData.filter(inst => {
+    if (!debtSearch) return true;
+    const q = debtSearch.toLowerCase();
+    return (inst.name ?? "").toLowerCase().includes(q) ||
+           (inst.isin ?? "").toLowerCase().includes(q) ||
+           (inst.issuer ?? "").toLowerCase().includes(q);
+  });
+  if (debtSortConfig) {
+    list = [...list].sort((a, b) => {
+      const av = (a as any)[debtSortConfig.key] ?? 0;
+      const bv = (b as any)[debtSortConfig.key] ?? 0;
+      const dir = debtSortConfig.direction === "asc" ? 1 : -1;
+      if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
+      return String(av).localeCompare(String(bv)) * dir;
+    });
+  }
+  return list;
+}, [debtData, debtSearch, debtSortConfig]);
  
+const totalDebtWght = debtData.reduce((s, i) => s + Number(i.wght_pct ?? 0), 0);
+const totalDebtMtm = debtData.reduce((s, i) => s + Number(i.mtm_ptf ?? 0), 0);
+const avgDuration = debtData.length > 0
+  ? debtData.reduce((s, i) => s + Number(i.modified_duration ?? 0) * Number(i.wght_pct ?? 0), 0) /
+    debtData.reduce((s, i) => s + Number(i.wght_pct ?? 0), 0)
+  : 0;
   const filteredEquity = React.useMemo(() => {
     let list = equityData.filter(inst => {
       if (!equitySearch) return true;
@@ -2075,28 +2220,41 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument }
       </div>
  
       {/* ── Import bar ── */}
-      <div className="flex items-center gap-3 bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-2">
-        <label className="flex items-center gap-2 border border-dashed border-slate-200 rounded-xl px-3 py-1.5 hover:border-sky-400 transition-all group cursor-pointer shrink-0">
-          <input type="file" accept=".xls,.xlsx" onChange={handleFileUpload} className="hidden" />
-          <Upload className="h-3.5 w-3.5 text-slate-400 group-hover:text-sky-600" />
-          <span className="text-xs font-bold text-slate-700">Importer Holdings</span>
-          {uploading
-            ? <Loader2 className="h-3 w-3 text-sky-600 animate-spin" />
-            : uploadSuccess
-              ? <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-              : null}
-        </label>
-        <div className="w-px h-6 bg-slate-100 shrink-0" />
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <div className={cn("w-2 h-2 rounded-full shrink-0", equityData.length > 0 ? "bg-sky-400" : "bg-slate-200")} />
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider shrink-0">Equities</span>
-          {importLog
-            ? <span className="text-[10px] text-slate-400 truncate">
-                {importLog.filename} · {new Date(importLog.imported_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" })}
-              </span>
-            : <span className="text-[10px] text-slate-300 italic">Aucun import</span>}
-        </div>
-      </div>
+<div className="flex items-center gap-3 bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-2">
+  {/* Import Equities */}
+  <label className="flex items-center gap-2 border border-dashed border-slate-200 rounded-xl px-3 py-1.5 hover:border-sky-400 transition-all group cursor-pointer shrink-0">
+    <input type="file" accept=".xls,.xlsx" onChange={handleFileUpload} className="hidden" />
+    <Upload className="h-3.5 w-3.5 text-slate-400 group-hover:text-sky-600" />
+    <span className="text-xs font-bold text-slate-700">Equities</span>
+    {uploading && <Loader2 className="h-3 w-3 text-sky-600 animate-spin" />}
+    {uploadSuccess && <CheckCircle2 className="h-3 w-3 text-emerald-500" />}
+  </label>
+  <div className="w-px h-6 bg-slate-100 shrink-0" />
+  {/* Import Debt */}
+  <label className="flex items-center gap-2 border border-dashed border-slate-200 rounded-xl px-3 py-1.5 hover:border-emerald-400 transition-all group cursor-pointer shrink-0">
+    <input type="file" accept=".xls,.xlsx" onChange={handleDebtFileUpload} className="hidden" />
+    <Upload className="h-3.5 w-3.5 text-slate-400 group-hover:text-emerald-600" />
+    <span className="text-xs font-bold text-slate-700">Debt</span>
+  </label>
+  <div className="w-px h-6 bg-slate-100 shrink-0" />
+  {/* Status Equities */}
+  <div className="flex items-center gap-2 flex-1 min-w-0">
+    <div className={cn("w-2 h-2 rounded-full shrink-0", equityData.length > 0 ? "bg-sky-400" : "bg-slate-200")} />
+    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider shrink-0">Equities</span>
+    {importLog
+      ? <span className="text-[10px] text-slate-400 truncate">{importLog.filename} · {new Date(importLog.imported_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" })}</span>
+      : <span className="text-[10px] text-slate-300 italic">Aucun import</span>}
+  </div>
+  <div className="w-px h-6 bg-slate-100 shrink-0" />
+  {/* Status Debt */}
+  <div className="flex items-center gap-2 flex-1 min-w-0">
+    <div className={cn("w-2 h-2 rounded-full shrink-0", debtData.length > 0 ? "bg-emerald-400" : "bg-slate-200")} />
+    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider shrink-0">Debt</span>
+    {debtImportLog
+      ? <span className="text-[10px] text-slate-400 truncate">{debtImportLog.filename} · {new Date(debtImportLog.imported_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" })}</span>
+      : <span className="text-[10px] text-slate-300 italic">Aucun import</span>}
+  </div>
+</div>
  
       {/* ── VUE EQUITIES ── */}
       {view === "Equities" && (
@@ -2320,13 +2478,157 @@ onClick={() => {
       )}
 
       {/* ── VUE DEBT ── */}
-      {view === "Debt" && (
-        <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">
-          <TableIcon className="h-12 w-12 mx-auto mb-4 opacity-20" />
-          <p className="text-lg font-medium text-slate-500">SAMDP Debt & Currencies</p>
-          <p className="text-sm mt-2">Importez le fichier SAMDP Debt & Currencies pour voir les données.</p>
+{view === "Debt" && (
+  <>
+    {debtData.length === 0 ? (
+      <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">
+        <TableIcon className="h-12 w-12 mx-auto mb-4 opacity-20" />
+        <p className="text-lg">Aucune donnée. Importez un fichier FI Holdings.</p>
+      </div>
+    ) : (
+      <>
+        {/* KPI cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: "Instruments", value: debtData.length.toString(), sub: "Obligations & ETF Bonds" },
+            { label: "Poids Total", value: fmtPct(totalDebtWght), sub: "Wght% cumulé" },
+            { label: "MtM Total", value: fmtM(totalDebtMtm), sub: "EUR" },
+            { label: "Duration Moy.", value: avgDuration.toFixed(2), sub: "années (pondérée)" },
+          ].map(({ label, value, sub }) => (
+            <div key={label} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{label}</p>
+              <p className="text-2xl font-bold text-slate-900">{value}</p>
+              <p className="text-xs text-slate-400 mt-0.5">{sub}</p>
+            </div>
+          ))}
         </div>
-      )}
+ 
+        {/* Table */}
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-50 flex items-center gap-3">
+            <Search className="h-4 w-4 text-slate-400 shrink-0" />
+            <input type="text" value={debtSearch} onChange={e => setDebtSearch(e.target.value)}
+              placeholder="Rechercher un instrument, ISIN ou émetteur…"
+              className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400" />
+            {debtSearch && <button onClick={() => setDebtSearch("")} className="p-0.5 hover:bg-slate-100 rounded"><X className="h-3.5 w-3.5 text-slate-400" /></button>}
+            <span className="text-xs text-slate-400 shrink-0">{filteredDebt.length} résultat{filteredDebt.length !== 1 ? "s" : ""}</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-slate-50/50">
+                  {[
+                    { key: "name", label: "Instrument", align: "left" },
+                    { key: "isin", label: "ISIN", align: "left" },
+                    { key: "instrument_type", label: "Type", align: "left" },
+                    { key: "issuer", label: "Émetteur", align: "left" },
+                    { key: "currency", label: "Devise", align: "left" },
+                    { key: "coupon_rate", label: "Coupon", align: "right" },
+                    { key: "maturity_date", label: "Échéance", align: "right" },
+                    { key: "dom_country", label: "Pays", align: "left" },
+                    { key: "bics_sector_1", label: "Secteur", align: "left" },
+                    { key: "rating_cai", label: "Rating", align: "left" },
+                    { key: "ig_hy", label: "IG/HY", align: "left" },
+                    { key: "quote", label: "Quote", align: "right" },
+                    { key: "modified_duration", label: "Mod. Dur.", align: "right" },
+                    { key: "ytw", label: "YTW", align: "right" },
+                    { key: "gov_spread", label: "Gov Sprd", align: "right" },
+                    { key: "mtm_ptf", label: "MtM (EUR)", align: "right" },
+                    { key: "wght_pct", label: "Wght%", align: "right" },
+                    { key: "expo_pct", label: "Expo%", align: "right" },
+                  ].map(({ key, label, align }) => (
+                    <th key={key} className={cn("px-4 py-3 font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap", align === "right" ? "text-right" : "text-left")}>
+                      <span className="flex items-center gap-1" style={{ justifyContent: align === "right" ? "flex-end" : "flex-start" }}>
+                        {label}
+                        <button onClick={() => setDebtSortConfig(prev =>
+                          prev?.key === key
+                            ? prev.direction === "asc" ? { key, direction: "desc" } : null
+                            : { key, direction: "desc" }
+                        )} className="inline-flex items-center gap-0.5 hover:text-slate-900">
+                          {debtSortConfig?.key === key
+                            ? debtSortConfig.direction === "asc"
+                              ? <ChevronUp className="h-3 w-3 text-sky-600" />
+                              : <ChevronDown className="h-3 w-3 text-sky-600" />
+                            : <ChevronsUpDown className="h-3 w-3 opacity-30" />}
+                        </button>
+                      </span>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {filteredDebt.map((inst) => (
+                  <tr key={inst.isin} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-4 py-3 truncate max-w-[200px]">
+                      <button
+                        onClick={() => {
+                          const override = manualOverrides.find(
+                            ov => (ov.manual_isin && ov.manual_isin === inst.isin) ||
+                                  (ov.original_asset_name && ov.original_asset_name === inst.name)
+                          );
+                          onSelectInstrument({
+                            asset_name: override?.manual_asset_name || inst.name,
+                            original_asset_name: inst.name,
+                            isin: override?.manual_isin || inst.isin,
+                            category: override?.manual_category || "Fixed Income",
+                            region: override?.manual_region || (inst.dom_country ?? ""),
+                            currency: override?.manual_currency || (inst.currency ?? ""),
+                            instrument: override?.manual_instrument || (inst.instrument_type ?? "Bond"),
+                            weight: Number(inst.wght_pct ?? 0) * 100,
+                          } as any);
+                        }}
+                        className="font-medium text-sky-600 hover:underline text-left truncate">
+                        {inst.name}
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-sky-600 font-bold">{inst.isin ?? "—"}</td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700">{inst.instrument_type ?? "—"}</span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600 truncate max-w-[120px]">{inst.issuer ?? "—"}</td>
+                    <td className="px-4 py-3 text-slate-600">{inst.currency ?? "—"}</td>
+                    <td className="px-4 py-3 text-right text-slate-600">{inst.coupon_rate != null ? (Number(inst.coupon_rate) * 100).toFixed(2) + "%" : "—"}</td>
+                    <td className="px-4 py-3 text-right text-slate-400">{inst.maturity_date?.slice(0, 10) ?? "—"}</td>
+                    <td className="px-4 py-3 text-slate-600">{inst.dom_country ?? "—"}</td>
+                    <td className="px-4 py-3 text-slate-600 truncate max-w-[100px]">{inst.bics_sector_1 ?? "—"}</td>
+                    <td className="px-4 py-3">
+                      {inst.rating_cai && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 text-sky-700">{inst.rating_cai}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {inst.ig_hy && (
+                        <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold",
+                          inst.ig_hy === "IG" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700")}>
+                          {inst.ig_hy}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right text-slate-600">{inst.quote != null ? Number(inst.quote).toFixed(3) : "—"}</td>
+                    <td className="px-4 py-3 text-right font-bold text-slate-700">{inst.modified_duration != null ? Number(inst.modified_duration).toFixed(2) : "—"}</td>
+                    <td className="px-4 py-3 text-right text-slate-600">{inst.ytw != null ? (Number(inst.ytw) * 100).toFixed(2) + "%" : "—"}</td>
+                    <td className="px-4 py-3 text-right text-slate-600">{inst.gov_spread != null ? Number(inst.gov_spread).toFixed(1) + "bp" : "—"}</td>
+                    <td className="px-4 py-3 text-right font-bold text-slate-900">{inst.mtm_ptf != null ? Number(inst.mtm_ptf).toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : "—"}</td>
+                    <td className="px-4 py-3 text-right font-bold text-sky-600">{inst.wght_pct != null ? (Number(inst.wght_pct) * 100).toFixed(2) + "%" : "—"}</td>
+                    <td className="px-4 py-3 text-right text-slate-600">{inst.expo_pct != null ? (Number(inst.expo_pct) * 100).toFixed(2) + "%" : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-slate-50 border-t border-slate-200">
+                  <td colSpan={15} className="px-4 py-3 font-bold text-slate-700">Total</td>
+                  <td className="px-4 py-3 text-right font-bold text-slate-900">{totalDebtMtm.toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
+                  <td className="px-4 py-3 text-right font-bold text-sky-600">{(totalDebtWght * 100).toFixed(2)}%</td>
+                  <td className="px-4 py-3" />
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </>
+    )}
+  </>
+)}
  
  {/* ── VUE EXPORT ── */}
       {view === "Export" && (
@@ -2413,6 +2715,8 @@ export default function App() {
       }[]>([]);
   const [samdpInstruments, setSamdpInstruments] = useState<any[]>([]);
   const [samdpImportLog, setSamdpImportLog] = useState<any>(null);
+  const [samdpDebtInstruments, setSamdpDebtInstruments] = useState<any[]>([]);
+  const [samdpDebtImportLog, setSamdpDebtImportLog] = useState<any>(null);
   
   async function safeArray<T>(fn: () => Promise<T[]>): Promise<T[]> {
     try {
@@ -2480,6 +2784,14 @@ try {
     if (samdp.importLog) setSamdpImportLog(samdp.importLog);
   }
 } catch (e) { console.warn("SAMDP load failed", e); }
+try {
+  const debtRes = await fetch("/api/dpam-data?section=samdp_debt");
+  if (debtRes.ok) {
+    const debt = await debtRes.json();
+    if (debt.instruments) setSamdpDebtInstruments(debt.instruments);
+    if (debt.importLog) setSamdpDebtImportLog(debt.importLog);
+  }
+} catch (e) { console.warn("SAMDP Debt load failed", e); }
       setImportLog(data.importLog);
       setTargetGridData(data.targetGrid ?? {});
 
@@ -2547,6 +2859,38 @@ try {
     if (samdp.importLog) setSamdpImportLog(samdp.importLog);
   }
 } catch (e) { console.warn("SAMDP load failed", e); }
+try {
+  const debtRes = await fetch("/api/dpam-data?section=samdp_debt");
+  if (debtRes.ok) {
+    const debt = await debtRes.json();
+    if (debt.instruments) setSamdpDebtInstruments(debt.instruments);
+    if (debt.importLog) setSamdpDebtImportLog(debt.importLog);
+  }
+} catch (e) { console.warn("SAMDP Debt load failed", e); }
+    useEffect(() => {
+  const handler = async () => {
+    const res = await fetch("/api/dpam-data?section=samdp_debt");
+    if (res.ok) {
+      const data = await res.json();
+      if (data.instruments) setSamdpDebtInstruments(data.instruments);
+      if (data.importLog) setSamdpDebtImportLog(data.importLog);
+    }
+  };
+  window.addEventListener("samdp-debt-updated", handler);
+  return () => window.removeEventListener("samdp-debt-updated", handler);
+}, []);
+    useEffect(() => {
+  const handler = async () => {
+    const res = await fetch("/api/dpam-data?section=samdp_debt");
+    if (res.ok) {
+      const data = await res.json();
+      if (data.instruments) setSamdpDebtInstruments(data.instruments);
+      if (data.importLog) setSamdpDebtImportLog(data.importLog);
+    }
+  };
+  window.addEventListener("samdp-debt-updated", handler);
+  return () => window.removeEventListener("samdp-debt-updated", handler);
+}, []);
     setImportLog(data.importLog);
     setTargetGridData(data.targetGrid ?? {});
     if (selectedId != null) {
@@ -3959,6 +4303,8 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
   importLog={samdpImportLog}
   manualOverrides={manualOverrides}
   onSelectInstrument={(inst) => setSelectedInstrument(inst)}
+  debtData={samdpDebtInstruments}
+  debtImportLog={samdpDebtImportLog}
 />
   </motion.div>
 )}
