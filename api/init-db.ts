@@ -244,6 +244,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       expo_pct NUMERIC,
       wght_pct NUMERIC
     )`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS samdp_debt_import_log (
+  id SERIAL PRIMARY KEY,
+  filename TEXT NOT NULL,
+  imported_at TIMESTAMPTZ DEFAULT NOW()
+)`);
+ 
+await pool.query(`CREATE TABLE IF NOT EXISTS samdp_debt_instruments (
+  id SERIAL PRIMARY KEY,
+  import_id INTEGER REFERENCES samdp_debt_import_log(id) ON DELETE CASCADE,
+  name TEXT,
+  isin TEXT,
+  instrument_type TEXT,
+  issuer TEXT,
+  coupon_rate NUMERIC,
+  maturity_date TEXT,
+  currency TEXT,
+  seniority TEXT,
+  quote NUMERIC,
+  quote_date TEXT,
+  accrued_int NUMERIC,
+  quantity NUMERIC,
+  nominal NUMERIC,
+  mtm_ptf NUMERIC,
+  wght_pct NUMERIC,
+  expo_pct NUMERIC,
+  ytw NUMERIC,
+  ytm NUMERIC,
+  modified_duration NUMERIC,
+  gov_spread NUMERIC,
+  bics_sector_1 TEXT,
+  bics_sector_2 TEXT,
+  issuer_country TEXT,
+  dom_country TEXT,
+  geo_area TEXT,
+  rating_moodys TEXT,
+  rating_sp TEXT,
+  rating_fitch TEXT,
+  rating_cai TEXT,
+  ig_hy TEXT,
+  esg_score NUMERIC,
+  mat_y NUMERIC,
+  bondsegment TEXT
+)`);
 
     // Migrations
     await pool.query(`ALTER TABLE manual_overrides ADD COLUMN IF NOT EXISTS is_hedged BOOLEAN DEFAULT FALSE;`);
