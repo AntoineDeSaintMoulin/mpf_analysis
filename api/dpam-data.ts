@@ -3,7 +3,70 @@ import pool from "./_db.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
 
-  // ── GET ──
+  const section = req.query.section as string | undefined;
+
+  // ════════════════════════════════════════════════════════════════════════
+  // SECTION SAMDP
+  // ════════════════════════════════════════════════════════════════════════
+  if (section === "samdp") {
+
+    if (req.method === "GET") {
+      try {
+        const logRes = await pool.query(`SELECT * FROM samdp_import_log ORDER BY imported_at DESC LIMIT 1`);
+        if (logRes.rows.length === 0) return res.json({ instruments: [], importLog: null });
+        const importId = logRes.rows[0].id;
+        const instruments = await pool.query(
+          `SELECT * FROM samdp_instruments WHERE import_id=$1 ORDER BY wght_pct DESC`,
+          [importId]
+        );
+        return res.json({ instruments: instruments.rows, importLog: logRes.rows[0] });
+      } catch (e: any) {
+        return res.status(500).json({ error: e.message });
+      }
+    }
+
+    if (req.method === "POST") {
+      const { filename, instruments } = req.body;
+      if (!filename || !instruments) return res.status(400).json({ error: "Missing fields" });
+      try {
+        const old = await pool.query(`SELECT id FROM samdp_import_log`);
+        for (const row of old.rows) {
+          await pool.query(`DELETE FROM samdp_import_log WHERE id=$1`, [row.id]);
+        }
+        const logRes = await pool.query(
+          `INSERT INTO samdp_import_log (filename) VALUES ($1) RETURNING id`,
+          [filename]
+        );
+        const importId = logRes.rows[0].id;
+        for (const inst of instruments) {
+          await pool.query(`
+            INSERT INTO samdp_instruments (
+              import_id, name, isin, instrument_type, msci_sector_1, dom_country,
+              msci_sector_2, msci_sector_3, style, secular, mkt_cap,
+              pl_ptf, pl_local, currency, quantity, quote, quote_date,
+              mtm_local, mtm_ptf, expo_pct, wght_pct
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+          `, [
+            importId, inst.name, inst.isin, inst.instrument_type,
+            inst.msci_sector_1, inst.dom_country, inst.msci_sector_2, inst.msci_sector_3,
+            inst.style, inst.secular, inst.mkt_cap, inst.pl_ptf, inst.pl_local,
+            inst.currency, inst.quantity, inst.quote, inst.quote_date,
+            inst.mtm_local, inst.mtm_ptf, inst.expo_pct, inst.wght_pct
+          ]);
+        }
+        return res.json({ ok: true, importId, count: instruments.length });
+      } catch (e: any) {
+        return res.status(500).json({ error: e.message });
+      }
+    }
+
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // SECTION DPAM (comportement original)
+  // ════════════════════════════════════════════════════════════════════════
+
   if (req.method === "GET") {
     try {
       const logRes = await pool.query(`SELECT * FROM dpam_import_log ORDER BY imported_at DESC`);
@@ -53,14 +116,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const mappings = await pool.query(`SELECT * FROM dpam_isin_mapping ORDER BY updated_at DESC`);
-
       return res.json({ bonds: bondsData, equity: equityData, mappings: mappings.rows });
     } catch (e: any) {
       return res.status(500).json({ error: e.message });
     }
   }
 
-  // ── DELETE ──
   if (req.method === "DELETE") {
     const { isin } = req.body;
     if (!isin) return res.status(400).json({ error: "Missing isin" });
@@ -72,14 +133,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  // ── POST ──
   if (req.method === "POST") {
     const { type, filename, parsed } = req.body;
     if (!type || !filename || !parsed)
       return res.status(400).json({ error: "Missing fields" });
 
     try {
-      // ── Mapping ISIN ──
       if (type === "mapping") {
         const { isin, dpam_type, col_index, instrument_name } = parsed;
         await pool.query(`
@@ -94,7 +153,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.json({ ok: true });
       }
 
-      // Supprimer les anciens imports du même type
       const oldLogs = await pool.query(`SELECT id FROM dpam_import_log WHERE type=$1`, [type]);
       for (const row of oldLogs.rows) {
         await pool.query(`DELETE FROM dpam_import_log WHERE id=$1`, [row.id]);
@@ -106,10 +164,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       );
       const importId = logRes.rows[0].id;
 
-      // ── Bonds ──
       if (type === "bonds") {
         const { instruments, globals, ratings, currencies, countries, sectors } = parsed;
-
         for (const inst of instruments) {
           await pool.query(
             `INSERT INTO dpam_bonds_instruments (import_id, col_index, name, category, currency, is_hedged) VALUES ($1,$2,$3,$4,$5,$6)`,
@@ -152,10 +208,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       }
 
-      // ── Equity ──
       if (type === "equity") {
         const { instruments, globals, sectors, countries, currencies } = parsed;
-
         for (const inst of instruments) {
           await pool.query(
             `INSERT INTO dpam_equity_instruments (import_id, col_index, name, portfolio_code) VALUES ($1,$2,$3,$4)`,
