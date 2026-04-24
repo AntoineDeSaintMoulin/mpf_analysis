@@ -1846,11 +1846,13 @@ interface SamdpInstrument {
   wght_pct: number | null;
 }
  
-function SamdpTab({ equityData, importLog, manualOverrides }: {
+function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument }: {
   equityData: any[];
   importLog: any | null;
   manualOverrides: any[];
+  onSelectInstrument: (inst: any) => void;
 }) {
+  
   const [view, setView] = React.useState<SamdpView>("Equities");
   const [uploading, setUploading] = React.useState(false);
   const [uploadSuccess, setUploadSuccess] = React.useState(false);
@@ -2257,7 +2259,21 @@ function SamdpTab({ equityData, importLog, manualOverrides }: {
           const pl = Number(inst.pl_ptf ?? 0);
           return (
             <tr key={inst.isin} className="hover:bg-slate-50/50 transition-colors">
-              <td className="px-4 py-3 font-medium text-slate-900 truncate max-w-[200px]">{inst.name}</td>
+<td className="px-4 py-3 truncate max-w-[200px]">
+onClick={() => onSelectInstrument({
+  asset_name: inst.name,
+  original_asset_name: inst.name,
+  isin: inst.isin,
+  category: "Equities",
+  region: inst.dom_country ?? "",
+  currency: inst.currency ?? "",
+  instrument: inst.instrument_type ?? "ETF",
+  weight: Number(inst.wght_pct ?? 0) * 100,
+} as any)}
+    className="font-medium text-sky-600 hover:underline text-left truncate">
+    {inst.name}
+  </button>
+</td>
               <td className="px-4 py-3 font-mono text-sky-600 font-bold">{inst.isin}</td>
               <td className="px-4 py-3 text-slate-600">{inst.currency ?? "—"}</td>
               <td className="px-4 py-3 text-slate-600">{inst.dom_country ?? "—"}</td>
@@ -3933,6 +3949,7 @@ const filteredInstruments = useMemo(() => {
   equityData={samdpInstruments}
   importLog={samdpImportLog}
   manualOverrides={manualOverrides}
+  onSelectInstrument={(inst) => setSelectedInstrument(inst)}
 />
   </motion.div>
 )}
