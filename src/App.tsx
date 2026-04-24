@@ -2261,16 +2261,21 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument }
             <tr key={inst.isin} className="hover:bg-slate-50/50 transition-colors">
 <td className="px-4 py-3 truncate max-w-[200px]">
   <button
-    onClick={() => onSelectInstrument({
-      asset_name: inst.name,
-      original_asset_name: inst.name,
-      isin: inst.isin,
-      category: "Equities",
-      region: inst.dom_country ?? "",
-      currency: inst.currency ?? "",
-      instrument: inst.instrument_type ?? "ETF",
-      weight: Number(inst.wght_pct ?? 0) * 100,
-    } as any)}
+    onClick={() => {
+  const override = manualOverrides.find(
+    ov => (ov.manual_isin && ov.manual_isin === inst.isin) ||
+          (ov.original_asset_name && ov.original_asset_name === inst.name)
+  );
+  onSelectInstrument({
+    asset_name: override?.manual_asset_name || inst.name,
+    original_asset_name: inst.name,
+    isin: override?.manual_isin || inst.isin,
+    category: override?.manual_category || "Equities",
+    region: override?.manual_region || inst.dom_country ?? "",
+    currency: override?.manual_currency || inst.currency ?? "",
+    instrument: override?.manual_instrument || inst.instrument_type ?? "ETF",
+    weight: Number(inst.wght_pct ?? 0) * 100,
+  } as any)}
     className="font-medium text-sky-600 hover:underline text-left truncate">
     {inst.name}
   </button>
