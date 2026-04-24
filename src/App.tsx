@@ -2054,8 +2054,8 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
       instrumentRows.forEach((row, rowIdx) => {
         if (rowIdx === 0) return; // skip header
         const isin = toStr(row[1]);
-        const type = toStr(row[3]);
-        if (type !== "ETF EQUITIES") return;
+const type = toStr(row[3]);
+if (!type || !type.toUpperCase().includes("ETF EQUITIES")) return;
         if (!isin || seen.has(isin)) return;
         seen.add(isin);
  
@@ -2109,8 +2109,7 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
       });
  
       if (apiRes.ok) {
-        setEquityData(instruments);
-        setImportLog({ filename: file.name, imported_at: new Date().toISOString() });
+window.dispatchEvent(new CustomEvent("samdp-equity-updated"));
         setUploadSuccess(true);
         setTimeout(() => setUploadSuccess(false), 3000);
       } else {
@@ -2843,55 +2842,53 @@ const refreshData = async () => {
     setCurrencyBreakdowns(data.currencyBreakdowns ?? {});
     setCreditBreakdowns(data.creditBreakdowns ?? {});
     setDurations(data.durations ?? {});
-          try {
-        const dpamRes = await fetch("/api/dpam-data");
-        if (dpamRes.ok) {
-          const dpam = await dpamRes.json();
-          if (dpam.bonds) setDpamBondsData(dpam.bonds);
-          if (dpam.equity) setDpamEquityData(dpam.equity);
-          if (dpam.mappings) setDpamMappings(dpam.mappings);
-        }
-} catch (e) { console.warn("DPAM load failed", e); }
-try {
-  const samdpRes = await fetch("/api/dpam-data?section=samdp");
-  if (samdpRes.ok) {
-    const samdp = await samdpRes.json();
-    if (samdp.instruments) setSamdpInstruments(samdp.instruments);
-    if (samdp.importLog) setSamdpImportLog(samdp.importLog);
-  }
-} catch (e) { console.warn("SAMDP load failed", e); }
-try {
-  const debtRes = await fetch("/api/dpam-data?section=samdp_debt");
-  if (debtRes.ok) {
-    const debt = await debtRes.json();
-    if (debt.instruments) setSamdpDebtInstruments(debt.instruments);
-    if (debt.importLog) setSamdpDebtImportLog(debt.importLog);
-  }
-} catch (e) { console.warn("SAMDP Debt load failed", e); }
-    useEffect(() => {
-  const handler = async () => {
-    const res = await fetch("/api/dpam-data?section=samdp_debt");
-    if (res.ok) {
-      const data = await res.json();
-      if (data.instruments) setSamdpDebtInstruments(data.instruments);
-      if (data.importLog) setSamdpDebtImportLog(data.importLog);
+
+const refreshData = async () => {
+  try {
+    const data = await fetchBootstrap();
+    if (!data) return;
+    const allP = data.portfolios ?? [];
+    setAllPortfolios(allP);
+    setPortfolios(allP);
+    setManualOverrides(data.overrides ?? []);
+    setBreakdowns(data.breakdowns ?? {});
+    setCurrencyBreakdowns(data.currencyBreakdowns ?? {});
+    setCreditBreakdowns(data.creditBreakdowns ?? {});
+    setDurations(data.durations ?? {});
+    try {
+      const dpamRes = await fetch("/api/dpam-data");
+      if (dpamRes.ok) {
+        const dpam = await dpamRes.json();
+        if (dpam.bonds) setDpamBondsData(dpam.bonds);
+        if (dpam.equity) setDpamEquityData(dpam.equity);
+        if (dpam.mappings) setDpamMappings(dpam.mappings);
+      }
+    } catch (e) { console.warn("DPAM load failed", e); }
+    try {
+      const samdpRes = await fetch("/api/dpam-data?section=samdp");
+      if (samdpRes.ok) {
+        const samdp = await samdpRes.json();
+        if (samdp.instruments) setSamdpInstruments(samdp.instruments);
+        if (samdp.importLog) setSamdpImportLog(samdp.importLog);
+      }
+    } catch (e) { console.warn("SAMDP load failed", e); }
+    try {
+      const debtRes = await fetch("/api/dpam-data?section=samdp_debt");
+      if (debtRes.ok) {
+        const debt = await debtRes.json();
+        if (debt.instruments) setSamdpDebtInstruments(debt.instruments);
+        if (debt.importLog) setSamdpDebtImportLog(debt.importLog);
+      }
+    } catch (e) { console.warn("SAMDP Debt load failed", e); }
+    setImportLog(data.importLog);
+    setTargetGridData(data.targetGrid ?? {});
+    if (selectedId != null) {
+      const current = allP.find(p => p.id === selectedId) ?? null;
+      setCurrentPortfolio(current);
     }
-  };
-  window.addEventListener("samdp-debt-updated", handler);
-  return () => window.removeEventListener("samdp-debt-updated", handler);
-}, []);
-    useEffect(() => {
-  const handler = async () => {
-    const res = await fetch("/api/dpam-data?section=samdp_debt");
-    if (res.ok) {
-      const data = await res.json();
-      if (data.instruments) setSamdpDebtInstruments(data.instruments);
-      if (data.importLog) setSamdpDebtImportLog(data.importLog);
-    }
-  };
-  window.addEventListener("samdp-debt-updated", handler);
-  return () => window.removeEventListener("samdp-debt-updated", handler);
-}, []);
+  } catch (e) { console.error("Refresh failed", e); }
+};
+    
     setImportLog(data.importLog);
     setTargetGridData(data.targetGrid ?? {});
     if (selectedId != null) {
