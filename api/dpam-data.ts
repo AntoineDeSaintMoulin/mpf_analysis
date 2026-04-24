@@ -62,7 +62,68 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(405).json({ error: "Method not allowed" });
   }
-
+// GET SAMDP DEBT
+if (section === "samdp_debt") {
+  if (req.method === "GET") {
+    try {
+      const logRes = await pool.query(`SELECT * FROM samdp_debt_import_log ORDER BY imported_at DESC LIMIT 1`);
+      if (logRes.rows.length === 0) return res.json({ instruments: [], importLog: null });
+      const importId = logRes.rows[0].id;
+      const instruments = await pool.query(
+        `SELECT * FROM samdp_debt_instruments WHERE import_id=$1 ORDER BY wght_pct DESC`,
+        [importId]
+      );
+      return res.json({ instruments: instruments.rows, importLog: logRes.rows[0] });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+ 
+  if (req.method === "POST") {
+    const { filename, instruments } = req.body;
+    if (!filename || !instruments) return res.status(400).json({ error: "Missing fields" });
+    try {
+      const old = await pool.query(`SELECT id FROM samdp_debt_import_log`);
+      for (const row of old.rows) {
+        await pool.query(`DELETE FROM samdp_debt_import_log WHERE id=$1`, [row.id]);
+      }
+      const logRes = await pool.query(
+        `INSERT INTO samdp_debt_import_log (filename) VALUES ($1) RETURNING id`,
+        [filename]
+      );
+      const importId = logRes.rows[0].id;
+      for (const inst of instruments) {
+        await pool.query(`
+          INSERT INTO samdp_debt_instruments (
+            import_id, name, isin, instrument_type, issuer, coupon_rate, maturity_date,
+            currency, seniority, quote, quote_date, accrued_int, quantity, nominal,
+            mtm_ptf, wght_pct, expo_pct, ytw, ytm, modified_duration, gov_spread,
+            bics_sector_1, bics_sector_2, issuer_country, dom_country, geo_area,
+            rating_moodys, rating_sp, rating_fitch, rating_cai, ig_hy,
+            esg_score, mat_y, bondsegment
+          ) VALUES (
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
+            $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34
+          )
+        `, [
+          importId, inst.name, inst.isin, inst.instrument_type, inst.issuer,
+          inst.coupon_rate, inst.maturity_date, inst.currency, inst.seniority,
+          inst.quote, inst.quote_date, inst.accrued_int, inst.quantity, inst.nominal,
+          inst.mtm_ptf, inst.wght_pct, inst.expo_pct, inst.ytw, inst.ytm,
+          inst.modified_duration, inst.gov_spread, inst.bics_sector_1, inst.bics_sector_2,
+          inst.issuer_country, inst.dom_country, inst.geo_area,
+          inst.rating_moodys, inst.rating_sp, inst.rating_fitch, inst.rating_cai,
+          inst.ig_hy, inst.esg_score, inst.mat_y, inst.bondsegment
+        ]);
+      }
+      return res.json({ ok: true, importId, count: instruments.length });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+  return res.status(405).json({ error: "Method not allowed" });
+}
+ 
   // ════════════════════════════════════════════════════════════════════════
   // SECTION DPAM (comportement original)
   // ════════════════════════════════════════════════════════════════════════
