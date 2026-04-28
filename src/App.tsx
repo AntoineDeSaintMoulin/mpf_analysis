@@ -2502,7 +2502,96 @@ onClick={() => {
             </div>
           ))}
         </div>
- 
+
+{/* ── Expositions devise + credit ── */}
+{debtData.length > 0 && (() => {
+  const CUR_COLORS_LOCAL: Record<string, string> = {
+    "EUR": "#0ea5e9", "USD": "#10b981", "JPY": "#f59e0b",
+    "GBP": "#8b5cf6", "CHF": "#ec4899",
+  };
+  const CREDIT_COLORS_LOCAL: Record<string, string> = {
+    "IG": "#10b981", "HY": "#f59e0b", "Govies": "#0ea5e9",
+    "EM Debt": "#8b5cf6", "NR": "#94a3b8",
+  };
+
+  const currencyMap = new Map<string, number>();
+  const creditMap = new Map<string, number>();
+
+  debtData.forEach(inst => {
+    const w = Number(inst.wght_pct ?? 0) * 100;
+    if (w === 0) return;
+
+    // Devise
+    const currency = (inst.currency ?? "Other").toUpperCase();
+    currencyMap.set(currency, (currencyMap.get(currency) ?? 0) + w);
+
+    // Credit quality
+    const ighy = inst.ig_hy ?? "NR";
+    const sector = inst.bics_sector_1 ?? "";
+    let credit = ighy;
+    if (sector.toLowerCase().includes("government") || sector.toLowerCase().includes("sovereign")) {
+      credit = "Govies";
+    } else if (ighy === "IG") {
+      credit = "IG";
+    } else if (ighy === "HY") {
+      credit = "HY";
+    } else {
+      credit = "NR";
+    }
+    creditMap.set(credit, (creditMap.get(credit) ?? 0) + w);
+  });
+
+  const currencyData = Array.from(currencyMap.entries())
+    .map(([label, value]) => ({ label, value: +value.toFixed(2) }))
+    .sort((a, b) => b.value - a.value);
+
+  const creditData = Array.from(creditMap.entries())
+    .map(([label, value]) => ({ label, value: +value.toFixed(2) }))
+    .sort((a, b) => b.value - a.value);
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Exposition Devise */}
+      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+        <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+          <Coins className="h-4 w-4 text-sky-600" />Exposition Devise
+        </h3>
+        <div className="space-y-3">
+          {currencyData.map(({ label, value }) => (
+            <div key={label} className="flex items-center gap-3">
+              <span className="text-xs font-bold w-10 shrink-0" style={{ color: CUR_COLORS_LOCAL[label] ?? "#94a3b8" }}>{label}</span>
+              <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all"
+                  style={{ width: `${Math.min(100, value)}%`, backgroundColor: CUR_COLORS_LOCAL[label] ?? "#94a3b8" }} />
+              </div>
+              <span className="text-xs font-bold text-slate-700 w-14 text-right shrink-0">{value.toFixed(1)}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Credit Quality */}
+      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+        <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+          <TrendingUp className="h-4 w-4 text-violet-600" />Credit Quality
+        </h3>
+        <div className="space-y-3">
+          {creditData.map(({ label, value }) => (
+            <div key={label} className="flex items-center gap-3">
+              <span className="text-xs font-bold w-16 shrink-0" style={{ color: CREDIT_COLORS_LOCAL[label] ?? "#94a3b8" }}>{label}</span>
+              <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all"
+                  style={{ width: `${Math.min(100, value)}%`, backgroundColor: CREDIT_COLORS_LOCAL[label] ?? "#94a3b8" }} />
+              </div>
+              <span className="text-xs font-bold text-slate-700 w-14 text-right shrink-0">{value.toFixed(1)}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+})()}
+        
         {/* Table */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-50 flex items-center gap-3">
