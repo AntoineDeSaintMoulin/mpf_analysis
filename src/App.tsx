@@ -2480,6 +2480,7 @@ onClick={() => {
       {/* ── VUE DEBT ── */}
 {view === "Debt" && (
   <>
+    {console.log("debtData:", debtData, "length:", debtData.length)}
     {debtData.length === 0 ? (
       <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">
         <TableIcon className="h-12 w-12 mx-auto mb-4 opacity-20" />
