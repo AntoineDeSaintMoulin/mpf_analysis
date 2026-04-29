@@ -1846,13 +1846,14 @@ interface SamdpInstrument {
   wght_pct: number | null;
 }
  
-function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, debtData, debtImportLog }: {
+function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, debtData, debtImportLog, durations }: {
   equityData: any[];
   importLog: any | null;
   manualOverrides: any[];
   onSelectInstrument: (inst: any) => void;
   debtData: any[];
   debtImportLog: any | null;
+  durations: Record<string, { duration: number; updated_at: string }>;
 }) {
   
   const [view, setView] = React.useState<SamdpView>("Equities");
@@ -2162,7 +2163,15 @@ window.dispatchEvent(new CustomEvent("samdp-equity-updated"));
 const totalDebtWght = debtData.reduce((s, i) => s + Number(i.wght_pct ?? 0), 0);
 const totalDebtMtm = debtData.reduce((s, i) => s + Number(i.mtm_ptf ?? 0), 0);
 const avgDuration = debtData.length > 0
-  ? debtData.reduce((s, i) => s + Number(i.modified_duration ?? 0) * Number(i.wght_pct ?? 0), 0) /
+  ? debtData.reduce((s, i) => {
+      const override = manualOverrides.find(ov =>
+        (ov.manual_isin && ov.manual_isin === i.isin) ||
+        (ov.original_asset_name && ov.original_asset_name === i.name)
+      );
+      // Chercher la duration dans les instrument_duration si override existe
+      const dur = durations[override?.manual_isin || i.isin]?.duration ?? Number(i.modified_duration ?? 0);
+      return s + dur * Number(i.wght_pct ?? 0);
+    }, 0) /
     debtData.reduce((s, i) => s + Number(i.wght_pct ?? 0), 0)
   : 0;
   const filteredEquity = React.useMemo(() => {
@@ -2519,30 +2528,39 @@ onClick={() => {
   const currencyMap = new Map<string, number>();
   const creditMap = new Map<string, number>();
 
-  debtData.forEach(inst => {
-    const w = Number(inst.wght_pct ?? 0) * 100;
-    if (w === 0) return;
+debtData.forEach(inst => {
+  const w = Number(inst.wght_pct ?? 0) * 100;
+  if (w === 0) return;
 
-    // Devise
-    const currency = (inst.currency ?? "Other").toUpperCase();
-    currencyMap.set(currency, (currencyMap.get(currency) ?? 0) + w);
+  const override = manualOverrides.find(ov =>
+    (ov.manual_isin && ov.manual_isin === inst.isin) ||
+    (ov.original_asset_name && ov.original_asset_name === inst.name)
+  );
 
-    // Credit quality
-    const ighy = inst.ig_hy ?? "NR";
-    const sector = inst.bics_sector_1 ?? "";
-    let credit = ighy;
-    if (sector.toLowerCase().includes("government") || sector.toLowerCase().includes("sovereign")) {
-      credit = "Govies";
-    } else if (ighy === "IG") {
-      credit = "IG";
-    } else if (ighy === "HY") {
-      credit = "HY";
-    } else {
-      credit = "NR";
-    }
-    creditMap.set(credit, (creditMap.get(credit) ?? 0) + w);
-  });
+  // Devise — priorité override
+  const currency = (override?.manual_currency || inst.currency || "Other").toUpperCase();
+  currencyMap.set(currency, (currencyMap.get(currency) ?? 0) + w);
 
+  // Credit quality — priorité override via manual_category
+  const ighy = inst.ig_hy ?? "NR";
+  const sector = inst.bics_sector_1 ?? "";
+  let credit = ighy;
+  if (override?.manual_category) {
+    // Si override dit "Govies", "IG", "HY", "NR", "EM Debt" → utiliser directement
+    const cat = override.manual_category;
+    if (["Govies", "IG", "HY", "NR", "EM Debt"].includes(cat)) credit = cat;
+  } else if (sector.toLowerCase().includes("government") || sector.toLowerCase().includes("sovereign")) {
+    credit = "Govies";
+  } else if (ighy === "IG") {
+    credit = "IG";
+  } else if (ighy === "HY") {
+    credit = "HY";
+  } else {
+    credit = "NR";
+  }
+  creditMap.set(credit, (creditMap.get(credit) ?? 0) + w);
+});
+  
   const currencyData = Array.from(currencyMap.entries())
     .map(([label, value]) => ({ label, value: +value.toFixed(2) }))
     .sort((a, b) => b.value - a.value);
@@ -4554,6 +4572,7 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
   onSelectInstrument={(inst) => setSelectedInstrument(inst)}
   debtData={samdpDebtInstruments}
   debtImportLog={samdpDebtImportLog}
+  durations={durations}
 />
   </motion.div>
 )}
