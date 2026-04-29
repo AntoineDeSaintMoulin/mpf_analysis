@@ -2101,7 +2101,12 @@ instruments.push({
         });
       });
  
-      console.log("Instruments found:", instruments.length);
+console.log("All types found:", Array.from(
+  new Set(Array.from(instrumentRows.values()).map(row => row[3]).filter(Boolean))
+));
+console.log("All names found:", Array.from(
+  new Set(Array.from(instrumentRows.values()).map(row => row[0]).filter(Boolean))
+).slice(0, 30));
  
       if (instruments.length === 0) {
         alert("Aucun instrument ETF EQUITIES trouvé dans ce fichier.");
