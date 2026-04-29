@@ -2059,8 +2059,8 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
 const type = toStr(row[3]);
 const name = toStr(row[0]);
 const isEtfEquity = type?.toUpperCase().includes("ETF EQUITIES");
-const isCash = type?.toUpperCase() === "CURRENCY" || type?.toUpperCase() === "DEPOSIT" || type?.toUpperCase() === "CASH: PROVISION";
-const isFutures = type?.toUpperCase().includes("FUTURE");
+const isCash = name?.trim() === "Cash";
+const isFutures = name?.trim() === "Futures";
 if (!isEtfEquity && !isCash && !isFutures) return;
 const key = isin || name;
 if (!key || seen.has(key)) return;
