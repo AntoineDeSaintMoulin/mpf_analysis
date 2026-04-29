@@ -2878,7 +2878,7 @@ onClick={() => {
             </thead>
             <tbody className="divide-y divide-slate-50">
               {debtData
-                .filter(inst => inst.modified_duration != null)
+.filter(inst => inst.modified_duration != null || inst.instrument_type === "CURRENCY")
                 .sort((a, b) => Number(b.wght_pct ?? 0) - Number(a.wght_pct ?? 0))
                 .map(inst => {
                   const w = Number(inst.wght_pct ?? 0);
