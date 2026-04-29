@@ -1863,6 +1863,7 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
   const [exportText, setExportText] = React.useState("");
   const [debtSearch, setDebtSearch] = React.useState("");
   const [debtSortConfig, setDebtSortConfig] = React.useState<{ key: string; direction: "asc" | "desc" } | null>({ key: "wght_pct", direction: "desc" });
+  const [showSamdpDetail, setShowSamdpDetail] = React.useState<"currency_equity" | "region_equity" | "currency_debt" | "credit_debt" | "duration_debt" | null>(null);
   const handleDebtFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
   const file = e.target.files?.[0];
   if (!file) return;
@@ -2333,9 +2334,9 @@ const avgDuration = debtData.length > 0
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-        <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
-          <Globe className="h-4 w-4 text-amber-600" />Exposition Régionale
-        </h3>
+<h3 onClick={() => setShowSamdpDetail("region_equity")} className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2 cursor-pointer hover:text-amber-700">
+  <Globe className="h-4 w-4 text-amber-600" />Exposition Régionale
+</h3>
         <div className="space-y-3">
           {regionData.map(({ name, value }) => (
             <div key={name} className="flex items-center gap-3">
@@ -2351,9 +2352,9 @@ const avgDuration = debtData.length > 0
         <p className="text-[10px] text-slate-400 italic mt-3">Basé sur dom_country ou overrides manuels · pondéré par Wght%</p>
       </div>
       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-        <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
-          <Coins className="h-4 w-4 text-sky-600" />Exposition Devise
-        </h3>
+<h3 onClick={() => setShowSamdpDetail("currency_equity")} className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2 cursor-pointer hover:text-sky-700">
+  <Coins className="h-4 w-4 text-sky-600" />Exposition Devise
+</h3>
         <div className="space-y-3">
           {currencyData.map(({ label, value }) => (
             <div key={label} className="flex items-center gap-3">
@@ -2496,7 +2497,7 @@ onClick={() => {
             { label: "MtM Total", value: fmtM(totalDebtMtm), sub: "EUR" },
             { label: "Duration Moy.", value: avgDuration.toFixed(2), sub: "années (pondérée)" },
           ].map(({ label, value, sub }) => (
-            <div key={label} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+<div key={label} onClick={() => label === "Duration Moy." ? setShowSamdpDetail("duration_debt") : null} className={cn("bg-white p-5 rounded-2xl border border-slate-100 shadow-sm", label === "Duration Moy." && "cursor-pointer hover:border-sky-200 hover:shadow-md transition-all")}>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{label}</p>
               <p className="text-2xl font-bold text-slate-900">{value}</p>
               <p className="text-xs text-slate-400 mt-0.5">{sub}</p>
@@ -2554,9 +2555,9 @@ onClick={() => {
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Exposition Devise */}
       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-        <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
-          <Coins className="h-4 w-4 text-sky-600" />Exposition Devise
-        </h3>
+<h3 onClick={() => setShowSamdpDetail("credit_debt")} className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2 cursor-pointer hover:text-violet-700">
+  <TrendingUp className="h-4 w-4 text-violet-600" />Credit Quality
+</h3>
         <div className="space-y-3">
           {currencyData.map(({ label, value }) => (
             <div key={label} className="flex items-center gap-3">
@@ -2747,6 +2748,164 @@ onClick={() => {
         </div>
       )}
     </div>
+{/* ── Modale Devise Equity ── */}
+<Modal isOpen={showSamdpDetail === "currency_equity"} onClose={() => setShowSamdpDetail(null)} title="Détail Exposition Devise — Equities">
+  <div className="space-y-3">
+    {equityData.map(inst => {
+      const w = Number(inst.wght_pct ?? 0) * 100;
+      if (w === 0) return null;
+      const manualCurrency = manualOverrides.find(ov =>
+        (ov.manual_isin && ov.manual_isin === inst.isin) ||
+        (ov.original_asset_name && ov.original_asset_name === inst.name)
+      )?.manual_currency;
+      const currency = (manualCurrency || inst.currency || "Other").toUpperCase();
+      return (
+        <div key={inst.isin} className="flex items-center justify-between py-2 border-b border-slate-50">
+          <div>
+            <p className="text-sm font-medium text-slate-900 truncate max-w-[280px]">{inst.name}</p>
+            <p className="text-xs text-slate-400">{inst.isin}</p>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700">{currency}</span>
+            <span className="text-sm font-bold text-slate-900 w-16 text-right">{w.toFixed(2)}%</span>
+          </div>
+        </div>
+      );
+    }).filter(Boolean)}
+  </div>
+</Modal>
+
+{/* ── Modale Région Equity ── */}
+<Modal isOpen={showSamdpDetail === "region_equity"} onClose={() => setShowSamdpDetail(null)} title="Détail Exposition Régionale — Equities">
+  <div className="space-y-3">
+    {equityData.map(inst => {
+      const w = Number(inst.wght_pct ?? 0) * 100;
+      if (w === 0) return null;
+      const COUNTRY_TO_REGION: Record<string, string> = {
+        "United States": "US", "Canada": "US",
+        "Belgium": "Europe", "France": "Europe", "Germany": "Europe", "Italy": "Europe",
+        "Spain": "Europe", "Netherlands": "Europe", "Ireland": "Europe", "Austria": "Europe",
+        "Denmark": "Europe", "Finland": "Europe", "Norway": "Europe", "Luxembourg": "Europe",
+        "Sweden": "Europe", "Switzerland": "Europe", "Portugal": "Europe", "United Kingdom": "Europe",
+        "Japan": "Japan",
+        "China": "EM", "South Korea": "EM", "Korea": "EM", "India": "EM", "Brazil": "EM",
+        "Taiwan": "EM", "Mexico": "EM", "South Africa": "EM", "Malaysia": "EM",
+        "Australia": "Others", "Singapore": "Others", "Hong Kong": "Others",
+      };
+      const manualRegion = manualOverrides.find(ov =>
+        (ov.manual_isin && ov.manual_isin === inst.isin) ||
+        (ov.original_asset_name && ov.original_asset_name === inst.name)
+      )?.manual_region;
+      const region = manualRegion || COUNTRY_TO_REGION[inst.dom_country ?? ""] || "Others";
+      return (
+        <div key={inst.isin} className="flex items-center justify-between py-2 border-b border-slate-50">
+          <div>
+            <p className="text-sm font-medium text-slate-900 truncate max-w-[280px]">{inst.name}</p>
+            <p className="text-xs text-slate-400">{inst.dom_country ?? "—"}</p>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">{region}</span>
+            <span className="text-sm font-bold text-slate-900 w-16 text-right">{w.toFixed(2)}%</span>
+          </div>
+        </div>
+      );
+    }).filter(Boolean)}
+  </div>
+</Modal>
+
+{/* ── Modale Devise Debt ── */}
+<Modal isOpen={showSamdpDetail === "currency_debt"} onClose={() => setShowSamdpDetail(null)} title="Détail Exposition Devise — Debt">
+  <div className="space-y-3">
+    {debtData.map(inst => {
+      const w = Number(inst.wght_pct ?? 0) * 100;
+      if (w === 0) return null;
+      return (
+        <div key={inst.isin} className="flex items-center justify-between py-2 border-b border-slate-50">
+          <div>
+            <p className="text-sm font-medium text-slate-900 truncate max-w-[280px]">{inst.name}</p>
+            <p className="text-xs text-slate-400">{inst.isin}</p>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700">{(inst.currency ?? "—").toUpperCase()}</span>
+            <span className="text-sm font-bold text-slate-900 w-16 text-right">{w.toFixed(2)}%</span>
+          </div>
+        </div>
+      );
+    }).filter(Boolean)}
+  </div>
+</Modal>
+
+{/* ── Modale Credit Quality Debt ── */}
+<Modal isOpen={showSamdpDetail === "credit_debt"} onClose={() => setShowSamdpDetail(null)} title="Détail Credit Quality — Debt">
+  <div className="space-y-3">
+    {debtData.map(inst => {
+      const w = Number(inst.wght_pct ?? 0) * 100;
+      if (w === 0) return null;
+      const sector = inst.bics_sector_1 ?? "";
+      let credit = inst.ig_hy ?? "NR";
+      if (sector.toLowerCase().includes("government") || sector.toLowerCase().includes("sovereign")) credit = "Govies";
+      return (
+        <div key={inst.isin} className="flex items-center justify-between py-2 border-b border-slate-50">
+          <div>
+            <p className="text-sm font-medium text-slate-900 truncate max-w-[240px]">{inst.name}</p>
+            <p className="text-xs text-slate-400">{inst.rating_cai ?? "—"} · {inst.bics_sector_1 ?? "—"}</p>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full",
+              credit === "Govies" ? "bg-sky-50 text-sky-700" :
+              credit === "IG" ? "bg-emerald-50 text-emerald-700" :
+              credit === "HY" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"
+            )}>{credit}</span>
+            <span className="text-sm font-bold text-slate-900 w-16 text-right">{w.toFixed(2)}%</span>
+          </div>
+        </div>
+      );
+    }).filter(Boolean)}
+  </div>
+</Modal>
+
+{/* ── Modale Duration Debt ── */}
+<Modal isOpen={showSamdpDetail === "duration_debt"} onClose={() => setShowSamdpDetail(null)} title="Détail Duration — Debt">
+  <div className="overflow-x-auto">
+    <table className="w-full text-left border-collapse text-sm">
+      <thead>
+        <tr className="bg-slate-50/50 border-b border-slate-100">
+          <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Instrument</th>
+          <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Poids</th>
+          <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Mod. Duration</th>
+          <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Contribution</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-slate-50">
+        {debtData
+          .filter(inst => inst.modified_duration != null)
+          .sort((a, b) => Number(b.wght_pct ?? 0) - Number(a.wght_pct ?? 0))
+          .map(inst => {
+            const w = Number(inst.wght_pct ?? 0);
+            const dur = Number(inst.modified_duration ?? 0);
+            const contribution = totalDebtWght > 0 ? w * dur / totalDebtWght : 0;
+            return (
+              <tr key={inst.isin} className="hover:bg-slate-50/50">
+                <td className="px-4 py-3 truncate max-w-[200px]">
+                  <p className="font-medium text-slate-900">{inst.name}</p>
+                  <p className="text-xs text-slate-400">{inst.isin}</p>
+                </td>
+                <td className="px-4 py-3 text-right text-slate-600">{(w * 100).toFixed(2)}%</td>
+                <td className="px-4 py-3 text-right text-slate-600">{dur.toFixed(2)}</td>
+                <td className="px-4 py-3 text-right font-bold text-sky-600">{contribution.toFixed(2)}</td>
+              </tr>
+            );
+          })}
+      </tbody>
+      <tfoot>
+        <tr className="bg-slate-50 border-t border-slate-200">
+          <td colSpan={3} className="px-4 py-3 font-bold text-slate-700 text-right">Duration Moyenne</td>
+          <td className="px-4 py-3 text-right font-bold text-slate-900">{avgDuration.toFixed(2)}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</Modal>
   );
 }
 
