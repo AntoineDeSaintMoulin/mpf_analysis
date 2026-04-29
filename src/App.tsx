@@ -2057,9 +2057,14 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
         if (rowIdx === 0) return; // skip header
         const isin = toStr(row[1]);
 const type = toStr(row[3]);
-if (!type || !type.toUpperCase().includes("ETF EQUITIES")) return;
-        if (!isin || seen.has(isin)) return;
-        seen.add(isin);
+const name = toStr(row[0]);
+const isCash = name?.toUpperCase() === "CASH" || type?.toUpperCase() === "CURRENCY";
+const isFutures = name?.toUpperCase() === "FUTURES" || type?.toUpperCase()?.includes("FUTURE");
+const isEtfEquity = type?.toUpperCase().includes("ETF EQUITIES");
+if (!isEtfEquity && !isCash && !isFutures) return;
+const key = isin || name;
+if (!key || seen.has(key)) return;
+seen.add(key);
  
         const quoteRaw = row[16];
         let quoteDate: string | null = null;
@@ -2072,10 +2077,10 @@ if (!type || !type.toUpperCase().includes("ETF EQUITIES")) return;
           } catch { quoteDate = null; }
         }
  
-        instruments.push({
-          name: toStr(row[0]) ?? "",
-          isin,
-          instrument_type: type,
+instruments.push({
+  name: toStr(row[0]) ?? "",
+  isin: isin ?? name ?? "",
+  instrument_type: type,
           msci_sector_1: toStr(row[4]),
           dom_country: toStr(row[5]),
           msci_sector_2: toStr(row[6]),
