@@ -2062,9 +2062,17 @@ const isEtfEquity = type?.toUpperCase().includes("ETF EQUITIES");
 const isCash = name?.trim() === "Cash";
 const isFutures = name?.trim() === "Futures";
 if (!isEtfEquity && !isCash && !isFutures) return;
+// Un vrai instrument doit avoir un ISIN valide (12 chars) OU être Cash/Futures
+const isValidIsin = isin && isin.length === 12 && /^[A-Z0-9]{12}$/.test(isin);
+const isCashOrFutures = isCash || isFutures;
+if (!isValidIsin && !isCashOrFutures) return;
+
 const key = isin || name;
 if (!key || seen.has(key)) return;
 seen.add(key);
+
+        const wght = toNum(row[22]);
+if (!isCashOrFutures && (wght === null || wght === 0)) return;
  
         const quoteRaw = row[16];
         let quoteDate: string | null = null;
