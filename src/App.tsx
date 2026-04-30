@@ -2053,98 +2053,123 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
         row[decoded.c] = ws[key]?.v;
       });
  
-      instrumentRows.forEach((row, rowIdx) => {
-        if (rowIdx === 0) return; // skip header
-        const isin = toStr(row[1]);
-const type = toStr(row[3]);
-const name = toStr(row[0]);
-const isEtfEquity = type?.toUpperCase().includes("ETF EQUITIES");
-const isCash = name?.trim() === "Cash";
-const isFutures = name?.trim() === "Futures";
-if (!isEtfEquity && !isCash && !isFutures) return;
-// Un vrai instrument doit avoir un ISIN valide (12 chars) OU être Cash/Futures
-const isValidIsin = isin && isin.length === 12 && /^[A-Z0-9]{12}$/.test(isin);
-const isCashOrFutures = isCash || isFutures;
-if (!isValidIsin && !isCashOrFutures) return;
+ // Récupérer les outline levels depuis SheetJS
+const rowMeta = ws['!rows'] || [];
+const getOutlineLevel = (rowIdx: number): number => {
+  return rowMeta[rowIdx]?.level ?? 0;
+};
 
-const key = isin || name;
-if (!key || seen.has(key)) return;
-seen.add(key);
+// Convertir la Map en array trié par rowIdx
+const sortedRows = Array.from(instrumentRows.entries())
+  .sort(([a], [b]) => a - b);
 
-        const wght = toNum(row[22]);
-if (!isCashOrFutures && (wght === null || wght === 0)) return;
- 
-        const quoteRaw = row[16];
-        let quoteDate: string | null = null;
-        if (quoteRaw instanceof Date) quoteDate = quoteRaw.toISOString().slice(0, 10);
-        else if (quoteRaw) {
-          try {
-            const d = XLSX.SSF?.parse_date_code?.(quoteRaw);
-            if (d) quoteDate = `${d.y}-${String(d.m).padStart(2,"0")}-${String(d.d).padStart(2,"0")}`;
-            else quoteDate = String(quoteRaw).slice(0, 10);
-          } catch { quoteDate = null; }
-        }
- 
-instruments.push({
-  name: toStr(row[0]) ?? "",
-  isin: isin ?? name ?? "",
-  instrument_type: type,
-          msci_sector_1: toStr(row[4]),
-          dom_country: toStr(row[5]),
-          msci_sector_2: toStr(row[6]),
-          msci_sector_3: toStr(row[7]),
-          style: toStr(row[8]),
-          secular: toStr(row[9]),
-          mkt_cap: toNum(row[10]),
-          pl_ptf: toNum(row[11]),
-          pl_local: toNum(row[12]),
-          currency: toStr(row[13]),
-          quantity: toNum(row[14]),
-          quote: toNum(row[15]),
-          quote_date: quoteDate,
-          mtm_local: toNum(row[17]),
-          mtm_ptf: toNum(row[18]),
-          expo_pct: toNum(row[19]),
-          wght_pct: toNum(row[22]),
-        });
-      });
- 
+// Identifier les lignes terminales (instruments réels)
+// Une ligne est terminale si la prochaine ligne non-vide a un niveau <= au sien
+instrumentRows.forEach((row, rowIdx) => {
+  if (rowIdx <= 1) return; // skip headers
+
+  const name = toStr(row[0]);
+  const isin = toStr(row[1]);
+  const type = toStr(row[3]);
+
+  if (!name) return;
+
+  // Niveau outline de cette ligne
+  const currentLevel = getOutlineLevel(rowIdx);
+
+  // Trouver la prochaine ligne non-vide
+  let nextLevel = 0;
+  for (const [nextIdx, nextRow] of sortedRows) {
+    if (nextIdx <= rowIdx) continue;
+    if (toStr(nextRow[0])) {
+      nextLevel = getOutlineLevel(nextIdx);
+      break;
+    }
+  }
+
+  // Ligne terminale = la prochaine ligne est de niveau <= au sien
+  // OU c'est la dernière ligne
+  const isTerminal = nextLevel <= currentLevel;
+  if (!isTerminal) return;
+
+  // Ajouter un log pour débugger
+  console.log(`Terminal row ${rowIdx}: name=${name}, type=${type}, isin=${isin}, level=${currentLevel}, nextLevel=${nextLevel}, wght=${row[22]}`);
+
+  const isEtfEquity = type?.toUpperCase().includes("ETF EQUITIES");
+  const isCash = name?.trim() === "Cash";
+  const isFutures = name?.trim() === "Futures";
+  if (!isEtfEquity && !isCash && !isFutures) return;
+
+  const isValidIsin = isin && isin.length === 12 && /^[A-Z0-9]{12}$/.test(isin);
+  if (!isValidIsin && !isCash && !isFutures) return;
+
+  const key = isin || name;
+  if (!key || seen.has(key)) return;
+  seen.add(key);
+
+  const quoteRaw = row[16];
+  let quoteDate: string | null = null;
+  if (quoteRaw instanceof Date) quoteDate = quoteRaw.toISOString().slice(0, 10);
+  else if (quoteRaw) {
+    try {
+      const d = XLSX.SSF?.parse_date_code?.(quoteRaw);
+      if (d) quoteDate = `${d.y}-${String(d.m).padStart(2,"0")}-${String(d.d).padStart(2,"0")}`;
+      else quoteDate = String(quoteRaw).slice(0, 10);
+    } catch { quoteDate = null; }
+  }
+
+  instruments.push({
+    name: name ?? "",
+    isin: isin ?? name ?? "",
+    instrument_type: type,
+    msci_sector_1: toStr(row[4]),
+    dom_country: toStr(row[5]),
+    msci_sector_2: toStr(row[6]),
+    msci_sector_3: toStr(row[7]),
+    style: toStr(row[8]),
+    secular: toStr(row[9]),
+    mkt_cap: toNum(row[10]),
+    pl_ptf: toNum(row[11]),
+    pl_local: toNum(row[12]),
+    currency: toStr(row[13]),
+    quantity: toNum(row[14]),
+    quote: toNum(row[15]),
+    quote_date: quoteDate,
+    mtm_local: toNum(row[17]),
+    mtm_ptf: toNum(row[18]),
+    expo_pct: toNum(row[19]),
+    wght_pct: toNum(row[22]),
+  });
+}); 
 console.log("All types found:", Array.from(
   new Set(Array.from(instrumentRows.values()).map(row => row[3]).filter(Boolean))
 ));
 console.log("All names found:", Array.from(
   new Set(Array.from(instrumentRows.values()).map(row => row[0]).filter(Boolean))
 ).slice(0, 30));
- 
-      if (instruments.length === 0) {
-        alert("Aucun instrument ETF EQUITIES trouvé dans ce fichier.");
-        return;
-      }
- 
-      // Envoyer à l'API
-      const apiRes = await fetch("/api/dpam-data?section=samdp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: file.name, instruments }),
-      });
- 
-      if (apiRes.ok) {
-window.dispatchEvent(new CustomEvent("samdp-equity-updated"));
-        setUploadSuccess(true);
-        setTimeout(() => setUploadSuccess(false), 3000);
-      } else {
-        const err = await apiRes.text();
-        console.error("API error:", err);
-        alert("Erreur lors de la sauvegarde: " + err);
-      }
-    } catch (err) {
-      console.error("SAMDP upload error:", err);
-      alert("Erreur lors du traitement du fichier.");
-    } finally {
-      setUploading(false);
-    }
-  };
- 
+console.log("Instruments found:", instruments.length);
+
+if (instruments.length === 0) {
+  alert("Aucun instrument ETF EQUITIES trouvé dans ce fichier.");
+  return;
+}
+
+const apiRes = await fetch("/api/dpam-data?section=samdp", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ filename: file.name, instruments }),
+});
+
+if (apiRes.ok) {
+  window.dispatchEvent(new CustomEvent("samdp-equity-updated"));
+  setUploadSuccess(true);
+  setTimeout(() => setUploadSuccess(false), 3000);
+} else {
+  const err = await apiRes.text();
+  console.error("API error:", err);
+  alert("Erreur lors de la sauvegarde: " + err);
+}
+      
   const fmtPct = (v: number | null) => v == null ? "—" : (Number(v) * 100).toFixed(2) + "%";
   const fmtNum = (v: number | null, dec = 2) => v == null ? "—" : Number(v).toLocaleString("fr-FR", { minimumFractionDigits: dec, maximumFractionDigits: dec });
   const fmtM = (v: number | null) => v == null ? "—" : (Number(v) / 1_000_000).toFixed(1) + "M";
