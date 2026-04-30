@@ -2007,12 +2007,7 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
         }
         allRows.push(row);
       }
- 
-      // Chercher aussi les lignes cachées via !rows
-      const rowMeta = ws['!rows'] || [];
-      const hiddenRows = new Set<number>();
-      rowMeta.forEach((r: any, i: number) => { if (r?.hidden) hiddenRows.add(i); });
- 
+      
       // Lire toutes les clés de cellules pour trouver des lignes hors range
       const allCellKeys = Object.keys(ws).filter(k => !k.startsWith('!'));
       const maxRow = allCellKeys.reduce((max, key) => {
@@ -2159,7 +2154,6 @@ const apiRes = await fetch("/api/dpam-data?section=samdp", {
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ filename: file.name, instruments }),
 });
-
 if (apiRes.ok) {
   window.dispatchEvent(new CustomEvent("samdp-equity-updated"));
   setUploadSuccess(true);
@@ -2169,11 +2163,17 @@ if (apiRes.ok) {
   console.error("API error:", err);
   alert("Erreur lors de la sauvegarde: " + err);
 }
-      
+    } catch (err) {
+      console.error("SAMDP upload error:", err);
+      alert("Erreur lors du traitement du fichier.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const fmtPct = (v: number | null) => v == null ? "—" : (Number(v) * 100).toFixed(2) + "%";
   const fmtNum = (v: number | null, dec = 2) => v == null ? "—" : Number(v).toLocaleString("fr-FR", { minimumFractionDigits: dec, maximumFractionDigits: dec });
   const fmtM = (v: number | null) => v == null ? "—" : (Number(v) / 1_000_000).toFixed(1) + "M";
- 
   const handleSort = (key: string) => {
     setSortConfig(prev => {
       if (prev?.key === key) {
