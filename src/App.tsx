@@ -2007,7 +2007,8 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
         }
         allRows.push(row);
       }
-      
+
+      const hiddenRows = new Set<number>();
       // Lire toutes les clés de cellules pour trouver des lignes hors range
       const allCellKeys = Object.keys(ws).filter(k => !k.startsWith('!'));
       const maxRow = allCellKeys.reduce((max, key) => {
