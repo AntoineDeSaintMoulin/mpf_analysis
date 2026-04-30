@@ -2100,6 +2100,7 @@ instrumentRows.forEach((row, rowIdx) => {
   if (!isValidIsin && !isCash && !isFutures) return;
 
   const key = isin || name;
+  console.log(`Key check: key=${key}, alreadySeen=${seen.has(key)}`);
   if (!key || seen.has(key)) return;
   seen.add(key);
 
