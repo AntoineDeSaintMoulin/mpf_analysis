@@ -249,6 +249,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   filename TEXT NOT NULL,
   imported_at TIMESTAMPTZ DEFAULT NOW()
 )`);
+
+    await pool.query(`CREATE TABLE IF NOT EXISTS samdp_equity_rows (
+  id SERIAL PRIMARY KEY,
+  import_id INTEGER REFERENCES samdp_import_log(id) ON DELETE CASCADE,
+  row_index INTEGER NOT NULL,
+  level INTEGER NOT NULL,
+  name TEXT,
+  isin TEXT,
+  instrument_type TEXT,
+  currency TEXT,
+  quantity NUMERIC,
+  mtm_ptf NUMERIC,
+  expo_pct NUMERIC,
+  wght_pct NUMERIC,
+  wght_ref NUMERIC,
+  wght_ptf_ref NUMERIC
+)`);
  
 await pool.query(`CREATE TABLE IF NOT EXISTS samdp_debt_instruments (
   id SERIAL PRIMARY KEY,
