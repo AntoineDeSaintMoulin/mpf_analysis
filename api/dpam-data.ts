@@ -62,6 +62,58 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(405).json({ error: "Method not allowed" });
   }
+
+if (section === "samdp_equity") {
+
+  if (req.method === "GET") {
+    try {
+      const logRes = await pool.query(`SELECT * FROM samdp_import_log ORDER BY imported_at DESC LIMIT 1`);
+      if (logRes.rows.length === 0) return res.json({ rows: [], importLog: null });
+      const importId = logRes.rows[0].id;
+      const rows = await pool.query(
+        `SELECT * FROM samdp_equity_rows WHERE import_id=$1 ORDER BY row_index ASC`,
+        [importId]
+      );
+      return res.json({ rows: rows.rows, importLog: logRes.rows[0] });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  if (req.method === "POST") {
+    const { filename, rows } = req.body;
+    if (!filename || !rows) return res.status(400).json({ error: "Missing fields" });
+    try {
+      const old = await pool.query(`SELECT id FROM samdp_import_log`);
+      for (const row of old.rows) {
+        await pool.query(`DELETE FROM samdp_import_log WHERE id=$1`, [row.id]);
+      }
+      const logRes = await pool.query(
+        `INSERT INTO samdp_import_log (filename) VALUES ($1) RETURNING id`,
+        [filename]
+      );
+      const importId = logRes.rows[0].id;
+      for (const row of rows) {
+        await pool.query(`
+          INSERT INTO samdp_equity_rows (
+            import_id, row_index, level, name, isin, instrument_type,
+            currency, quantity, mtm_ptf, expo_pct, wght_pct, wght_ref, wght_ptf_ref
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+        `, [
+          importId, row.row_index, row.level, row.name, row.isin,
+          row.instrument_type, row.currency, row.quantity,
+          row.mtm_ptf, row.expo_pct, row.wght_pct, row.wght_ref, row.wght_ptf_ref
+        ]);
+      }
+      return res.json({ ok: true, count: rows.length });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  return res.status(405).json({ error: "Method not allowed" });
+}
+  
 // GET SAMDP DEBT
 if (section === "samdp_debt") {
   if (req.method === "GET") {
