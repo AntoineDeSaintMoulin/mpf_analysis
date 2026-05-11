@@ -2266,11 +2266,7 @@ const avgDuration = debtData.length > 0
       : <span className="text-[10px] text-slate-300 italic">Aucun import</span>}
   </div>
 </div>
- 
-      {/* ── VUE EQUITIES ── */}
-    // const [equityLevel, setEquityLevel] = React.useState<1|2|3|4>(4);
 
-// Props à ajouter : equityRows: any[]
 
 {view === "Equities" && (
   <>
