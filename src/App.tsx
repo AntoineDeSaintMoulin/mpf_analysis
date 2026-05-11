@@ -4004,9 +4004,32 @@ return Array.from(im.values());
       return holdings.filter(h => h?.category === drillDownFilter.value);
     }
     return holdings
+const SAMDP_ISINS = ["LU1795355053"];
+  return holdings
   .filter(h => {
     if (!h) return false;
     if (h.category !== "Equities") return false;
+    // SAMDP look-through
+    if (h.isin && SAMDP_ISINS.includes(h.isin) && samdpGeoBreakdown) {
+      return samdpGeoBreakdown.some(e => normalizeRegion(e.region) === drillDownFilter.value);
+    }
+    const bd = h.isin ? breakdowns[h.isin] : null;
+    if (bd && bd.length > 0) {
+      return bd.some(e => normalizeRegion(e.region) === drillDownFilter.value && normalizeRegion(e.region) !== "Cash");
+    }
+    const dpamGeo = h.isin && (h.asset_name ?? "").startsWith("DPAM")
+      ? dpamLookup[h.isin]?.geoBreakdown
+      : null;
+    if (dpamGeo && dpamGeo.length > 0) {
+      return dpamGeo.some(e => normalizeRegion(e.region) === drillDownFilter.value);
+    }
+    return normalizeRegion(h.region ?? "Others") === drillDownFilter.value;
+  })
+  .map(h => {
+    if (h.isin && SAMDP_ISINS.includes(h.isin) && samdpGeoBreakdown) {
+      const entry = samdpGeoBreakdown.find(e => normalizeRegion(e.region) === drillDownFilter.value);
+      return { ...h, weight: (h.weight ?? 0) * (entry?.weight ?? 0) / 100 };
+    }
     const bd = h.isin ? breakdowns[h.isin] : null;
     if (bd && bd.length > 0) {
       return bd.some(e => normalizeRegion(e.region) === drillDownFilter.value && normalizeRegion(e.region) !== "Cash");
