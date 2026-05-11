@@ -2059,9 +2059,11 @@ const rowsWithLevel: any[] = dedupedRows.map((row, i) => {
   const isSecond = row._isSecondOfPair === true;
   const { _isFirstOfPair, _isSecondOfPair, ...cleanRow } = row;
 
-  let level: number;
+let level: number;
   if (i === 0) {
     level = 1;
+  } else if (isSecond) {
+    level = 5;
   } else if (LEVEL2_NAMES.has(row.name)) {
     level = 2;
   } else if (
@@ -2077,8 +2079,6 @@ const rowsWithLevel: any[] = dedupedRows.map((row, i) => {
     !LEVEL2_NAMES.has(row.name)
   ) {
     level = row.name === row.instrument_type ? 3 : 4;
-  } else if (isSecond) {
-    level = 5;
   } else {
     level = 4;
   }
