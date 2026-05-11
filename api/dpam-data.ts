@@ -2,6 +2,9 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import pool from "./_db.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  console.log("dpam-data called:", req.method, "section:", req.query.section);
+
+  const section = req.query.section as string | undefined;
 
   const section = req.query.section as string | undefined;
 
