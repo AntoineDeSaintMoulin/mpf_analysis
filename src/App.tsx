@@ -1972,18 +1972,6 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
         window.dispatchEvent(new CustomEvent("samdp-debt-updated"));
       }
       setUploadSuccess(true);
-      setTimeout(() => setUploadSuccess(false), 3000);
-    } else {
-      alert("Erreur lors de la sauvegarde: " + await apiRes.text());
-    }
-  } catch (err) {
-    console.error("Debt upload error:", err);
-    alert("Erreur lors du traitement du fichier.");
-  } finally {
-    setUploading(false);
-  }
-};
-  
 
 const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
   const file = e.target.files?.[0];
