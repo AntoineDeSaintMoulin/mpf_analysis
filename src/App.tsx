@@ -3883,6 +3883,9 @@ const categoryData = useMemo(() => {
   });
 
 console.log("extraCash:", extraCash, "liquidities directes:", m.get("Liquidities"));
+console.log("extraCash:", extraCash, "liquidities directes:", m.get("Liquidities"));
+console.log("samdpGeoBreakdown:", samdpGeoBreakdown);
+console.log("breakdowns LU0846948437:", breakdowns["LU0846948437"]);
   
   // Ajouter l'exposition Equities réelle = somme des régions
   const totalEquities = regionData.reduce((s, d) => s + d.value, 0);
