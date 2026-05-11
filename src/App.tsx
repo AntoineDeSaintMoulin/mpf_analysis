@@ -1795,31 +1795,7 @@ function SimulationTab({
     </div>
   );
 }
-type SamdpView = "Equities" | "Debt" | "Export";
- 
-interface SamdpInstrument {
-  name: string;
-  isin: string;
-  type: string;
-  msci_sector_1: string | null;
-  dom_country: string | null;
-  msci_sector_2: string | null;
-  msci_sector_3: string | null;
-  style: string | null;
-  secular: string | null;
-  mkt_cap: number | null;
-  pl_ptf: number | null;
-  pl_local: number | null;
-  currency: string | null;
-  quantity: number | null;
-  quote: number | null;
-  quote_date: string | null;
-  mtm_local: number | null;
-  mtm_ptf: number | null;
-  expo_pct: number | null;
-  wght_pct: number | null;
-}
- 
+
 type SamdpView = "Equities" | "Debt" | "Export";
  
 interface SamdpInstrument {
@@ -1972,6 +1948,17 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
         window.dispatchEvent(new CustomEvent("samdp-debt-updated"));
       }
       setUploadSuccess(true);
+      setTimeout(() => setUploadSuccess(false), 3000);
+    } else {
+      alert("Erreur lors de la sauvegarde: " + await apiRes.text());
+    }
+  } catch (err) {
+    console.error("Debt upload error:", err);
+    alert("Erreur lors du traitement du fichier.");
+  } finally {
+    setUploading(false);
+  }
+};
 
 const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
   const file = e.target.files?.[0];
@@ -3099,19 +3086,6 @@ useEffect(() => {
       setSelectedId(defaultP.id);
     }
   }, [activeTab, portfolios]);
-
-const refreshData = async () => {
-  try {
-    const data = await fetchBootstrap();
-    if (!data) return;
-    const allP = data.portfolios ?? [];
-    setAllPortfolios(allP);
-    setPortfolios(allP);
-    setManualOverrides(data.overrides ?? []);
-    setBreakdowns(data.breakdowns ?? {});
-    setCurrencyBreakdowns(data.currencyBreakdowns ?? {});
-    setCreditBreakdowns(data.creditBreakdowns ?? {});
-    setDurations(data.durations ?? {});
 
 const refreshData = async () => {
   try {
