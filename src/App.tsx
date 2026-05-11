@@ -2408,7 +2408,7 @@ const avgDuration = debtData.length > 0
   const groupColor = r.level === 1 ? "bg-slate-800 text-white" : GROUP_COLORS[parentL2] ?? "";
   return (
     <tr key={i} className={cn("transition-colors", groupColor, r.level === 1 ? "font-bold" : "")}>
-      <td className="px-4 py-3 truncate max-w-[200px]">
+      <td className="px-4 py-3 truncate max-w-[100px]">
         {r.level === 4 && r.isin ? (
           <button onClick={() => {
             const override = manualOverrides.find((ov: any) =>
