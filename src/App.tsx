@@ -1842,7 +1842,7 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
   const [exportText, setExportText] = React.useState("");
   const [debtSearch, setDebtSearch] = React.useState("");
   const [debtSortConfig, setDebtSortConfig] = React.useState<{ key: string; direction: "asc" | "desc" } | null>({ key: "wght_pct", direction: "desc" });
-  const [showSamdpDetail, setShowSamdpDetail] = React.useState<"currency_equity" | "region_equity" | "currency_debt" | "credit_debt" | "duration_debt" | null>(null);
+const [showSamdpDetail, setShowSamdpDetail] = React.useState<"currency_equity" | "region_equity" | "currency_debt" | "credit_debt" | "duration_debt" | "cash_detail" | null>(null);
   const [equityLevel, setEquityLevel] = React.useState<1|2|3|4|5>(4);
   const [regionFilter, setRegionFilter] = React.useState<string | null>(null);
   const handleDebtFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2244,13 +2244,36 @@ const avgDuration = debtData.length > 0
                 <p className="text-2xl font-bold text-slate-900">{fmtM(lvl1?.mtm_ptf ?? null)}</p>
                 <p className="text-xs text-slate-400 mt-0.5">EUR</p>
               </div>
-              {lvl2.map((r: any) => (
-                <div key={r.name} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{r.name}</p>
-                  <p className="text-2xl font-bold text-slate-900">{fmtM(r.mtm_ptf ?? null)}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{r.expo_pct != null ? (Number(r.expo_pct) * 100).toFixed(1) + "%" : "—"}</p>
-                </div>
-              ))}
+             {lvl2.map((r: any) => {
+  if (r.name !== "Cash") return (
+    <div key={r.name} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{r.name}</p>
+      <p className="text-2xl font-bold text-slate-900">{fmtM(r.mtm_ptf ?? null)}</p>
+      <p className="text-xs text-slate-400 mt-0.5">{r.expo_pct != null ? (Number(r.expo_pct) * 100).toFixed(1) + "%" : "—"}</p>
+    </div>
+  );
+
+  // KPI Cash — calcul niveau 5
+  const CASH_CURRENCIES = new Set(["EUR", "GBP", "USD", "JPY", "YEN"]);
+  const cashLines = equityRows.filter((row: any) =>
+    row.level === 5 &&
+    (
+      ((!row.isin || row.isin === "") && row.currency && CASH_CURRENCIES.has((row.currency ?? "").toUpperCase())) ||
+      (row.instrument_type ?? "").toUpperCase().includes("DEPOSIT")
+    )
+  );
+  const totalCashExpo = cashLines.reduce((s: number, row: any) => s + Number(row.expo_pct ?? 0), 0) * 100;
+
+  return (
+    <div key={r.name}
+      onClick={() => setShowSamdpDetail("cash_detail" as any)}
+      className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm cursor-pointer hover:border-sky-200 hover:shadow-md transition-all">
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Cash</p>
+      <p className="text-2xl font-bold text-slate-900">{totalCashExpo.toFixed(2)}%</p>
+      <p className="text-xs text-slate-400 mt-0.5">{cashLines.length} ligne{cashLines.length > 1 ? "s" : ""} · cliquez pour détail</p>
+    </div>
+  );
+})}
             </div>
           );
         })()}
@@ -2965,7 +2988,42 @@ debtData.forEach(inst => {
           </table>
         </div>
       </Modal>
-
+<Modal isOpen={showSamdpDetail === ("cash_detail" as any)} onClose={() => setShowSamdpDetail(null)} title="Détail Cash — Equities">
+  {(() => {
+    const CASH_CURRENCIES = new Set(["EUR", "GBP", "USD", "JPY", "YEN"]);
+    const cashLines = equityRows.filter((row: any) =>
+      row.level === 5 &&
+      (
+        ((!row.isin || row.isin === "") && row.currency && CASH_CURRENCIES.has((row.currency ?? "").toUpperCase())) ||
+        (row.instrument_type ?? "").toUpperCase().includes("DEPOSIT")
+      )
+    );
+    const total = cashLines.reduce((s: number, row: any) => s + Number(row.expo_pct ?? 0), 0) * 100;
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-3 py-2 bg-slate-50 rounded-xl">
+          <span className="text-xs font-bold text-slate-500">Total Cash</span>
+          <span className="text-sm font-bold text-slate-900">{total.toFixed(2)}%</span>
+        </div>
+        <div className="space-y-2">
+          {cashLines.sort((a: any, b: any) => Number(b.expo_pct ?? 0) - Number(a.expo_pct ?? 0)).map((row: any, i: number) => (
+            <div key={i} className="flex items-center justify-between py-2 border-b border-slate-50">
+              <div>
+                <p className="text-sm font-medium text-slate-900">{row.name}</p>
+                <p className="text-xs text-slate-400">
+                  {row.instrument_type ?? "—"} · {row.currency ?? "—"}
+                </p>
+              </div>
+              <span className="text-sm font-bold text-slate-900 w-20 text-right">
+                {(Number(row.expo_pct ?? 0) * 100).toFixed(2)}%
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  })()}
+</Modal>
     </div>
   );
 }
