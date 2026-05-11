@@ -100,7 +100,55 @@ const ws = wb.Sheets[wb.SheetNames[0]];
       const name = toStr(entry.cells[0]);
       if (!name) continue;
       
-      const level = entry.indent + 1; // indent 0=level1, indent 1=level2, etc.
+const LEVEL2_NAMES = new Set(["Cash", "Futures", "Mutual funds", "Options"]);
+const LEVEL3_TYPES = new Set([
+  "CASH: PROVISION", "CURRENCY", "DEPOSIT",
+  "FUTURE ON INDEX", "ETF EQUITIES", "OPTION ON INDEX"
+]);
+
+const allRows: any[] = [];
+for (const [rowIdx, entry] of sortedEntries) {
+  if (rowIdx === 0) continue;
+  const name = toStr(entry.cells[0]);
+  if (!name) continue;
+  allRows.push({
+    row_index: rowIdx + 1, // +1 car 1-indexed
+    name,
+    isin: toStr(entry.cells[1]),
+    instrument_type: toStr(entry.cells[3]),
+    currency: toStr(entry.cells[13]),
+    quantity: toNum(entry.cells[14]),
+    mtm_ptf: toNum(entry.cells[18]),
+    expo_pct: toNum(entry.cells[19]),
+    wght_pct: toNum(entry.cells[22]),
+    wght_ref: toNum(entry.cells[23]),
+    wght_ptf_ref: toNum(entry.cells[24]),
+  });
+}
+
+const rows: any[] = allRows.map((row, i) => {
+  const prev = allRows[i - 1];
+  const isConsecutive = prev && row.row_index === prev.row_index + 1;
+  
+  let level: number;
+  if (i === 0) level = 1;
+  else if (isConsecutive) level = 5;
+  else if (LEVEL2_NAMES.has(row.name)) level = 2;
+  else if (
+    !row.isin &&
+    row.instrument_type &&
+    LEVEL3_TYPES.has(row.instrument_type) &&
+    row.name === row.instrument_type
+  ) level = 3;
+  else if (
+    !row.isin &&
+    LEVEL3_TYPES.has(row.instrument_type ?? "") &&
+    !LEVEL2_NAMES.has(row.name)
+  ) level = row.name === row.instrument_type ? 3 : 4;
+  else level = 4;
+  
+  return { ...row, level };
+});
       
       rows.push({
         row_index: rowIdx,
