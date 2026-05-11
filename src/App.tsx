@@ -2424,14 +2424,10 @@ const avgDuration = debtData.length > 0
                     const q = equitySearch.toLowerCase();
                     return (r.name ?? "").toLowerCase().includes(q) || (r.isin ?? "").toLowerCase().includes(q);
                   })
-                  .map((r: any, i: number) => (
-{/* Couleur de fond selon le groupe niveau 2 */}
-{(() => {
-  // Trouver le groupe niveau 2 parent de cette ligne
+.map((r: any, i: number) => {
   let parentL2 = "";
   if (r.level === 2) parentL2 = r.name;
   else {
-    // Remonter dans equityRows pour trouver le dernier niveau 2 avant cette ligne
     const idx = equityRows.indexOf(r);
     for (let j = idx - 1; j >= 0; j--) {
       if (equityRows[j].level === 2) { parentL2 = equityRows[j].name; break; }
@@ -2439,49 +2435,49 @@ const avgDuration = debtData.length > 0
     }
   }
   const GROUP_COLORS: Record<string, string> = {
-    "Cash": "bg-sky-50/40",
-    "Futures": "bg-amber-50/40",
-    "Mutual funds": "bg-emerald-50/40",
-    "Options": "bg-violet-50/40",
+    "Cash": "bg-sky-50/60",
+    "Futures": "bg-amber-50/60",
+    "Mutual funds": "bg-emerald-50/60",
+    "Options": "bg-violet-50/60",
   };
   const groupColor = r.level === 1 ? "bg-slate-800 text-white" : GROUP_COLORS[parentL2] ?? "";
   return (
-    <tr key={i} className={cn("hover:bg-opacity-60 transition-colors", groupColor,
-      r.level === 1 ? "font-bold" : "")}>
-                      <td className="px-4 py-3 truncate max-w-[200px]">
-                        {r.level === 4 && r.isin ? (
-                          <button onClick={() => {
-                            const override = manualOverrides.find((ov: any) =>
-                              (ov.manual_isin && ov.manual_isin === r.isin) ||
-                              (ov.original_asset_name && ov.original_asset_name === r.name)
-                            );
-                            onSelectInstrument({
-                              asset_name: override?.manual_asset_name || r.name,
-                              original_asset_name: r.name,
-                              isin: override?.manual_isin || r.isin,
-                              category: override?.manual_category || "Equities",
-                              region: override?.manual_region || "",
-                              currency: override?.manual_currency || (r.currency ?? ""),
-                              instrument: override?.manual_instrument || (r.instrument_type ?? "ETF"),
-                              weight: Number(r.wght_pct ?? 0) * 100,
-                            } as any);
-                          }} className="font-medium text-sky-600 hover:underline text-left">
-                            {r.name}
-                          </button>
-                        ) : (
-                          <span className={cn("font-medium", r.level <= 2 ? "text-slate-900" : "text-slate-600")}>{r.name}</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-sky-600">{r.isin ?? "—"}</td>
-                      <td className="px-4 py-3 text-slate-500 text-[10px]">{r.instrument_type ?? "—"}</td>
-                      <td className="px-4 py-3 text-slate-600">{r.currency ?? "—"}</td>
-                      <td className="px-4 py-3 text-right text-slate-600">{r.quantity != null ? Number(r.quantity).toLocaleString("fr-FR", { maximumFractionDigits: 0 }) : "—"}</td>
-                      <td className="px-4 py-3 text-right font-bold text-slate-900">{r.mtm_ptf != null ? Number(r.mtm_ptf).toLocaleString("fr-FR", { maximumFractionDigits: 0 }) : "—"}</td>
-                      <td className="px-4 py-3 text-right text-slate-600">{r.expo_pct != null ? (Number(r.expo_pct) * 100).toFixed(2) + "%" : "—"}</td>
-                      <td className="px-4 py-3 text-right font-bold text-sky-600">{r.wght_pct != null ? (Number(r.wght_pct) * 100).toFixed(2) + "%" : "—"}</td>
-                      <td className="px-4 py-3 text-right text-slate-600">{r.wght_ptf_ref != null ? (Number(r.wght_ptf_ref) * 100).toFixed(2) + "%" : "—"}</td>
-                    </tr>
-                  ))}
+    <tr key={i} className={cn("transition-colors", groupColor, r.level === 1 ? "font-bold" : "")}>
+      <td className="px-4 py-3 truncate max-w-[200px]">
+        {r.level === 4 && r.isin ? (
+          <button onClick={() => {
+            const override = manualOverrides.find((ov: any) =>
+              (ov.manual_isin && ov.manual_isin === r.isin) ||
+              (ov.original_asset_name && ov.original_asset_name === r.name)
+            );
+            onSelectInstrument({
+              asset_name: override?.manual_asset_name || r.name,
+              original_asset_name: r.name,
+              isin: override?.manual_isin || r.isin,
+              category: override?.manual_category || "Equities",
+              region: override?.manual_region || "",
+              currency: override?.manual_currency || (r.currency ?? ""),
+              instrument: override?.manual_instrument || (r.instrument_type ?? "ETF"),
+              weight: Number(r.wght_pct ?? 0) * 100,
+            } as any);
+          }} className="font-medium text-sky-600 hover:underline text-left">
+            {r.name}
+          </button>
+        ) : (
+          <span className={cn("font-medium", r.level <= 2 ? "text-slate-900" : "text-slate-600")}>{r.name}</span>
+        )}
+      </td>
+      <td className="px-4 py-3 font-mono text-sky-600">{r.isin ?? "—"}</td>
+      <td className="px-4 py-3 text-slate-500 text-[10px]">{r.instrument_type ?? "—"}</td>
+      <td className="px-4 py-3 text-slate-600">{r.currency ?? "—"}</td>
+      <td className="px-4 py-3 text-right text-slate-600">{r.quantity != null ? Number(r.quantity).toLocaleString("fr-FR", { maximumFractionDigits: 0 }) : "—"}</td>
+      <td className="px-4 py-3 text-right font-bold text-slate-900">{r.mtm_ptf != null ? Number(r.mtm_ptf).toLocaleString("fr-FR", { maximumFractionDigits: 0 }) : "—"}</td>
+      <td className="px-4 py-3 text-right text-slate-600">{r.expo_pct != null ? (Number(r.expo_pct) * 100).toFixed(2) + "%" : "—"}</td>
+      <td className="px-4 py-3 text-right font-bold text-sky-600">{r.wght_pct != null ? (Number(r.wght_pct) * 100).toFixed(2) + "%" : "—"}</td>
+      <td className="px-4 py-3 text-right text-slate-600">{r.wght_ptf_ref != null ? (Number(r.wght_ptf_ref) * 100).toFixed(2) + "%" : "—"}</td>
+    </tr>
+  );
+})}
               </tbody>
             </table>
           </div>
