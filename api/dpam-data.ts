@@ -2,9 +2,6 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import pool from "./_db.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  console.log("dpam-data called:", req.method, "section:", req.query.section);
-
-  const section = req.query.section as string | undefined;
 
   const section = req.query.section as string | undefined;
 
@@ -65,214 +62,130 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(405).json({ error: "Method not allowed" });
   }
-if (section === "samdp_equity_parse") {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-  
-  const { filename, fileBase64 } = req.body;
-  if (!filename || !fileBase64) return res.status(400).json({ error: "Missing fields" });
 
-  try {
-    const XLSX = await import("xlsx");
-    const buffer = Buffer.from(fileBase64, "base64");
-    const wb = XLSX.read(buffer, { type: "buffer", cellStyles: true });
-    const ws = wb.Sheets[wb.SheetNames[0]];
+  // ════════════════════════════════════════════════════════════════════════
+  // SECTION SAMDP EQUITY
+  // ════════════════════════════════════════════════════════════════════════
+  if (section === "samdp_equity") {
 
-    const allCellKeys = Object.keys(ws).filter((k: string) => !k.startsWith('!'));
-    const instrumentRows: Map<number, any> = new Map();
-    
-    allCellKeys.forEach((key: string) => {
-      const decoded = XLSX.utils.decode_cell(key);
-      if (!instrumentRows.has(decoded.r)) instrumentRows.set(decoded.r, { cells: {} });
-      const entry = instrumentRows.get(decoded.r);
-      entry.cells[decoded.c] = ws[key]?.v;
-    });
-
-    const toNum = (v: any) => v != null && !isNaN(Number(v)) ? Number(v) : null;
-    const toStr = (v: any) => v != null && String(v).trim() !== '' ? String(v).trim() : null;
-
-    const sortedEntries = Array.from(instrumentRows.entries()).sort(([a], [b]) => a - b);
-
-    const LEVEL2_NAMES = new Set(["Cash", "Futures", "Mutual funds", "Options"]);
-    const LEVEL3_TYPES = new Set([
-      "CASH: PROVISION", "CURRENCY", "DEPOSIT",
-      "FUTURE ON INDEX", "ETF EQUITIES", "OPTION ON INDEX"
-    ]);
-
-    const allRows: any[] = [];
-    for (const [rowIdx, entry] of sortedEntries) {
-      if (rowIdx === 0) continue;
-      const name = toStr(entry.cells[0]);
-      if (!name) continue;
-      allRows.push({
-        row_index: rowIdx + 1,
-        name,
-        isin: toStr(entry.cells[1]),
-        instrument_type: toStr(entry.cells[3]),
-        currency: toStr(entry.cells[13]),
-        quantity: toNum(entry.cells[14]),
-        mtm_ptf: toNum(entry.cells[18]),
-        expo_pct: toNum(entry.cells[19]),
-        wght_pct: toNum(entry.cells[22]),
-        wght_ref: toNum(entry.cells[23]),
-        wght_ptf_ref: toNum(entry.cells[24]),
-      });
-    }
-
-    const rows: any[] = allRows.map((row, i) => {
-  const prev = allRows[i - 1];
-  const isDuplicate = prev && 
-    row.name === prev.name && 
-    row.isin === prev.isin &&
-    row.instrument_type === prev.instrument_type;
-
-  let level: number;
-  if (i === 0) level = 1;
-  else if (isDuplicate) level = 5;
-  else if (LEVEL2_NAMES.has(row.name)) level = 2;
-  else if (
-    !row.isin &&
-    row.instrument_type &&
-    LEVEL3_TYPES.has(row.instrument_type) &&
-    row.name === row.instrument_type
-  ) level = 3;
-  else if (
-    !row.isin &&
-    LEVEL3_TYPES.has(row.instrument_type ?? "") &&
-    !LEVEL2_NAMES.has(row.name)
-  ) level = row.name === row.instrument_type ? 3 : 4;
-  else level = 4;
-  
-  return { ...row, level };
-});
-  // Post-processing Options
-for (let i = 1; i < rows.length; i++) {
-  if (rows[i].level === 4 && rows[i-1].level === 4 && 
-      !LEVEL2_NAMES.has(rows[i].name) &&
-      rows[i-1].instrument_type === "OPTION ON INDEX" &&
-      rows[i].instrument_type === "OPTION ON INDEX") {
-    rows[i].level = 5;
-  }
-}
-
-return res.json({ rows });
-if (section === "samdp_equity") {
-
-  if (req.method === "GET") {
-    try {
-      const logRes = await pool.query(`SELECT * FROM samdp_import_log ORDER BY imported_at DESC LIMIT 1`);
-      if (logRes.rows.length === 0) return res.json({ rows: [], importLog: null });
-      const importId = logRes.rows[0].id;
-      const rows = await pool.query(
-        `SELECT * FROM samdp_equity_rows WHERE import_id=$1 ORDER BY row_index ASC`,
-        [importId]
-      );
-      return res.json({ rows: rows.rows, importLog: logRes.rows[0] });
-    } catch (e: any) {
-      return res.status(500).json({ error: e.message });
-    }
-  }
-
-  if (req.method === "POST") {
-    const { filename, rows } = req.body;
-    if (!filename || !rows) return res.status(400).json({ error: "Missing fields" });
-    try {
-      const old = await pool.query(`SELECT id FROM samdp_import_log`);
-      for (const row of old.rows) {
-        await pool.query(`DELETE FROM samdp_import_log WHERE id=$1`, [row.id]);
+    if (req.method === "GET") {
+      try {
+        const logRes = await pool.query(`SELECT * FROM samdp_import_log ORDER BY imported_at DESC LIMIT 1`);
+        if (logRes.rows.length === 0) return res.json({ rows: [], importLog: null });
+        const importId = logRes.rows[0].id;
+        const rows = await pool.query(
+          `SELECT * FROM samdp_equity_rows WHERE import_id=$1 ORDER BY row_index ASC`,
+          [importId]
+        );
+        return res.json({ rows: rows.rows, importLog: logRes.rows[0] });
+      } catch (e: any) {
+        return res.status(500).json({ error: e.message });
       }
-      const logRes = await pool.query(
-        `INSERT INTO samdp_import_log (filename) VALUES ($1) RETURNING id`,
-        [filename]
-      );
-      const importId = logRes.rows[0].id;
-      for (const row of rows) {
-        await pool.query(`
-          INSERT INTO samdp_equity_rows (
-            import_id, row_index, level, name, isin, instrument_type,
-            currency, quantity, mtm_ptf, expo_pct, wght_pct, wght_ref, wght_ptf_ref
-          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
-        `, [
-          importId, row.row_index, row.level, row.name, row.isin,
-          row.instrument_type, row.currency, row.quantity,
-          row.mtm_ptf, row.expo_pct, row.wght_pct, row.wght_ref, row.wght_ptf_ref
-        ]);
-      }
-      return res.json({ ok: true, count: rows.length });
-    } catch (e: any) {
-      return res.status(500).json({ error: e.message });
     }
+
+    if (req.method === "POST") {
+      const { filename, rows } = req.body;
+      if (!filename || !rows) return res.status(400).json({ error: "Missing fields" });
+      try {
+        const old = await pool.query(`SELECT id FROM samdp_import_log`);
+        for (const row of old.rows) {
+          await pool.query(`DELETE FROM samdp_import_log WHERE id=$1`, [row.id]);
+        }
+        const logRes = await pool.query(
+          `INSERT INTO samdp_import_log (filename) VALUES ($1) RETURNING id`,
+          [filename]
+        );
+        const importId = logRes.rows[0].id;
+        for (const row of rows) {
+          await pool.query(`
+            INSERT INTO samdp_equity_rows (
+              import_id, row_index, level, name, isin, instrument_type,
+              currency, quantity, mtm_ptf, expo_pct, wght_pct, wght_ref, wght_ptf_ref
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+          `, [
+            importId, row.row_index, row.level, row.name, row.isin,
+            row.instrument_type, row.currency, row.quantity,
+            row.mtm_ptf, row.expo_pct, row.wght_pct, row.wght_ref, row.wght_ptf_ref
+          ]);
+        }
+        return res.json({ ok: true, count: rows.length });
+      } catch (e: any) {
+        return res.status(500).json({ error: e.message });
+      }
+    }
+
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
-  return res.status(405).json({ error: "Method not allowed" });
-}
-  
-// GET SAMDP DEBT
-if (section === "samdp_debt") {
-  if (req.method === "GET") {
-    try {
-      const logRes = await pool.query(`SELECT * FROM samdp_debt_import_log ORDER BY imported_at DESC LIMIT 1`);
-      if (logRes.rows.length === 0) return res.json({ instruments: [], importLog: null });
-      const importId = logRes.rows[0].id;
-      const instruments = await pool.query(
-        `SELECT * FROM samdp_debt_instruments WHERE import_id=$1 ORDER BY wght_pct DESC`,
-        [importId]
-      );
-      return res.json({ instruments: instruments.rows, importLog: logRes.rows[0] });
-    } catch (e: any) {
-      return res.status(500).json({ error: e.message });
-    }
-  }
- 
-  if (req.method === "POST") {
-    const { filename, instruments } = req.body;
-    if (!filename || !instruments) return res.status(400).json({ error: "Missing fields" });
-    try {
-      const old = await pool.query(`SELECT id FROM samdp_debt_import_log`);
-      for (const row of old.rows) {
-        await pool.query(`DELETE FROM samdp_debt_import_log WHERE id=$1`, [row.id]);
+  // ════════════════════════════════════════════════════════════════════════
+  // SECTION SAMDP DEBT
+  // ════════════════════════════════════════════════════════════════════════
+  if (section === "samdp_debt") {
+    if (req.method === "GET") {
+      try {
+        const logRes = await pool.query(`SELECT * FROM samdp_debt_import_log ORDER BY imported_at DESC LIMIT 1`);
+        if (logRes.rows.length === 0) return res.json({ instruments: [], importLog: null });
+        const importId = logRes.rows[0].id;
+        const instruments = await pool.query(
+          `SELECT * FROM samdp_debt_instruments WHERE import_id=$1 ORDER BY wght_pct DESC`,
+          [importId]
+        );
+        return res.json({ instruments: instruments.rows, importLog: logRes.rows[0] });
+      } catch (e: any) {
+        return res.status(500).json({ error: e.message });
       }
-      const logRes = await pool.query(
-        `INSERT INTO samdp_debt_import_log (filename) VALUES ($1) RETURNING id`,
-        [filename]
-      );
-      const importId = logRes.rows[0].id;
-      for (const inst of instruments) {
-        await pool.query(`
-          INSERT INTO samdp_debt_instruments (
-            import_id, name, isin, instrument_type, issuer, coupon_rate, maturity_date,
-            currency, seniority, quote, quote_date, accrued_int, quantity, nominal,
-            mtm_ptf, wght_pct, expo_pct, ytw, ytm, modified_duration, gov_spread,
-            bics_sector_1, bics_sector_2, issuer_country, dom_country, geo_area,
-            rating_moodys, rating_sp, rating_fitch, rating_cai, ig_hy,
-            esg_score, mat_y, bondsegment
-          ) VALUES (
-            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-            $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34
-          )
-        `, [
-          importId, inst.name, inst.isin, inst.instrument_type, inst.issuer,
-          inst.coupon_rate, inst.maturity_date, inst.currency, inst.seniority,
-          inst.quote, inst.quote_date, inst.accrued_int, inst.quantity, inst.nominal,
-          inst.mtm_ptf, inst.wght_pct, inst.expo_pct, inst.ytw, inst.ytm,
-          inst.modified_duration, inst.gov_spread, inst.bics_sector_1, inst.bics_sector_2,
-          inst.issuer_country, inst.dom_country, inst.geo_area,
-          inst.rating_moodys, inst.rating_sp, inst.rating_fitch, inst.rating_cai,
-          inst.ig_hy, inst.esg_score, inst.mat_y, inst.bondsegment
-        ]);
-      }
-      return res.json({ ok: true, importId, count: instruments.length });
-    } catch (e: any) {
-      return res.status(500).json({ error: e.message });
     }
+
+    if (req.method === "POST") {
+      const { filename, instruments } = req.body;
+      if (!filename || !instruments) return res.status(400).json({ error: "Missing fields" });
+      try {
+        const old = await pool.query(`SELECT id FROM samdp_debt_import_log`);
+        for (const row of old.rows) {
+          await pool.query(`DELETE FROM samdp_debt_import_log WHERE id=$1`, [row.id]);
+        }
+        const logRes = await pool.query(
+          `INSERT INTO samdp_debt_import_log (filename) VALUES ($1) RETURNING id`,
+          [filename]
+        );
+        const importId = logRes.rows[0].id;
+        for (const inst of instruments) {
+          await pool.query(`
+            INSERT INTO samdp_debt_instruments (
+              import_id, name, isin, instrument_type, issuer, coupon_rate, maturity_date,
+              currency, seniority, quote, quote_date, accrued_int, quantity, nominal,
+              mtm_ptf, wght_pct, expo_pct, ytw, ytm, modified_duration, gov_spread,
+              bics_sector_1, bics_sector_2, issuer_country, dom_country, geo_area,
+              rating_moodys, rating_sp, rating_fitch, rating_cai, ig_hy,
+              esg_score, mat_y, bondsegment
+            ) VALUES (
+              $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
+              $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34
+            )
+          `, [
+            importId, inst.name, inst.isin, inst.instrument_type, inst.issuer,
+            inst.coupon_rate, inst.maturity_date, inst.currency, inst.seniority,
+            inst.quote, inst.quote_date, inst.accrued_int, inst.quantity, inst.nominal,
+            inst.mtm_ptf, inst.wght_pct, inst.expo_pct, inst.ytw, inst.ytm,
+            inst.modified_duration, inst.gov_spread, inst.bics_sector_1, inst.bics_sector_2,
+            inst.issuer_country, inst.dom_country, inst.geo_area,
+            inst.rating_moodys, inst.rating_sp, inst.rating_fitch, inst.rating_cai,
+            inst.ig_hy, inst.esg_score, inst.mat_y, inst.bondsegment
+          ]);
+        }
+        return res.json({ ok: true, importId, count: instruments.length });
+      } catch (e: any) {
+        return res.status(500).json({ error: e.message });
+      }
+    }
+    return res.status(405).json({ error: "Method not allowed" });
   }
-  return res.status(405).json({ error: "Method not allowed" });
-}
- 
+
   // ════════════════════════════════════════════════════════════════════════
   // SECTION DPAM (comportement original)
   // ════════════════════════════════════════════════════════════════════════
 
-if (!section && req.method === "GET") {
+  if (!section && req.method === "GET") {
     try {
       const logRes = await pool.query(`SELECT * FROM dpam_import_log ORDER BY imported_at DESC`);
       const lastBonds = logRes.rows.find((r) => r.type === "bonds");
@@ -338,7 +251,7 @@ if (!section && req.method === "GET") {
     }
   }
 
- if (!section && req.method === "POST") {
+  if (!section && req.method === "POST") {
     const { type, filename, parsed } = req.body;
     if (!type || !filename || !parsed)
       return res.status(400).json({ error: "Missing fields" });
