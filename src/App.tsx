@@ -2254,15 +2254,15 @@ const avgDuration = debtData.length > 0
   );
 
   // KPI Cash — calcul niveau 5
-  const CASH_CURRENCIES = new Set(["EUR", "GBP", "USD", "JPY", "YEN"]);
-  const cashLines = equityRows.filter((row: any) =>
-    row.level === 5 &&
-    (
-      ((!row.isin || row.isin === "") && row.currency && CASH_CURRENCIES.has((row.currency ?? "").toUpperCase())) ||
-      (row.instrument_type ?? "").toUpperCase().includes("DEPOSIT")
-    )
-  );
-  const totalCashExpo = cashLines.reduce((s: number, row: any) => s + Number(row.expo_pct ?? 0), 0) * 100;
+const CASH_ISINS = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
+const cashLines = equityRows.filter((row: any) =>
+  row.level === 5 &&
+  (
+    CASH_ISINS.has((row.isin ?? "").toUpperCase()) ||
+    (row.instrument_type ?? "").toUpperCase().includes("DEPOSIT")
+  )
+);
+const totalCashExpo = cashLines.reduce((s: number, row: any) => s + Number(row.wght_ptf_ref ?? 0), 0) * 100;
 
   return (
     <div key={r.name}
@@ -2990,15 +2990,15 @@ debtData.forEach(inst => {
       </Modal>
 <Modal isOpen={showSamdpDetail === ("cash_detail" as any)} onClose={() => setShowSamdpDetail(null)} title="Détail Cash — Equities">
   {(() => {
-    const CASH_CURRENCIES = new Set(["EUR", "GBP", "USD", "JPY", "YEN"]);
-    const cashLines = equityRows.filter((row: any) =>
-      row.level === 5 &&
-      (
-        ((!row.isin || row.isin === "") && row.currency && CASH_CURRENCIES.has((row.currency ?? "").toUpperCase())) ||
-        (row.instrument_type ?? "").toUpperCase().includes("DEPOSIT")
-      )
-    );
-    const total = cashLines.reduce((s: number, row: any) => s + Number(row.expo_pct ?? 0), 0) * 100;
+const CASH_ISINS = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
+const cashLines = equityRows.filter((row: any) =>
+  row.level === 5 &&
+  (
+    CASH_ISINS.has((row.isin ?? "").toUpperCase()) ||
+    (row.instrument_type ?? "").toUpperCase().includes("DEPOSIT")
+  )
+);
+const total = cashLines.reduce((s: number, row: any) => s + Number(row.wght_ptf_ref ?? 0), 0) * 100;
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between px-3 py-2 bg-slate-50 rounded-xl">
@@ -3015,7 +3015,7 @@ debtData.forEach(inst => {
                 </p>
               </div>
               <span className="text-sm font-bold text-slate-900 w-20 text-right">
-                {(Number(row.expo_pct ?? 0) * 100).toFixed(2)}%
+                {(Number(row.wght_ptf_ref ?? 0) * 100).toFixed(2)}%
               </span>
             </div>
           ))}
