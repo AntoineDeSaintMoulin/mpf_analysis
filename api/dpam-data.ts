@@ -70,62 +70,53 @@ if (section === "samdp_equity_parse") {
   if (!filename || !fileBase64) return res.status(400).json({ error: "Missing fields" });
 
   try {
-    const { execSync } = await import("child_process");
-    const { writeFileSync, unlinkSync } = await import("fs");
-    const { join } = await import("path");
-    const { tmpdir } = await import("os");
+    const XLSX = require("xlsx");
+    const buffer = Buffer.from(fileBase64, "base64");
+    const wb = XLSX.read(buffer, { type: "buffer", cellStyles: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
 
-    // Écrire le fichier dans /tmp
-    const tmpPath = join(tmpdir(), `samdp_${Date.now()}.xls`);
-    writeFileSync(tmpPath, Buffer.from(fileBase64, "base64"));
+    const allCellKeys = Object.keys(ws).filter((k: string) => !k.startsWith('!'));
+    const instrumentRows: Map<number, any> = new Map();
+    
+    allCellKeys.forEach((key: string) => {
+      const decoded = XLSX.utils.decode_cell(key);
+      if (!instrumentRows.has(decoded.r)) instrumentRows.set(decoded.r, { cells: {}, indent: 0 });
+      const entry = instrumentRows.get(decoded.r);
+      entry.cells[decoded.c] = ws[key]?.v;
+      // Lire l'indent depuis les styles de la colonne A
+      if (decoded.c === 0 && ws[key]?.s?.alignment?.indent) {
+        entry.indent = ws[key].s.alignment.indent;
+      }
+    });
 
-    // Script Python inline
-    const pythonScript = `
-import sys, json, openpyxl
-wb = openpyxl.load_workbook(sys.argv[1], data_only=True)
-ws = wb.active
-rows = []
-for row in range(2, ws.max_row + 1):
-    cell = ws.cell(row=row, column=1)
-    name = cell.value
-    if not name:
-        continue
-    indent = int(cell.alignment.indent) if cell.alignment else 0
-    level = indent
-    isin = ws.cell(row=row, column=2).value
-    inst_type = ws.cell(row=row, column=4).value
-    currency = ws.cell(row=row, column=14).value
-    quantity = ws.cell(row=row, column=15).value
-    mtm_ptf = ws.cell(row=row, column=19).value
-    expo_pct = ws.cell(row=row, column=20).value
-    wght_pct = ws.cell(row=row, column=23).value
-    wght_ref = ws.cell(row=row, column=24).value
-    wght_ptf_ref = ws.cell(row=row, column=25).value
-    rows.append({
-        "row_index": row,
-        "level": level,
-        "name": str(name).strip(),
-        "isin": str(isin).strip() if isin else None,
-        "instrument_type": str(inst_type).strip() if inst_type else None,
-        "currency": str(currency).strip() if currency else None,
-        "quantity": float(quantity) if quantity is not None else None,
-        "mtm_ptf": float(mtm_ptf) if mtm_ptf is not None else None,
-        "expo_pct": float(expo_pct) if expo_pct is not None else None,
-        "wght_pct": float(wght_pct) if wght_pct is not None else None,
-        "wght_ref": float(wght_ref) if wght_ref is not None else None,
-        "wght_ptf_ref": float(wght_ptf_ref) if wght_ptf_ref is not None else None,
-    })
-print(json.dumps(rows))
-`;
+    const toNum = (v: any) => v != null && !isNaN(Number(v)) ? Number(v) : null;
+    const toStr = (v: any) => v != null && String(v).trim() !== '' ? String(v).trim() : null;
 
-    const scriptPath = join(tmpdir(), `parse_samdp_${Date.now()}.py`);
-    writeFileSync(scriptPath, pythonScript);
+    const rows: any[] = [];
+    const sortedEntries = Array.from(instrumentRows.entries()).sort(([a], [b]) => a - b);
 
-    const output = execSync(`python3 ${scriptPath} ${tmpPath}`, { timeout: 30000 }).toString();
-    const rows = JSON.parse(output);
-
-    // Nettoyage
-    try { unlinkSync(tmpPath); unlinkSync(scriptPath); } catch {}
+    for (const [rowIdx, entry] of sortedEntries) {
+      if (rowIdx === 0) continue;
+      const name = toStr(entry.cells[0]);
+      if (!name) continue;
+      
+      const level = entry.indent + 1; // indent 0=level1, indent 1=level2, etc.
+      
+      rows.push({
+        row_index: rowIdx,
+        level,
+        name,
+        isin: toStr(entry.cells[1]),
+        instrument_type: toStr(entry.cells[3]),
+        currency: toStr(entry.cells[13]),
+        quantity: toNum(entry.cells[14]),
+        mtm_ptf: toNum(entry.cells[18]),
+        expo_pct: toNum(entry.cells[19]),
+        wght_pct: toNum(entry.cells[22]),
+        wght_ref: toNum(entry.cells[23]),
+        wght_ptf_ref: toNum(entry.cells[24]),
+      });
+    }
 
     return res.json({ rows });
   } catch (e: any) {
