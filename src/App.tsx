@@ -3784,11 +3784,9 @@ const samdpGeoBreakdown = useMemo(() => {
   });
 
   // Normaliser à 100%
-  const total = Array.from(regionMap.values()).reduce((s, v) => s + v, 0);
-  if (total === 0) return null;
-  return Array.from(regionMap.entries()).map(([region, weight]) => ({
+return Array.from(regionMap.entries()).map(([region, weight]) => ({
     region,
-    weight: weight / total * 100,
+    weight: weight * 100,
   }));
 }, [samdpEquityRows, breakdowns, manualOverrides]);
   
