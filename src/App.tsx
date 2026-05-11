@@ -2237,11 +2237,6 @@ if (instruments.length === 0) {
   return;
 }
 
-const apiRes = await fetch("/api/dpam-data?section=samdp", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ filename: file.name, instruments }),
-});
 if (apiRes.ok) {
   window.dispatchEvent(new CustomEvent("samdp-equity-updated"));
   setUploadSuccess(true);
