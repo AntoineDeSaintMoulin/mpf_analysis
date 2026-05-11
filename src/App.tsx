@@ -2420,10 +2420,29 @@ const avgDuration = debtData.length > 0
                     return (r.name ?? "").toLowerCase().includes(q) || (r.isin ?? "").toLowerCase().includes(q);
                   })
                   .map((r: any, i: number) => (
-                    <tr key={i} className={cn("hover:bg-slate-50/50 transition-colors",
-                      r.level === 1 ? "bg-slate-50 font-bold" :
-                      r.level === 2 ? "bg-sky-50/30" :
-                      r.level === 3 ? "bg-slate-50/50" : "")}>
+{/* Couleur de fond selon le groupe niveau 2 */}
+{(() => {
+  // Trouver le groupe niveau 2 parent de cette ligne
+  let parentL2 = "";
+  if (r.level === 2) parentL2 = r.name;
+  else {
+    // Remonter dans equityRows pour trouver le dernier niveau 2 avant cette ligne
+    const idx = equityRows.indexOf(r);
+    for (let j = idx - 1; j >= 0; j--) {
+      if (equityRows[j].level === 2) { parentL2 = equityRows[j].name; break; }
+      if (equityRows[j].level === 1) break;
+    }
+  }
+  const GROUP_COLORS: Record<string, string> = {
+    "Cash": "bg-sky-50/40",
+    "Futures": "bg-amber-50/40",
+    "Mutual funds": "bg-emerald-50/40",
+    "Options": "bg-violet-50/40",
+  };
+  const groupColor = r.level === 1 ? "bg-slate-800 text-white" : GROUP_COLORS[parentL2] ?? "";
+  return (
+    <tr key={i} className={cn("hover:bg-opacity-60 transition-colors", groupColor,
+      r.level === 1 ? "font-bold" : "")}>
                       <td className="px-4 py-3 truncate max-w-[200px]">
                         {r.level === 4 && r.isin ? (
                           <button onClick={() => {
