@@ -269,7 +269,7 @@ if (section === "samdp_debt") {
   // SECTION DPAM (comportement original)
   // ════════════════════════════════════════════════════════════════════════
 
-  if (req.method === "GET") {
+if (!section && req.method === "GET") {
     try {
       const logRes = await pool.query(`SELECT * FROM dpam_import_log ORDER BY imported_at DESC`);
       const lastBonds = logRes.rows.find((r) => r.type === "bonds");
@@ -324,7 +324,7 @@ if (section === "samdp_debt") {
     }
   }
 
-  if (req.method === "DELETE") {
+  if (!section && req.method === "DELETE") {
     const { isin } = req.body;
     if (!isin) return res.status(400).json({ error: "Missing isin" });
     try {
@@ -335,7 +335,7 @@ if (section === "samdp_debt") {
     }
   }
 
-  if (req.method === "POST") {
+ if (!section && req.method === "POST") {
     const { type, filename, parsed } = req.body;
     if (!type || !filename || !parsed)
       return res.status(400).json({ error: "Missing fields" });
