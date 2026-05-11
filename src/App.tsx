@@ -2297,6 +2297,9 @@ const avgDuration = debtData.length > 0
             currencyMap.set(currency, (currencyMap.get(currency) ?? 0) + w);
           });
 
+console.log("regionMap graphe:", Array.from(regionMap.entries()));
+console.log("etfRows utilisés:", etfRows.map((r: any) => `${r.name} expo=${r.expo_pct} region=${manualOverrides.find((ov: any) => ov.manual_isin === r.isin || ov.original_asset_name === r.name)?.manual_region ?? "no override"}`));
+        
           const regionData = Array.from(regionMap.entries()).map(([name, value]) => ({ name, value: +value.toFixed(2) })).sort((a, b) => b.value - a.value);
           const currencyData = Array.from(currencyMap.entries()).map(([label, value]) => ({ label, value: +value.toFixed(2) })).sort((a, b) => b.value - a.value);
 
