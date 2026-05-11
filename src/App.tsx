@@ -2380,7 +2380,12 @@ const avgDuration = debtData.length > 0
             </button>
           ))}
         </div>
-
+<div className="flex items-center gap-4 px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-sky-100 shrink-0" />Cash</span>
+  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-amber-100 shrink-0" />Futures</span>
+  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-100 shrink-0" />Mutual funds</span>
+  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-violet-100 shrink-0" />Options</span>
+</div>
         {/* Table */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-50 flex items-center gap-3">
