@@ -1842,7 +1842,7 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
   const [exportText, setExportText] = React.useState("");
   const [debtSearch, setDebtSearch] = React.useState("");
   const [debtSortConfig, setDebtSortConfig] = React.useState<{ key: string; direction: "asc" | "desc" } | null>({ key: "wght_pct", direction: "desc" });
-  const [showSamdpDetail, setShowSamdpDetail] = React.useState<"currency_equity" | "region_equity" | "currency_debt" | "credit_debt" | "duration_debt" | "cash_detail" | null>(null);
+const [showSamdpDetail, setShowSamdpDetail] = React.useState<"currency_equity" | "region_equity" | "currency_debt" | "credit_debt" | "duration_debt" | "cash_detail" | null>(null);
   const [equityLevel, setEquityLevel] = React.useState<1|2|3|4|5>(4);
   const [regionFilter, setRegionFilter] = React.useState<string | null>(null);
   const handleDebtFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2244,33 +2244,36 @@ const avgDuration = debtData.length > 0
                 <p className="text-2xl font-bold text-slate-900">{fmtM(lvl1?.mtm_ptf ?? null)}</p>
                 <p className="text-xs text-slate-400 mt-0.5">EUR</p>
               </div>
-              {lvl2.map((r: any) => {
-                if (r.name !== "Cash") return (
-                  <div key={r.name} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{r.name}</p>
-                    <p className="text-2xl font-bold text-slate-900">{fmtM(r.mtm_ptf ?? null)}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">{r.expo_pct != null ? (Number(r.expo_pct) * 100).toFixed(1) + "%" : "—"}</p>
-                  </div>
-                );
-                const CASH_ISINS = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
-                const cashLines = equityRows.filter((row: any) =>
-                  row.level === 5 &&
-                  (
-                    CASH_ISINS.has((row.isin ?? "").toUpperCase()) ||
-                    (row.instrument_type ?? "").toUpperCase().includes("DEPOSIT")
-                  )
-                );
-                const totalCashExpo = cashLines.reduce((s: number, row: any) => s + Number(row.wght_ptf_ref ?? 0), 0) * 100;
-                return (
-                  <div key={r.name}
-                    onClick={() => setShowSamdpDetail("cash_detail")}
-                    className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm cursor-pointer hover:border-sky-200 hover:shadow-md transition-all">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Cash</p>
-                    <p className="text-2xl font-bold text-slate-900">{totalCashExpo.toFixed(2)}%</p>
-                    <p className="text-xs text-slate-400 mt-0.5">{cashLines.length} ligne{cashLines.length > 1 ? "s" : ""} · cliquez pour détail</p>
-                  </div>
-                );
-              })}
+             {lvl2.map((r: any) => {
+  if (r.name !== "Cash") return (
+    <div key={r.name} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{r.name}</p>
+      <p className="text-2xl font-bold text-slate-900">{fmtM(r.mtm_ptf ?? null)}</p>
+      <p className="text-xs text-slate-400 mt-0.5">{r.expo_pct != null ? (Number(r.expo_pct) * 100).toFixed(1) + "%" : "—"}</p>
+    </div>
+  );
+
+  // KPI Cash — calcul niveau 5
+const CASH_ISINS = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
+const cashLines = equityRows.filter((row: any) =>
+  row.level === 5 &&
+  (
+    CASH_ISINS.has((row.isin ?? "").toUpperCase()) ||
+    (row.instrument_type ?? "").toUpperCase().includes("DEPOSIT")
+  )
+);
+const totalCashExpo = cashLines.reduce((s: number, row: any) => s + Number(row.wght_ptf_ref ?? 0), 0) * 100;
+
+  return (
+    <div key={r.name}
+      onClick={() => setShowSamdpDetail("cash_detail" as any)}
+      className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm cursor-pointer hover:border-sky-200 hover:shadow-md transition-all">
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Cash</p>
+      <p className="text-2xl font-bold text-slate-900">{totalCashExpo.toFixed(2)}%</p>
+      <p className="text-xs text-slate-400 mt-0.5">{cashLines.length} ligne{cashLines.length > 1 ? "s" : ""} · cliquez pour détail</p>
+    </div>
+  );
+})}
             </div>
           );
         })()}
@@ -2985,43 +2988,42 @@ debtData.forEach(inst => {
           </table>
         </div>
       </Modal>
-
-      {/* ── Modale Cash Detail ── */}
-      <Modal isOpen={showSamdpDetail === "cash_detail"} onClose={() => setShowSamdpDetail(null)} title="Détail Cash — Equities">
-        {(() => {
-          const CASH_ISINS = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
-          const cashLines = equityRows.filter((row: any) =>
-            row.level === 5 &&
-            (
-              CASH_ISINS.has((row.isin ?? "").toUpperCase()) ||
-              (row.instrument_type ?? "").toUpperCase().includes("DEPOSIT")
-            )
-          );
-          const total = cashLines.reduce((s: number, row: any) => s + Number(row.wght_ptf_ref ?? 0), 0) * 100;
-          return (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between px-3 py-2 bg-slate-50 rounded-xl">
-                <span className="text-xs font-bold text-slate-500">Total Cash</span>
-                <span className="text-sm font-bold text-slate-900">{total.toFixed(2)}%</span>
+<Modal isOpen={showSamdpDetail === ("cash_detail" as any)} onClose={() => setShowSamdpDetail(null)} title="Détail Cash — Equities">
+  {(() => {
+const CASH_ISINS = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
+const cashLines = equityRows.filter((row: any) =>
+  row.level === 5 &&
+  (
+    CASH_ISINS.has((row.isin ?? "").toUpperCase()) ||
+    (row.instrument_type ?? "").toUpperCase().includes("DEPOSIT")
+  )
+);
+const total = cashLines.reduce((s: number, row: any) => s + Number(row.wght_ptf_ref ?? 0), 0) * 100;
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-3 py-2 bg-slate-50 rounded-xl">
+          <span className="text-xs font-bold text-slate-500">Total Cash</span>
+          <span className="text-sm font-bold text-slate-900">{total.toFixed(2)}%</span>
+        </div>
+        <div className="space-y-2">
+          {cashLines.sort((a: any, b: any) => Number(b.expo_pct ?? 0) - Number(a.expo_pct ?? 0)).map((row: any, i: number) => (
+            <div key={i} className="flex items-center justify-between py-2 border-b border-slate-50">
+              <div>
+                <p className="text-sm font-medium text-slate-900">{row.name}</p>
+                <p className="text-xs text-slate-400">
+                  {row.instrument_type ?? "—"} · {row.currency ?? "—"}
+                </p>
               </div>
-              <div className="space-y-2">
-                {cashLines.sort((a: any, b: any) => Number(b.wght_ptf_ref ?? 0) - Number(a.wght_ptf_ref ?? 0)).map((row: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between py-2 border-b border-slate-50">
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">{row.name}</p>
-                      <p className="text-xs text-slate-400">{row.instrument_type ?? "—"} · {row.currency ?? "—"}</p>
-                    </div>
-                    <span className="text-sm font-bold text-slate-900 w-20 text-right">
-                      {(Number(row.wght_ptf_ref ?? 0) * 100).toFixed(2)}%
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <span className="text-sm font-bold text-slate-900 w-20 text-right">
+                {(Number(row.wght_ptf_ref ?? 0) * 100).toFixed(2)}%
+              </span>
             </div>
-          );
-        })()}
-      </Modal>
-
+          ))}
+        </div>
+      </div>
+    );
+  })()}
+</Modal>
     </div>
   );
 }
@@ -3877,9 +3879,26 @@ return Array.from(m.entries()).map(([name, value]) => {
     );
     const cur = hedged ? "EUR" : (h.currency ?? "Other").toUpperCase().trim();
     m.set(cur, (m.get(cur) ?? 0) + (h.weight ?? 0));
-  }
-}
+      }
+      }
     });
+    const result: { label: string; value: number }[] = [];
+    let other = 0;
+    m.forEach((weight, cur) => {
+      if (KEY_CURRENCIES.includes(cur)) {
+        result.push({ label: cur, value: +weight.toFixed(1) });
+      } else {
+        other += weight;
+      }
+    });
+    if (other > 0.05) result.push({ label: "Other", value: +other.toFixed(1) });
+    const order = ["EUR", "USD", "JPY", "Other"];
+    return result.sort((a, b) => {
+      const ai = order.indexOf(a.label);
+      const bi = order.indexOf(b.label);
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    });
+  }, [currentPortfolio, currencyBreakdowns, dpamLookup, manualOverrides]);
 
 const categoryData = useMemo(() => {
   const m = new Map<string, number>();
@@ -3893,7 +3912,7 @@ const categoryData = useMemo(() => {
     if (h.category !== "Equities") {
       m.set(h.category, (m.get(h.category) ?? 0) + (h.weight ?? 0));
     }
-    
+
     // Chercher la part Cash dans les breakdowns géo (tous fonds y compris Equities)
     const bd = h.isin ? breakdowns[h.isin] : null;
     if (bd) {
@@ -3912,7 +3931,7 @@ const categoryData = useMemo(() => {
       }
     }
     
-    // Chercher la part Cash dans le SAMDP via les lignes niveau 5
+// Chercher la part Cash dans le SAMDP via les lignes niveau 5
     if (h.isin === "LU1795355053" && samdpEquityRows.length > 0) {
       const CASH_ISINS = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
       const cashLines = samdpEquityRows.filter((row: any) =>
@@ -3925,25 +3944,28 @@ const categoryData = useMemo(() => {
       const samdpCashPct = cashLines.reduce((s: number, row: any) => s + Number(row.wght_ptf_ref ?? 0), 0);
       extraCash += (h.weight ?? 0) * samdpCashPct;
     }
+
+console.log("extraCash:", extraCash, "liquidities directes:", m.get("Liquidities"));
+console.log("extraCash:", extraCash, "liquidities directes:", m.get("Liquidities"));
+console.log("samdpGeoBreakdown:", samdpGeoBreakdown);
+console.log("breakdowns LU0846948437:", breakdowns["LU0846948437"]);
+  
+  // Ajouter l'exposition Equities réelle = somme des régions
+  const totalEquities = regionData.reduce((s, d) => s + d.value, 0);
+  if (totalEquities > 0) m.set("Equities", totalEquities);
+  
+  // Ajouter le cash extra aux Liquidities
+  if (extraCash > 0) {
+    m.set("Liquidities", (m.get("Liquidities") ?? 0) + extraCash);
+  }
+  
+  const profile = detectRiskProfile(currentPortfolio?.name);
+  return Array.from(m.entries()).map(([name, value]) => {
+    const gridId = CATEGORY_TO_GRID[name];
+    const target = profile && gridId ? targetGridData[gridId]?.[profile]?.["target"] ?? null : null;
+    return { name, value: +value.toFixed(1), target };
   });
-    
-    const result: { label: string; value: number }[] = [];
-    let other = 0;
-    m.forEach((weight, cur) => {
-      if (KEY_CURRENCIES.includes(cur)) {
-        result.push({ label: cur, value: +weight.toFixed(1) });
-      } else {
-        other += weight;
-      }
-    });
-    if (other > 0.05) result.push({ label: "Other", value: +other.toFixed(1) });
-    const order = ["EUR", "USD", "JPY", "Other"];
-    return result.sort((a, b) => {
-      const ai = order.indexOf(a.label);
-      const bi = order.indexOf(b.label);
-      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-    });
-  }, [currentPortfolio, currencyBreakdowns]);
+}, [currentPortfolio, targetGridData, breakdowns, dpamLookup, samdpGeoBreakdown, regionData, samdpEquityRows]);
 
  // ── Credit exposure — agrégation par credit_type sur tout le portefeuille ──
 
