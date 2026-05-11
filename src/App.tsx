@@ -2785,8 +2785,86 @@ debtData.forEach(inst => {
       </Modal>
 
       {/* ── Modale Région Equity ── */}
-      <Modal isOpen={showSamdpDetail === "region_equity"} onClose={() => setShowSamdpDetail(null)} title="Détail Exposition Régionale — Equities">
-  <div className="space-y-3">
+<Modal isOpen={showSamdpDetail === "region_equity"} onClose={() => setShowSamdpDetail(null)} title="Détail Exposition Régionale — Equities">
+  {(() => {
+    const [regionFilter, setRegionFilter] = React.useState<string | null>(null);
+    
+    const allRows = equityRows
+      .filter((r: any) => r.level === 5 && r.isin)
+      .flatMap((inst: any) => {
+        const w = Number(inst.expo_pct ?? 0) * 100;
+        if (w === 0) return [];
+        const override = manualOverrides.find((ov: any) =>
+          (ov.manual_isin && ov.manual_isin === inst.isin) ||
+          (ov.original_asset_name && ov.original_asset_name === inst.name)
+        );
+        const breakdown = breakdowns[override?.manual_isin || inst.isin];
+        if (breakdown && breakdown.length > 0) {
+          return breakdown.map((entry: any) => ({
+            name: inst.name, isin: inst.isin,
+            region: entry.region,
+            exposition: w * entry.weight / 100,
+          }));
+        }
+        const COUNTRY_TO_REGION: Record<string, string> = {
+          "United States": "US", "Canada": "US",
+          "Belgium": "Europe", "France": "Europe", "Germany": "Europe", "Italy": "Europe",
+          "Spain": "Europe", "Netherlands": "Europe", "Ireland": "Europe", "Austria": "Europe",
+          "Sweden": "Europe", "Switzerland": "Europe", "United Kingdom": "Europe",
+          "Japan": "Japan",
+          "China": "EM", "South Korea": "EM", "India": "EM", "Brazil": "EM", "Taiwan": "EM",
+        };
+        const region = override?.manual_region || COUNTRY_TO_REGION[inst.dom_country ?? ""] || "Others";
+        return [{ name: inst.name, isin: inst.isin, region, exposition: w }];
+      });
+
+    const regions = Array.from(new Set(allRows.map(r => r.region)));
+    const filtered = regionFilter ? allRows.filter(r => r.region === regionFilter) : allRows;
+    const totalFiltered = filtered.reduce((s, r) => s + r.exposition, 0);
+
+    return (
+      <div className="space-y-4">
+        {/* Filtres région */}
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => setRegionFilter(null)}
+            className={cn("px-3 py-1 rounded-lg text-xs font-bold transition-all",
+              !regionFilter ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200")}>
+            Toutes
+          </button>
+          {regions.map(r => (
+            <button key={r} onClick={() => setRegionFilter(r === regionFilter ? null : r)}
+              className={cn("px-3 py-1 rounded-lg text-xs font-bold transition-all",
+                regionFilter === r ? "bg-amber-500 text-white" : "bg-amber-50 text-amber-700 hover:bg-amber-100")}>
+              {r}
+            </button>
+          ))}
+        </div>
+
+        {/* Total filtré */}
+        <div className="flex items-center justify-between px-3 py-2 bg-slate-50 rounded-xl">
+          <span className="text-xs font-bold text-slate-500">Total {regionFilter ?? "toutes régions"}</span>
+          <span className="text-sm font-bold text-slate-900">{totalFiltered.toFixed(2)}%</span>
+        </div>
+
+        {/* Liste */}
+        <div className="space-y-2">
+          {filtered.sort((a, b) => b.exposition - a.exposition).map((row, i) => (
+            <div key={i} className="flex items-center justify-between py-2 border-b border-slate-50">
+              <div>
+                <p className="text-sm font-medium text-slate-900 truncate max-w-[280px]">{row.name}</p>
+                <p className="text-xs text-slate-400">{row.isin}</p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">{row.region}</span>
+                <span className="text-sm font-bold text-slate-900 w-20 text-right">{row.exposition.toFixed(2)}%</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  })()}
+</Modal>
     {equityRows
       .filter((r: any) => r.level === 5 && r.isin)
       .map((inst: any) => {
