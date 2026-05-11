@@ -3868,24 +3868,23 @@ const categoryData = useMemo(() => {
       }
     }
   });
-    
-    const result: { label: string; value: number }[] = [];
-    let other = 0;
-    m.forEach((weight, cur) => {
-      if (KEY_CURRENCIES.includes(cur)) {
-        result.push({ label: cur, value: +weight.toFixed(1) });
-      } else {
-        other += weight;
-      }
-    });
-    if (other > 0.05) result.push({ label: "Other", value: +other.toFixed(1) });
-    const order = ["EUR", "USD", "JPY", "Other"];
-    return result.sort((a, b) => {
-      const ai = order.indexOf(a.label);
-      const bi = order.indexOf(b.label);
-      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-    });
-  }, [currentPortfolio, currencyBreakdowns]);
+  
+  // Ajouter l'exposition Equities réelle = somme des régions
+  const totalEquities = regionData.reduce((s, d) => s + d.value, 0);
+  if (totalEquities > 0) m.set("Equities", totalEquities);
+  
+  // Ajouter le cash extra aux Liquidities
+  if (extraCash > 0) {
+    m.set("Liquidities", (m.get("Liquidities") ?? 0) + extraCash);
+  }
+  
+  const profile = detectRiskProfile(currentPortfolio?.name);
+  return Array.from(m.entries()).map(([name, value]) => {
+    const gridId = CATEGORY_TO_GRID[name];
+    const target = profile && gridId ? targetGridData[gridId]?.[profile]?.["target"] ?? null : null;
+    return { name, value: +value.toFixed(1), target };
+  });
+}, [currentPortfolio, targetGridData, breakdowns, dpamLookup, samdpGeoBreakdown, regionData]);
 
  // ── Credit exposure — agrégation par credit_type sur tout le portefeuille ──
 
