@@ -116,35 +116,42 @@ if (section === "samdp_equity_parse") {
     }
 
     const rows: any[] = allRows.map((row, i) => {
-      const prev = allRows[i - 1];
-      const isConsecutive = prev && row.row_index === prev.row_index + 1;
-      
-      let level: number;
-      if (i === 0) level = 1;
-      else if (isConsecutive) level = 5;
-      else if (LEVEL2_NAMES.has(row.name)) level = 2;
-      else if (
-        !row.isin &&
-        row.instrument_type &&
-        LEVEL3_TYPES.has(row.instrument_type) &&
-        row.name === row.instrument_type
-      ) level = 3;
-      else if (
-        !row.isin &&
-        LEVEL3_TYPES.has(row.instrument_type ?? "") &&
-        !LEVEL2_NAMES.has(row.name)
-      ) level = row.name === row.instrument_type ? 3 : 4;
-      else level = 4;
-      
-      return { ...row, level };
-    });
+  const prev = allRows[i - 1];
+  const isDuplicate = prev && 
+    row.name === prev.name && 
+    row.isin === prev.isin &&
+    row.instrument_type === prev.instrument_type;
 
-    return res.json({ rows });
-  } catch (e: any) {
-    return res.status(500).json({ error: e.message });
+  let level: number;
+  if (i === 0) level = 1;
+  else if (isDuplicate) level = 5;
+  else if (LEVEL2_NAMES.has(row.name)) level = 2;
+  else if (
+    !row.isin &&
+    row.instrument_type &&
+    LEVEL3_TYPES.has(row.instrument_type) &&
+    row.name === row.instrument_type
+  ) level = 3;
+  else if (
+    !row.isin &&
+    LEVEL3_TYPES.has(row.instrument_type ?? "") &&
+    !LEVEL2_NAMES.has(row.name)
+  ) level = row.name === row.instrument_type ? 3 : 4;
+  else level = 4;
+  
+  return { ...row, level };
+});
+  // Post-processing Options
+for (let i = 1; i < rows.length; i++) {
+  if (rows[i].level === 4 && rows[i-1].level === 4 && 
+      !LEVEL2_NAMES.has(rows[i].name) &&
+      rows[i-1].instrument_type === "OPTION ON INDEX" &&
+      rows[i].instrument_type === "OPTION ON INDEX") {
+    rows[i].level = 5;
   }
 }
-  
+
+return res.json({ rows });
 if (section === "samdp_equity") {
 
   if (req.method === "GET") {
