@@ -2019,23 +2019,26 @@ const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     // Chaque instrument apparaît deux fois de suite avec les mêmes données
     // On garde une ligne sur deux (les lignes paires = niveau 4, les impaires = niveau 5)
     // En pratique : si la ligne suivante a le même nom ET même mtm_ptf → doublon, supprimer la seconde
-    const dedupedRows: any[] = [];
-    for (let i = 0; i < allRows.length; i++) {
-      const curr = allRows[i];
-      const next = allRows[i + 1];
-      if (
-        next &&
-        curr.name === next.name &&
-        curr.mtm_ptf === next.mtm_ptf &&
-        curr.isin === next.isin
-      ) {
-        // Doublon — garder seulement curr, skip next
-        dedupedRows.push(curr);
-        i++; // skip next
-      } else {
-        dedupedRows.push(curr);
-      }
-    }
+// Pas de déduplication — assigner le niveau basé sur la position
+// Les doublons consécutifs = le premier est niveau N, le second est niveau N+1
+const dedupedRows: any[] = [];
+for (let i = 0; i < allRows.length; i++) {
+  const curr = allRows[i];
+  const next = allRows[i + 1];
+  if (
+    next &&
+    curr.name === next.name &&
+    curr.mtm_ptf === next.mtm_ptf &&
+    curr.isin === next.isin
+  ) {
+    // Doublon — garder les deux avec niveaux différents
+    dedupedRows.push({ ...curr, _isFirstOfPair: true });
+    dedupedRows.push({ ...next, _isSecondOfPair: true });
+    i++; // skip next car déjà ajouté
+  } else {
+    dedupedRows.push(curr);
+  }
+}
 
     // ── Assigner les niveaux ──
     // Structure connue du fichier :
@@ -2053,37 +2056,38 @@ const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       "FUTURE ON INDEX", "ETF EQUITIES", "OPTION ON INDEX"
     ]);
 
-    const rowsWithLevel: any[] = dedupedRows.map((row, i) => {
-      let level: number;
-      
-      if (i === 0) {
-        // Première ligne = Holdings = level 1
-        level = 1;
-      } else if (LEVEL2_NAMES.has(row.name)) {
-        level = 2;
-      } else if (
-        !row.isin && 
-        row.instrument_type && 
-        LEVEL3_TYPES.has(row.instrument_type) &&
-        row.name === row.instrument_type
-      ) {
-        level = 3;
-      } else if (
-        !row.isin &&
-        LEVEL3_TYPES.has(row.instrument_type ?? "") &&
-        !LEVEL2_NAMES.has(row.name)
-      ) {
-        // Ligne sans ISIN mais avec un type connu = level 3 ou 4
-        // Si le nom == type → level 3, sinon level 4
-        level = row.name === row.instrument_type ? 3 : 4;
-      } else {
-        // Ligne avec ISIN ou instrument individuel = level 4
-        level = 4;
-      }
-      
-      return { ...row, level };
-    });
-
+   const rowsWithLevel: any[] = dedupedRows.map((row, i) => {
+  let level: number;
+  
+  if (i === 0) {
+    level = 1;
+  } else if (LEVEL2_NAMES.has(row.name)) {
+    level = 2;
+  } else if (
+    !row.isin &&
+    row.instrument_type &&
+    LEVEL3_TYPES.has(row.instrument_type) &&
+    row.name === row.instrument_type
+  ) {
+    level = 3;
+  } else if (
+    !row.isin &&
+    LEVEL3_TYPES.has(row.instrument_type ?? "") &&
+    !LEVEL2_NAMES.has(row.name)
+  ) {
+    level = row.name === row.instrument_type ? 3 : 4;
+  } else if (row._isSecondOfPair) {
+    // Doublon = niveau 5
+    level = 5;
+  } else {
+    // Premier d'une paire ou ligne unique = niveau 4
+    level = 4;
+  }
+  
+  const { _isFirstOfPair, _isSecondOfPair, ...cleanRow } = row;
+  return { ...cleanRow, level };
+});
+    
     console.log("Rows with levels:", rowsWithLevel.map(r => `L${r.level}: ${r.name}`));
     console.log("Total rows:", rowsWithLevel.length);
 
