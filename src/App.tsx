@@ -2636,8 +2636,7 @@ debtData.forEach(inst => {
         </div>
       </div>
     </div>
-  );
-})()}
+  )}
         
         {/* Table */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
@@ -4971,7 +4970,7 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
                             </button>
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {(drillDownFilter.type === "currency" ? [...currencyDrillDownHoldings] : [...drillDownHoldings])
+                            {[...drillDownHoldings]
                               .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0))
                               .map((h, i) => (
                                 <button key={i} onClick={() => setSelectedInstrument(h)}
