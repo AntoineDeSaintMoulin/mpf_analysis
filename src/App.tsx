@@ -2285,7 +2285,7 @@ const avgDuration = debtData.length > 0
           const totalWghtEtf = etfRows.reduce((s: number, r: any) => s + Number(r.wght_pct ?? 0), 0);
 
           etfRows.forEach((inst: any) => {
-            const w = Number(inst.wght_pct ?? 0) * 100;
+            const w = Number(inst.expo_pct ?? 0) * 100;
             if (w === 0) return;
             const override = manualOverrides.find((ov: any) =>
               (ov.manual_isin && ov.manual_isin === inst.isin) ||
