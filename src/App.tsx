@@ -3798,11 +3798,11 @@ applyLookThrough(equityHoldings).forEach(({ region, weight }) => {
   m.set(region, (m.get(region) ?? 0) + weight);
 });
     const profile = detectRiskProfile(currentPortfolio?.name);
-    return Array.from(m.entries()).map(([name, value]) => {
+return Array.from(m.entries()).map(([name, value]) => {
       const gridId = REGION_TO_GRID[name];
       const target = profile && gridId ? targetGridData[gridId]?.[profile]?.["target"] ?? null : null;
       return { name, value: +value.toFixed(1), target };
-    });
+    }).sort((a, b) => b.value - a.value);
   }, [currentPortfolio, breakdowns, targetGridData, dpamLookup]);
 
   const currencyData = useMemo(() => {
