@@ -1970,21 +1970,85 @@ const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs" as any);
     const buffer = await file.arrayBuffer();
 
-    // Envoyer le fichier en base64 au serveur pour parsing Python
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
-    const parseRes = await fetch("/api/dpam-data?section=samdp_equity_parse", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ filename: file.name, fileBase64: base64 }),
+   const wb = XLSX.read(buffer, { type: "array", cellDates: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+
+    const allCellKeys = Object.keys(ws).filter((k: string) => !k.startsWith('!'));
+    const instrumentRows: Map<number, any[]> = new Map();
+    allCellKeys.forEach((key: string) => {
+      const decoded = XLSX.utils.decode_cell(key);
+      if (!instrumentRows.has(decoded.r)) instrumentRows.set(decoded.r, []);
+      const row = instrumentRows.get(decoded.r)!;
+      row[decoded.c] = ws[key]?.v;
     });
 
-    if (!parseRes.ok) {
-      alert("Erreur lors du parsing: " + await parseRes.text());
-      return;
+    const toNum = (v: any) => v != null && !isNaN(Number(v)) ? Number(v) : null;
+    const toStr = (v: any) => v != null && String(v).trim() !== '' ? String(v).trim() : null;
+
+    const sortedRows = Array.from(instrumentRows.entries()).sort(([a], [b]) => a - b);
+
+    const LEVEL2_NAMES = new Set(["Cash", "Futures", "Mutual funds", "Options"]);
+    const LEVEL3_TYPES = new Set([
+      "CASH: PROVISION", "CURRENCY", "DEPOSIT",
+      "FUTURE ON INDEX", "ETF EQUITIES", "OPTION ON INDEX"
+    ]);
+
+    const allRows: any[] = [];
+    for (const [rowIdx, row] of sortedRows) {
+      if (rowIdx === 0) continue;
+      const name = toStr(row[0]);
+      if (!name) continue;
+      allRows.push({
+        row_index: rowIdx + 1,
+        name,
+        isin: toStr(row[1]),
+        instrument_type: toStr(row[3]),
+        currency: toStr(row[13]),
+        quantity: toNum(row[14]),
+        mtm_ptf: toNum(row[18]),
+        expo_pct: toNum(row[19]),
+        wght_pct: toNum(row[22]),
+        wght_ref: toNum(row[23]),
+        wght_ptf_ref: toNum(row[24]),
+      });
     }
 
-    const { rows: rowsWithLevel } = await parseRes.json();
-    console.log("Rows from server:", rowsWithLevel.map((r: any) => `L${r.level}: ${r.name}`));
+    const rowsWithLevel: any[] = allRows.map((row, i) => {
+      const prev = allRows[i - 1];
+      const isDuplicate = prev &&
+        row.name === prev.name &&
+        row.isin === prev.isin &&
+        row.instrument_type === prev.instrument_type;
+
+      let level: number;
+      if (i === 0) level = 1;
+      else if (isDuplicate) level = 5;
+      else if (LEVEL2_NAMES.has(row.name)) level = 2;
+      else if (
+        !row.isin &&
+        row.instrument_type &&
+        LEVEL3_TYPES.has(row.instrument_type) &&
+        row.name === row.instrument_type
+      ) level = 3;
+      else if (
+        !row.isin &&
+        LEVEL3_TYPES.has(row.instrument_type ?? "") &&
+        !LEVEL2_NAMES.has(row.name)
+      ) level = row.name === row.instrument_type ? 3 : 4;
+      else level = 4;
+
+      return { ...row, level };
+    });
+
+    // Post-processing Options
+    for (let i = 1; i < rowsWithLevel.length; i++) {
+      if (rowsWithLevel[i].level === 4 && rowsWithLevel[i-1].level === 4 &&
+          !LEVEL2_NAMES.has(rowsWithLevel[i].name) &&
+          rowsWithLevel[i-1].instrument_type === "OPTION ON INDEX" &&
+          rowsWithLevel[i].instrument_type === "OPTION ON INDEX") {
+        rowsWithLevel[i].level = 5;
+      }
+    }
     
     if (rowsWithLevel.length === 0) {
       alert("Aucune donnée trouvée dans ce fichier.");
