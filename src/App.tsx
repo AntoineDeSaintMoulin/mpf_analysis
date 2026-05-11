@@ -5695,3 +5695,4 @@ const contribution = totalWeight > 0 ? (h.weight ?? 0) * dur / totalWeight : 0;
     </div>
   );
 }
+
