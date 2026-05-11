@@ -1822,7 +1822,7 @@ interface SamdpInstrument {
   wght_pct: number | null;
 }
  
-function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, debtData, debtImportLog, durations, equityRows }: {
+function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, debtData, debtImportLog, durations, equityRows, breakdowns }: {
   equityData: any[];
   importLog: any | null;
   manualOverrides: any[];
@@ -1831,6 +1831,7 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
   debtImportLog: any | null;
   durations: Record<string, { duration: number; updated_at: string }>;
   equityRows: any[];
+  breakdowns: Record<string, any[]>;
 }) {
   
   const [view, setView] = React.useState<SamdpView>("Equities");
@@ -4599,6 +4600,7 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
   debtImportLog={samdpDebtImportLog}
   durations={durations}
   equityRows={samdpEquityRows}
+  breakdowns={breakdowns}
 />
   </motion.div>
 )}
