@@ -70,10 +70,10 @@ if (section === "samdp_equity_parse") {
   if (!filename || !fileBase64) return res.status(400).json({ error: "Missing fields" });
 
   try {
-    const XLSX = require("xlsx");
-    const buffer = Buffer.from(fileBase64, "base64");
-    const wb = XLSX.read(buffer, { type: "buffer", cellStyles: true });
-    const ws = wb.Sheets[wb.SheetNames[0]];
+const XLSX = await import("xlsx");
+const buffer = Buffer.from(fileBase64, "base64");
+const wb = XLSX.read(buffer, { type: "buffer", cellStyles: true });
+const ws = wb.Sheets[wb.SheetNames[0]];
 
     const allCellKeys = Object.keys(ws).filter((k: string) => !k.startsWith('!'));
     const instrumentRows: Map<number, any> = new Map();
