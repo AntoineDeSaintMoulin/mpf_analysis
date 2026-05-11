@@ -2040,21 +2040,23 @@ const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       return { ...row, level };
     });
 
-    // Post-processing Options
+// Post-processing Options
     for (let i = 1; i < rowsWithLevel.length; i++) {
-      if (rowsWithLevel[i].level === 4 && rowsWithLevel[i-1].level === 4 &&
+      if (rowsWithLevel[i].level === 4 &&
           !LEVEL2_NAMES.has(rowsWithLevel[i].name) &&
-          rowsWithLevel[i-1].instrument_type === "OPTION ON INDEX" &&
           rowsWithLevel[i].instrument_type === "OPTION ON INDEX") {
-        rowsWithLevel[i].level = 5;
+        // Chercher le parent L4 le plus proche
+        let hasL4Parent = false;
+        for (let j = i - 1; j >= 0; j--) {
+          if (rowsWithLevel[j].level === 4 && rowsWithLevel[j].instrument_type === "OPTION ON INDEX") {
+            hasL4Parent = true;
+            break;
+          }
+          if (rowsWithLevel[j].level <= 3) break;
+        }
+        if (hasL4Parent) rowsWithLevel[i].level = 5;
       }
     }
-    
-    if (rowsWithLevel.length === 0) {
-      alert("Aucune donnée trouvée dans ce fichier.");
-      return;
-    }
-
     // Envoyer à l'API section samdp_equity
     const apiRes = await fetch("/api/dpam-data?section=samdp_equity", {
       method: "POST",
