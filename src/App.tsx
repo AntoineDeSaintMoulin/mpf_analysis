@@ -2082,9 +2082,35 @@ for (let i = 0; i < allRows.length; i++) {
     // Premier d'une paire ou ligne unique = niveau 4
     level = 4;
   }
-  
-  const { _isFirstOfPair, _isSecondOfPair, ...cleanRow } = row;
-  return { ...cleanRow, level };
+  const isSecond = row._isSecondOfPair === true;
+const { _isFirstOfPair, _isSecondOfPair, ...cleanRow } = row;
+
+let level: number;
+if (i === 0) {
+  level = 1;
+} else if (LEVEL2_NAMES.has(row.name)) {
+  level = 2;
+} else if (
+  !row.isin &&
+  row.instrument_type &&
+  LEVEL3_TYPES.has(row.instrument_type) &&
+  row.name === row.instrument_type
+) {
+  level = 3;
+} else if (
+  !row.isin &&
+  LEVEL3_TYPES.has(row.instrument_type ?? "") &&
+  !LEVEL2_NAMES.has(row.name)
+) {
+  level = row.name === row.instrument_type ? 3 : 4;
+} else if (isSecond) {
+  level = 5;
+} else {
+  level = 4;
+}
+
+return { ...cleanRow, level };
+
 });
     
     console.log("Rows with levels:", rowsWithLevel.map(r => `L${r.level}: ${r.name}`));
