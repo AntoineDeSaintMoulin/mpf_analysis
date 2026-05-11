@@ -3737,23 +3737,6 @@ console.log("LU2799769836:", result["LU2799769836"]);
 
 
   
-  // Ajouter l'exposition Equities réelle = somme des régions
-  const totalEquities = regionData.reduce((s, d) => s + d.value, 0);
-  if (totalEquities > 0) m.set("Equities", totalEquities);
-  
-  // Ajouter le cash extra aux Liquidities
-  if (extraCash > 0) {
-    m.set("Liquidities", (m.get("Liquidities") ?? 0) + extraCash);
-  }
-  
-  const profile = detectRiskProfile(currentPortfolio?.name);
-  return Array.from(m.entries()).map(([name, value]) => {
-    const gridId = CATEGORY_TO_GRID[name];
-    const target = profile && gridId ? targetGridData[gridId]?.[profile]?.["target"] ?? null : null;
-    return { name, value: +value.toFixed(1), target };
-  });
-}, [currentPortfolio, targetGridData, breakdowns, dpamLookup, samdpGeoBreakdown, regionData]);
-  
 const samdpGeoBreakdown = useMemo(() => {
   if (samdpEquityRows.length === 0) return null;
   const level5 = samdpEquityRows.filter((r: any) => r.level === 5 && r.isin);
