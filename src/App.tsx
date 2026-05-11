@@ -1842,7 +1842,7 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
   const [debtSearch, setDebtSearch] = React.useState("");
   const [debtSortConfig, setDebtSortConfig] = React.useState<{ key: string; direction: "asc" | "desc" } | null>({ key: "wght_pct", direction: "desc" });
   const [showSamdpDetail, setShowSamdpDetail] = React.useState<"currency_equity" | "region_equity" | "currency_debt" | "credit_debt" | "duration_debt" | null>(null);
-  const [equityLevel, setEquityLevel] = React.useState<1|2|3|4>(4);
+  const [equityLevel, setEquityLevel] = React.useState<1|2|3|4|5>(4);
   const handleDebtFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
   const file = e.target.files?.[0];
   if (!file) return;
@@ -2372,7 +2372,7 @@ const avgDuration = debtData.length > 0
         {/* Filtre par niveau */}
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Niveau</span>
-          {([1, 2, 3, 4] as const).map(lvl => (
+          {([1, 2, 3, 4, 5] as const).map(lvl => (
             <button key={lvl} onClick={() => setEquityLevel(lvl)}
               className={cn("px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
                 equityLevel === lvl ? "bg-sky-600 text-white shadow-sm" : "bg-slate-100 text-slate-500 hover:bg-slate-200")}>
