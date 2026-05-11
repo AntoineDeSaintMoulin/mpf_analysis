@@ -3851,15 +3851,11 @@ const categoryData = useMemo(() => {
   (currentPortfolio?.holdings ?? []).forEach((h) => {
     if (!h?.category) return;
     
-    if (h.category === "Equities") {
-      // Pour les Equities, on utilise l'exposition réelle via look-through
-      // (calculée dans regionData) — on ne l'ajoute pas ici, on le fera après
-      return;
+    if (h.category !== "Equities") {
+      m.set(h.category, (m.get(h.category) ?? 0) + (h.weight ?? 0));
     }
-    
-    m.set(h.category, (m.get(h.category) ?? 0) + (h.weight ?? 0));
-    
-    // Chercher la part Cash dans les breakdowns
+
+    // Chercher la part Cash dans les breakdowns géo (tous fonds y compris Equities)
     const bd = h.isin ? breakdowns[h.isin] : null;
     if (bd) {
       const cashEntry = bd.find(e => e.region === "Cash");
