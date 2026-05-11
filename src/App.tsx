@@ -3075,7 +3075,30 @@ useEffect(() => {
   const current = allPortfolios.find(p => p.id === selectedId) ?? null;
   setCurrentPortfolio(current);
 }, [selectedId, allPortfolios]);
+useEffect(() => {
+  const handler = async () => {
+    const res = await fetch("/api/dpam-data?section=samdp_debt");
+    if (res.ok) {
+      const data = await res.json();
+      if (data.instruments) setSamdpDebtInstruments(data.instruments);
+      if (data.importLog) setSamdpDebtImportLog(data.importLog);
+    }
+  };
+  window.addEventListener("samdp-debt-updated", handler);
+  return () => window.removeEventListener("samdp-debt-updated", handler);
+}, []);
 
+useEffect(() => {
+  const handler = async () => {
+    const res = await fetch("/api/dpam-data?section=samdp_equity");
+    if (res.ok) {
+      const data = await res.json();
+      if (data.rows) setSamdpEquityRows(data.rows);
+    }
+  };
+  window.addEventListener("samdp-equity-updated", handler);
+  return () => window.removeEventListener("samdp-equity-updated", handler);
+}, []);
   useEffect(() => {
     if (activeTab !== "Sicav" && activeTab !== "Mixed") return;
     const filtered = portfolios
