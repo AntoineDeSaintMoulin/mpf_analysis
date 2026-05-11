@@ -2043,13 +2043,13 @@ const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
   // Post-processing : enfants de niveau 5 avec noms différents du parent
     const LEVEL3_PARENT_TYPES = new Set(["OPTION ON INDEX", "FUTURE ON INDEX"]);
     for (let i = 1; i < rowsWithLevel.length; i++) {
-      if (rowsWithLevel[i].level === 4 &&
+      if (rowsWithLevel[i].level === 5 &&
           !LEVEL2_NAMES.has(rowsWithLevel[i].name) &&
           LEVEL3_PARENT_TYPES.has(rowsWithLevel[i].instrument_type ?? "")) {
         // Chercher le parent L4 le plus proche avec le même instrument_type
         let hasL4Parent = false;
         for (let j = i - 1; j >= 0; j--) {
-          if (rowsWithLevel[j].level === 4 && 
+          if (rowsWithLevel[j].level === 5 && 
               LEVEL3_PARENT_TYPES.has(rowsWithLevel[j].instrument_type ?? "")) {
             hasL4Parent = true;
             break;
@@ -2256,7 +2256,7 @@ const avgDuration = debtData.length > 0
         {/* Graphes exposition — uniquement pour les lignes ETF EQUITIES level 4 */}
         {(() => {
           const etfRows = equityRows.filter((r: any) => 
-            r.level === 4 && r.instrument_type === "ETF EQUITIES" && r.isin
+            r.level === 5 && r.instrument_type === "ETF EQUITIES" && r.isin
           );
           if (etfRows.length === 0) return null;
 
@@ -2411,7 +2411,7 @@ const avgDuration = debtData.length > 0
   return (
     <tr key={i} className={cn("transition-colors", groupColor, r.level === 1 ? "font-bold" : "")}>
       <td className="px-4 py-3 truncate max-w-[100px]">
-        {r.level === 4 && r.isin ? (
+        {r.level === 5 && r.isin ? (
           <button onClick={() => {
             const override = manualOverrides.find((ov: any) =>
               (ov.manual_isin && ov.manual_isin === r.isin) ||
@@ -2785,41 +2785,60 @@ debtData.forEach(inst => {
 
       {/* ── Modale Région Equity ── */}
       <Modal isOpen={showSamdpDetail === "region_equity"} onClose={() => setShowSamdpDetail(null)} title="Détail Exposition Régionale — Equities">
-        <div className="space-y-3">
-          {equityData.map(inst => {
-            const w = Number(inst.wght_pct ?? 0) * 100;
-            if (w === 0) return null;
-            const COUNTRY_TO_REGION: Record<string, string> = {
-              "United States": "US", "Canada": "US",
-              "Belgium": "Europe", "France": "Europe", "Germany": "Europe", "Italy": "Europe",
-              "Spain": "Europe", "Netherlands": "Europe", "Ireland": "Europe", "Austria": "Europe",
-              "Denmark": "Europe", "Finland": "Europe", "Norway": "Europe", "Luxembourg": "Europe",
-              "Sweden": "Europe", "Switzerland": "Europe", "Portugal": "Europe", "United Kingdom": "Europe",
-              "Japan": "Japan",
-              "China": "EM", "South Korea": "EM", "Korea": "EM", "India": "EM", "Brazil": "EM",
-              "Taiwan": "EM", "Mexico": "EM", "South Africa": "EM", "Malaysia": "EM",
-              "Australia": "Others", "Singapore": "Others", "Hong Kong": "Others",
-            };
-            const manualRegion = manualOverrides.find(ov =>
-              (ov.manual_isin && ov.manual_isin === inst.isin) ||
-              (ov.original_asset_name && ov.original_asset_name === inst.name)
-            )?.manual_region;
-            const region = manualRegion || COUNTRY_TO_REGION[inst.dom_country ?? ""] || "Others";
-            return (
-              <div key={inst.isin} className="flex items-center justify-between py-2 border-b border-slate-50">
-                <div>
-                  <p className="text-sm font-medium text-slate-900 truncate max-w-[280px]">{inst.name}</p>
-                  <p className="text-xs text-slate-400">{inst.dom_country ?? "—"}</p>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">{region}</span>
-                  <span className="text-sm font-bold text-slate-900 w-16 text-right">{w.toFixed(2)}%</span>
-                </div>
+  <div className="space-y-3">
+    {equityRows
+      .filter((r: any) => r.level === 5 && r.isin)
+      .map((inst: any) => {
+        const w = Number(inst.expo_pct ?? 0) * 100;
+        if (w === 0) return null;
+        const override = manualOverrides.find((ov: any) =>
+          (ov.manual_isin && ov.manual_isin === inst.isin) ||
+          (ov.original_asset_name && ov.original_asset_name === inst.name)
+        );
+        const breakdown = breakdowns[override?.manual_isin || inst.isin];
+        
+        if (breakdown && breakdown.length > 0) {
+          return breakdown.map((entry: any) => (
+            <div key={`${inst.isin}-${entry.region}`} className="flex items-center justify-between py-2 border-b border-slate-50">
+              <div>
+                <p className="text-sm font-medium text-slate-900 truncate max-w-[280px]">{inst.name}</p>
+                <p className="text-xs text-slate-400">{inst.isin}</p>
               </div>
-            );
-          }).filter(Boolean)}
-        </div>
-      </Modal>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">{entry.region}</span>
+                <span className="text-sm font-bold text-slate-900 w-20 text-right">
+                  {(w * entry.weight / 100).toFixed(2)}%
+                </span>
+              </div>
+            </div>
+          ));
+        }
+        
+        const COUNTRY_TO_REGION: Record<string, string> = {
+          "United States": "US", "Canada": "US",
+          "Belgium": "Europe", "France": "Europe", "Germany": "Europe", "Italy": "Europe",
+          "Spain": "Europe", "Netherlands": "Europe", "Ireland": "Europe", "Austria": "Europe",
+          "Sweden": "Europe", "Switzerland": "Europe", "United Kingdom": "Europe",
+          "Japan": "Japan",
+          "China": "EM", "South Korea": "EM", "India": "EM", "Brazil": "EM", "Taiwan": "EM",
+        };
+        const region = override?.manual_region || COUNTRY_TO_REGION[inst.dom_country ?? ""] || "Others";
+        
+        return (
+          <div key={inst.isin} className="flex items-center justify-between py-2 border-b border-slate-50">
+            <div>
+              <p className="text-sm font-medium text-slate-900 truncate max-w-[280px]">{inst.name}</p>
+              <p className="text-xs text-slate-400">{inst.isin} — {region === "Others" ? <span className="text-rose-500">⚠ Région non configurée</span> : inst.isin}</p>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">{region}</span>
+              <span className="text-sm font-bold text-slate-900 w-20 text-right">{w.toFixed(2)}%</span>
+            </div>
+          </div>
+        );
+      }).flat().filter(Boolean)}
+  </div>
+</Modal>
 
       {/* ── Modale Devise Debt ── */}
       <Modal isOpen={showSamdpDetail === "currency_debt"} onClose={() => setShowSamdpDetail(null)} title="Détail Exposition Devise — Debt">
