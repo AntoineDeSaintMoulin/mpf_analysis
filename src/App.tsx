@@ -2091,6 +2091,13 @@ for (let i = 0; i < allRows.length; i++) {
     console.log("Rows with levels:", rowsWithLevel.map(r => `L${r.level}: ${r.name}`));
     console.log("Total rows:", rowsWithLevel.length);
 
+console.log("Levels distribution:", rowsWithLevel.reduce((acc: any, r: any) => {
+  acc[r.level] = (acc[r.level] ?? 0) + 1;
+  return acc;
+}, {}));
+console.log("Sample level 5:", rowsWithLevel.filter(r => r.level === 5).slice(0, 3));
+console.log("Sample pairs:", rowsWithLevel.filter((r: any) => r._isSecondOfPair).slice(0, 3));
+    
     if (rowsWithLevel.length === 0) {
       alert("Aucune donnée trouvée dans ce fichier.");
       return;
