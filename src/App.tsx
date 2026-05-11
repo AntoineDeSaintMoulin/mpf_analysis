@@ -2636,7 +2636,8 @@ debtData.forEach(inst => {
         </div>
       </div>
     </div>
-  )}
+  );
+})()}
         
         {/* Table */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
