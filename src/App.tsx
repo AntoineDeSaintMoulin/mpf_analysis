@@ -3584,12 +3584,20 @@ console.log("Total rows read:", raw.length);
     "Short Term": "short_term", "Cash": "short_term", "Liquidities": "short_term",
   };
 
-  function applyLookThrough(holdings: Holding[]): { region: string; weight: number }[] {
-    const result: { region: string; weight: number }[] = [];
-    for (const h of holdings) {
-      if (!h) continue;
-      const bd = h.isin ? breakdowns[h.isin] : null;
-      if (bd && bd.length > 0) {
+function applyLookThrough(holdings: Holding[]): { region: string; weight: number }[] {
+  const result: { region: string; weight: number }[] = [];
+  const SAMDP_ISINS = ["LU1795355053"];
+  for (const h of holdings) {
+    if (!h) continue;
+    // Look-through SAMDP
+    if (h.isin && SAMDP_ISINS.includes(h.isin) && samdpGeoBreakdown) {
+      samdpGeoBreakdown.forEach(entry => {
+        result.push({ region: normalizeRegion(entry.region), weight: (h.weight ?? 0) * entry.weight / 100 });
+      });
+      continue;
+    }
+    const bd = h.isin ? breakdowns[h.isin] : null;
+    if (bd && bd.length > 0) {
         for (const entry of bd) {
           result.push({ region: normalizeRegion(entry.region), weight: (h.weight ?? 0) * entry.weight / 100 });
         }
@@ -3741,7 +3749,49 @@ console.log("LU2799769836:", result["LU2799769836"]);
       return { name, value: +value.toFixed(1), target };
     });
   }, [currentPortfolio, targetGridData]);
+const samdpGeoBreakdown = useMemo(() => {
+  if (samdpEquityRows.length === 0) return null;
+  const level5 = samdpEquityRows.filter((r: any) => r.level === 5 && r.isin);
+  const regionMap = new Map<string, number>();
+  const totalExpo = level5.reduce((s: number, r: any) => s + Number(r.expo_pct ?? 0), 0);
+  if (totalExpo === 0) return null;
 
+  level5.forEach((inst: any) => {
+    const w = Number(inst.expo_pct ?? 0);
+    if (w === 0) return;
+    const override = manualOverrides.find((ov: any) =>
+      (ov.manual_isin && ov.manual_isin === inst.isin) ||
+      (ov.original_asset_name && ov.original_asset_name === inst.name)
+    );
+    const isin = override?.manual_isin || inst.isin;
+    const breakdown = breakdowns[isin];
+    if (breakdown && breakdown.length > 0) {
+      breakdown.forEach((entry: any) => {
+        regionMap.set(entry.region, (regionMap.get(entry.region) ?? 0) + w * entry.weight / 100);
+      });
+    } else {
+      const COUNTRY_TO_REGION: Record<string, string> = {
+        "United States": "US", "Canada": "US",
+        "Belgium": "Europe", "France": "Europe", "Germany": "Europe", "Italy": "Europe",
+        "Spain": "Europe", "Netherlands": "Europe", "Ireland": "Europe", "Austria": "Europe",
+        "Sweden": "Europe", "Switzerland": "Europe", "United Kingdom": "Europe",
+        "Japan": "Japan",
+        "China": "EM", "South Korea": "EM", "India": "EM", "Brazil": "EM", "Taiwan": "EM",
+      };
+      const region = override?.manual_region || COUNTRY_TO_REGION[inst.dom_country ?? ""] || "Others";
+      regionMap.set(region, (regionMap.get(region) ?? 0) + w);
+    }
+  });
+
+  // Normaliser à 100%
+  const total = Array.from(regionMap.values()).reduce((s, v) => s + v, 0);
+  if (total === 0) return null;
+  return Array.from(regionMap.entries()).map(([region, weight]) => ({
+    region,
+    weight: weight / total * 100,
+  }));
+}, [samdpEquityRows, breakdowns, manualOverrides]);
+  
   const regionData = useMemo(() => {
     const m = new Map<string, number>();
     const equityHoldings = (currentPortfolio?.holdings ?? []).filter(h => h?.category === "Equities");
