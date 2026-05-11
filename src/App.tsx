@@ -3925,6 +3925,7 @@ const categoryData = useMemo(() => {
     // Chercher la part Cash dans les fonds DPAM
     const dpamGeo = h.isin ? dpamLookup[h.isin]?.geoBreakdown : null;
     if (dpamGeo) {
+      console.log("dpamGeo for", h.asset_name, dpamGeo);
       const cashEntry = dpamGeo.find((e: any) => e.region === "Cash");
       if (cashEntry) {
         extraCash += (h.weight ?? 0) * cashEntry.weight / 100;
