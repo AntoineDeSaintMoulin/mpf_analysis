@@ -1846,7 +1846,7 @@ interface SamdpInstrument {
   wght_pct: number | null;
 }
  
-function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, debtData, debtImportLog, durations }: {
+function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, debtData, debtImportLog, durations, equityRows }: {
   equityData: any[];
   importLog: any | null;
   manualOverrides: any[];
@@ -1854,6 +1854,7 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
   debtData: any[];
   debtImportLog: any | null;
   durations: Record<string, { duration: number; updated_at: string }>;
+  equityRows: any[];
 }) {
   
   const [view, setView] = React.useState<SamdpView>("Equities");
@@ -1865,6 +1866,7 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
   const [debtSearch, setDebtSearch] = React.useState("");
   const [debtSortConfig, setDebtSortConfig] = React.useState<{ key: string; direction: "asc" | "desc" } | null>({ key: "wght_pct", direction: "desc" });
   const [showSamdpDetail, setShowSamdpDetail] = React.useState<"currency_equity" | "region_equity" | "currency_debt" | "credit_debt" | "duration_debt" | null>(null);
+  const [equityLevel, setEquityLevel] = React.useState<1|2|3|4>(4);
   const handleDebtFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
   const file = e.target.files?.[0];
   if (!file) return;
@@ -1982,77 +1984,161 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
   }
 };
   
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    setUploadSuccess(false);
- 
-    try {
-      const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs" as any);
-      const buffer = await file.arrayBuffer();
-      const wb = XLSX.read(buffer, { type: "array", cellDates: true });
-      const ws = wb.Sheets[wb.SheetNames[0]];
- 
-      // Lire toutes les cellules manuellement pour contourner le problème des row groups
-      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
-      const allRows: any[][] = [];
- 
-      for (let r = range.s.r; r <= range.e.r; r++) {
-        const row: any[] = [];
-        for (let c = range.s.c; c <= range.e.c; c++) {
-          const cellAddr = XLSX.utils.encode_cell({ r, c });
-          const cell = ws[cellAddr];
-          row.push(cell ? cell.v : null);
-        }
-        allRows.push(row);
-      }
 
-      const hiddenRows = new Set<number>();
-      // Lire toutes les clés de cellules pour trouver des lignes hors range
-      const allCellKeys = Object.keys(ws).filter(k => !k.startsWith('!'));
-      const maxRow = allCellKeys.reduce((max, key) => {
-        const decoded = XLSX.utils.decode_cell(key);
-        return Math.max(max, decoded.r);
-      }, 0);
- 
-      // Si des lignes existent au-delà du range déclaré, les lire aussi
-      const extendedRows: any[][] = [...allRows];
-      if (maxRow > range.e.r) {
-        for (let r = range.e.r + 1; r <= maxRow; r++) {
-          const row: any[] = [];
-          for (let c = range.s.c; c <= range.e.c; c++) {
-            const cellAddr = XLSX.utils.encode_cell({ r, c });
-            const cell = ws[cellAddr];
-            row.push(cell ? cell.v : null);
-          }
-          extendedRows.push(row);
-        }
-      }
- 
-      console.log("Extended rows count:", extendedRows.length);
-      console.log("Max row found:", maxRow);
- 
-      const toNum = (v: any) => v != null && !isNaN(Number(v)) ? Number(v) : null;
-      const toStr = (v: any) => v != null && String(v).trim() !== '' ? String(v).trim() : null;
- 
-      const seen = new Set<string>();
-      const instruments: SamdpInstrument[] = [];
- 
-      // Chercher les lignes ETF EQUITIES dans toutes les lignes (y compris cachées)
-      // En lisant directement les cellules par clé
-      const instrumentRows: Map<number, any[]> = new Map();
-      allCellKeys.forEach(key => {
-        const decoded = XLSX.utils.decode_cell(key);
-        if (!instrumentRows.has(decoded.r)) instrumentRows.set(decoded.r, []);
-        const row = instrumentRows.get(decoded.r)!;
-        row[decoded.c] = ws[key]?.v;
+const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  setUploading(true);
+  setUploadSuccess(false);
+
+  try {
+    const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs" as any);
+    const buffer = await file.arrayBuffer();
+    const wb = XLSX.read(buffer, { type: "array", cellDates: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+
+    // Lire toutes les cellules par clé pour capturer les lignes cachées
+    const allCellKeys = Object.keys(ws).filter((k: string) => !k.startsWith('!'));
+    const instrumentRows: Map<number, any[]> = new Map();
+    allCellKeys.forEach((key: string) => {
+      const decoded = XLSX.utils.decode_cell(key);
+      if (!instrumentRows.has(decoded.r)) instrumentRows.set(decoded.r, []);
+      const row = instrumentRows.get(decoded.r)!;
+      row[decoded.c] = ws[key]?.v;
+    });
+
+    const toNum = (v: any) => v != null && !isNaN(Number(v)) ? Number(v) : null;
+    const toStr = (v: any) => v != null && String(v).trim() !== '' ? String(v).trim() : null;
+
+    // Trier les lignes par index
+    const sortedRows = Array.from(instrumentRows.entries())
+      .sort(([a], [b]) => a - b);
+
+    // ── Déduire le niveau hiérarchique ──
+    // On connaît la structure exacte du fichier :
+    // Les lignes apparaissent en doublon (level N et level N+1)
+    // On détecte les doublons consécutifs et on garde le premier
+    
+    // D'abord, collecter toutes les lignes avec leurs données
+    const allRows: any[] = [];
+    for (const [rowIdx, row] of sortedRows) {
+      if (rowIdx === 0) continue; // skip header
+      const name = toStr(row[0]);
+      if (!name) continue;
+      allRows.push({
+        row_index: rowIdx,
+        name,
+        isin: toStr(row[1]),
+        instrument_type: toStr(row[3]),
+        currency: toStr(row[13]),
+        quantity: toNum(row[14]),
+        mtm_ptf: toNum(row[18]),
+        expo_pct: toNum(row[19]),
+        wght_pct: toNum(row[22]),
+        wght_ref: toNum(row[23]),
+        wght_ptf_ref: toNum(row[24]),
       });
- 
- // Récupérer les outline levels depuis SheetJS
-const rowMeta = ws['!rows'] || [];
-const getOutlineLevel = (rowIdx: number): number => {
-  return rowMeta[rowIdx]?.level ?? 0;
+    }
+
+    // ── Déduplication des doublons consécutifs ──
+    // Chaque instrument apparaît deux fois de suite avec les mêmes données
+    // On garde une ligne sur deux (les lignes paires = niveau 4, les impaires = niveau 5)
+    // En pratique : si la ligne suivante a le même nom ET même mtm_ptf → doublon, supprimer la seconde
+    const dedupedRows: any[] = [];
+    for (let i = 0; i < allRows.length; i++) {
+      const curr = allRows[i];
+      const next = allRows[i + 1];
+      if (
+        next &&
+        curr.name === next.name &&
+        curr.mtm_ptf === next.mtm_ptf &&
+        curr.isin === next.isin
+      ) {
+        // Doublon — garder seulement curr, skip next
+        dedupedRows.push(curr);
+        i++; // skip next
+      } else {
+        dedupedRows.push(curr);
+      }
+    }
+
+    // ── Assigner les niveaux ──
+    // Structure connue du fichier :
+    // Row 1 (index 1) = Holdings → level 1
+    // Row 2 = Cash/Futures/Mutual funds/Options → level 2
+    // Row 3 = CASH: PROVISION/CURRENCY/DEPOSIT/etc → level 3
+    // Row 4 = instruments individuels → level 4
+    // Les niveaux s'imbriquent selon la position relative
+    
+    // On utilise une heuristique : détecter les sauts de niveau
+    // basée sur les noms connus de chaque niveau
+    const LEVEL2_NAMES = new Set(["Cash", "Futures", "Mutual funds", "Options"]);
+    const LEVEL3_TYPES = new Set([
+      "CASH: PROVISION", "CURRENCY", "DEPOSIT", 
+      "FUTURE ON INDEX", "ETF EQUITIES", "OPTION ON INDEX"
+    ]);
+
+    const rowsWithLevel: any[] = dedupedRows.map((row, i) => {
+      let level: number;
+      
+      if (i === 0) {
+        // Première ligne = Holdings = level 1
+        level = 1;
+      } else if (LEVEL2_NAMES.has(row.name)) {
+        level = 2;
+      } else if (
+        !row.isin && 
+        row.instrument_type && 
+        LEVEL3_TYPES.has(row.instrument_type) &&
+        row.name === row.instrument_type
+      ) {
+        level = 3;
+      } else if (
+        !row.isin &&
+        LEVEL3_TYPES.has(row.instrument_type ?? "") &&
+        !LEVEL2_NAMES.has(row.name)
+      ) {
+        // Ligne sans ISIN mais avec un type connu = level 3 ou 4
+        // Si le nom == type → level 3, sinon level 4
+        level = row.name === row.instrument_type ? 3 : 4;
+      } else {
+        // Ligne avec ISIN ou instrument individuel = level 4
+        level = 4;
+      }
+      
+      return { ...row, level };
+    });
+
+    console.log("Rows with levels:", rowsWithLevel.map(r => `L${r.level}: ${r.name}`));
+    console.log("Total rows:", rowsWithLevel.length);
+
+    if (rowsWithLevel.length === 0) {
+      alert("Aucune donnée trouvée dans ce fichier.");
+      return;
+    }
+
+    // Envoyer à l'API section samdp_equity
+    const apiRes = await fetch("/api/dpam-data?section=samdp_equity", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: file.name, rows: rowsWithLevel }),
+    });
+
+    if (apiRes.ok) {
+      window.dispatchEvent(new CustomEvent("samdp-equity-updated"));
+      setUploadSuccess(true);
+      setTimeout(() => setUploadSuccess(false), 3000);
+    } else {
+      const err = await apiRes.text();
+      console.error("API error:", err);
+      alert("Erreur lors de la sauvegarde: " + err);
+    }
+  } catch (err) {
+    console.error("SAMDP upload error:", err);
+    alert("Erreur lors du traitement du fichier.");
+  } finally {
+    setUploading(false);
+  }
 };
 
 // Convertir la Map en array trié par rowIdx
@@ -2312,120 +2398,222 @@ const avgDuration = debtData.length > 0
 </div>
  
       {/* ── VUE EQUITIES ── */}
-      {view === "Equities" && (
-        <>
-          {equityData.length === 0 ? (
-            <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">
-              <TableIcon className="h-12 w-12 mx-auto mb-4 opacity-20" />
-              <p className="text-lg">Aucune donnée. Importez un fichier Holdings AM Transparency.</p>
-            </div>
-          ) : (
-            <>
-              {/* KPI cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[
-                  { label: "Instruments", value: equityData.length.toString(), sub: "ETF Equities" },
-                  { label: "Poids Total", value: fmtPct(totalWght), sub: "Expo% cumulée" },
-                  { label: "MtM Total", value: fmtM(totalMtm), sub: "EUR" },
-                  { label: "P/L Total", value: fmtM(totalPl), sub: totalPl >= 0 ? "Gain" : "Perte", color: totalPl >= 0 ? "text-emerald-600" : "text-rose-600" },
-                ].map(({ label, value, sub, color }) => (
-                  <div key={label} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{label}</p>
-                    <p className={cn("text-2xl font-bold text-slate-900", color)}>{value}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">{sub}</p>
-                  </div>
-                ))}
+    // const [equityLevel, setEquityLevel] = React.useState<1|2|3|4>(4);
+
+// Props à ajouter : equityRows: any[]
+
+{view === "Equities" && (
+  <>
+    {equityRows.length === 0 ? (
+      <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">
+        <TableIcon className="h-12 w-12 mx-auto mb-4 opacity-20" />
+        <p className="text-lg">Aucune donnée. Importez un fichier Holdings AM Transparency.</p>
+      </div>
+    ) : (
+      <>
+        {/* KPI cards — toujours basées sur level 1 */}
+        {(() => {
+          const lvl1 = equityRows.find((r: any) => r.level === 1);
+          const lvl2 = equityRows.filter((r: any) => r.level === 2);
+          return (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">MtM Total</p>
+                <p className="text-2xl font-bold text-slate-900">{fmtM(lvl1?.mtm_ptf ?? null)}</p>
+                <p className="text-xs text-slate-400 mt-0.5">EUR</p>
               </div>
- {/* ── Expositions régionale + devise ── */}
-{equityData.length > 0 && (() => {
-  const COUNTRY_TO_REGION: Record<string, string> = {
-    "United States": "US", "Canada": "US",
-    "Belgium": "Europe", "France": "Europe", "Germany": "Europe", "Italy": "Europe",
-    "Spain": "Europe", "Netherlands": "Europe", "Ireland": "Europe", "Austria": "Europe",
-    "Denmark": "Europe", "Finland": "Europe", "Norway": "Europe", "Luxembourg": "Europe",
-    "Sweden": "Europe", "Switzerland": "Europe", "Portugal": "Europe",
-    "United Kingdom": "Europe",
-    "Japan": "Japan",
-    "China": "EM", "South Korea": "EM", "Korea": "EM", "India": "EM", "Brazil": "EM",
-    "Taiwan": "EM", "Mexico": "EM", "South Africa": "EM", "Malaysia": "EM",
-    "Indonesia": "EM", "Thailand": "EM", "Philippines": "EM", "Turkey": "EM",
-    "Poland": "EM", "Colombia": "EM", "Chile": "EM", "Peru": "EM", "Qatar": "EM",
-    "United Arab Emirates": "EM", "Hong Kong": "Others",
-    "Australia": "Others", "New Zealand": "Others", "Singapore": "Others",
-  };
-  const REGION_COLORS: Record<string, string> = {
-    "US": "#0ea5e9", "Europe": "#10b981", "EM": "#f59e0b",
-    "Japan": "#8b5cf6", "Others": "#94a3b8",
-  };
-  const CUR_COLORS_LOCAL: Record<string, string> = {
-    "EUR": "#0ea5e9", "USD": "#10b981", "JPY": "#f59e0b",
-    "GBP": "#8b5cf6", "CHF": "#ec4899",
-  };
-  const regionMap = new Map<string, number>();
-  const currencyMap = new Map<string, number>();
-  equityData.forEach(inst => {
-    const w = Number(inst.wght_pct ?? 0) * 100;
-    if (w === 0) return;
-    const manualRegion = manualOverrides.find(
-      ov => (ov.manual_isin && ov.manual_isin === inst.isin) ||
-            (ov.original_asset_name && ov.original_asset_name === inst.name)
-    )?.manual_region;
-    const region = manualRegion ? manualRegion : COUNTRY_TO_REGION[inst.dom_country ?? ""] ?? "Others";
-    regionMap.set(region, (regionMap.get(region) ?? 0) + w);
-    const manualCurrency = manualOverrides.find(
-      ov => (ov.manual_isin && ov.manual_isin === inst.isin) ||
-            (ov.original_asset_name && ov.original_asset_name === inst.name)
-    )?.manual_currency;
-    const currency = (manualCurrency || inst.currency || "Other").toUpperCase();
-    currencyMap.set(currency, (currencyMap.get(currency) ?? 0) + w);
-  });
-  const regionData = Array.from(regionMap.entries())
-    .map(([name, value]) => ({ name, value: +value.toFixed(2) }))
-    .sort((a, b) => b.value - a.value);
-  const currencyData = Array.from(currencyMap.entries())
-    .map(([label, value]) => ({ label, value: +value.toFixed(2) }))
-    .sort((a, b) => b.value - a.value);
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-<h3 onClick={() => setShowSamdpDetail("region_equity")} className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2 cursor-pointer hover:text-amber-700">
-  <Globe className="h-4 w-4 text-amber-600" />Exposition Régionale
-</h3>
-        <div className="space-y-3">
-          {regionData.map(({ name, value }) => (
-            <div key={name} className="flex items-center gap-3">
-              <span className="text-xs font-bold w-16 shrink-0" style={{ color: REGION_COLORS[name] ?? "#94a3b8" }}>{name}</span>
-              <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all"
-                  style={{ width: `${Math.min(100, value)}%`, backgroundColor: REGION_COLORS[name] ?? "#94a3b8" }} />
-              </div>
-              <span className="text-xs font-bold text-slate-700 w-14 text-right shrink-0">{value.toFixed(1)}%</span>
+              {lvl2.map((r: any) => (
+                <div key={r.name} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{r.name}</p>
+                  <p className="text-2xl font-bold text-slate-900">{fmtM(r.mtm_ptf ?? null)}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{r.expo_pct != null ? (Number(r.expo_pct) * 100).toFixed(1) + "%" : "—"}</p>
+                </div>
+              ))}
             </div>
+          );
+        })()}
+
+        {/* Graphes exposition — uniquement pour les lignes ETF EQUITIES level 4 */}
+        {(() => {
+          const etfRows = equityRows.filter((r: any) => 
+            r.level === 4 && r.instrument_type === "ETF EQUITIES" && r.isin
+          );
+          if (etfRows.length === 0) return null;
+
+          const COUNTRY_TO_REGION: Record<string, string> = {
+            "United States": "US", "Canada": "US",
+            "Belgium": "Europe", "France": "Europe", "Germany": "Europe", "Italy": "Europe",
+            "Spain": "Europe", "Netherlands": "Europe", "Ireland": "Europe", "Austria": "Europe",
+            "Denmark": "Europe", "Finland": "Europe", "Norway": "Europe", "Luxembourg": "Europe",
+            "Sweden": "Europe", "Switzerland": "Europe", "Portugal": "Europe", "United Kingdom": "Europe",
+            "Japan": "Japan",
+            "China": "EM", "South Korea": "EM", "Korea": "EM", "India": "EM", "Brazil": "EM",
+            "Taiwan": "EM", "Mexico": "EM", "South Africa": "EM", "Malaysia": "EM",
+            "Australia": "Others", "Singapore": "Others", "Hong Kong": "Others",
+          };
+          const REGION_COLORS: Record<string, string> = {
+            "US": "#0ea5e9", "Europe": "#10b981", "EM": "#f59e0b", "Japan": "#8b5cf6", "Others": "#94a3b8",
+          };
+          const CUR_COLORS: Record<string, string> = {
+            "EUR": "#0ea5e9", "USD": "#10b981", "JPY": "#f59e0b", "GBP": "#8b5cf6", "CHF": "#ec4899",
+          };
+
+          const regionMap = new Map<string, number>();
+          const currencyMap = new Map<string, number>();
+          const totalWghtEtf = etfRows.reduce((s: number, r: any) => s + Number(r.wght_pct ?? 0), 0);
+
+          etfRows.forEach((inst: any) => {
+            const w = Number(inst.wght_pct ?? 0) * 100;
+            if (w === 0) return;
+            const override = manualOverrides.find((ov: any) =>
+              (ov.manual_isin && ov.manual_isin === inst.isin) ||
+              (ov.original_asset_name && ov.original_asset_name === inst.name)
+            );
+            const region = override?.manual_region || COUNTRY_TO_REGION[inst.dom_country ?? ""] || "Others";
+            regionMap.set(region, (regionMap.get(region) ?? 0) + w);
+            const currency = (override?.manual_currency || inst.currency || "Other").toUpperCase();
+            currencyMap.set(currency, (currencyMap.get(currency) ?? 0) + w);
+          });
+
+          const regionData = Array.from(regionMap.entries()).map(([name, value]) => ({ name, value: +value.toFixed(2) })).sort((a, b) => b.value - a.value);
+          const currencyData = Array.from(currencyMap.entries()).map(([label, value]) => ({ label, value: +value.toFixed(2) })).sort((a, b) => b.value - a.value);
+
+          return (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                <h3 onClick={() => setShowSamdpDetail("region_equity")} className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2 cursor-pointer hover:text-amber-700">
+                  <Globe className="h-4 w-4 text-amber-600" />Exposition Régionale
+                </h3>
+                <div className="space-y-3">
+                  {regionData.map(({ name, value }) => (
+                    <div key={name} className="flex items-center gap-3">
+                      <span className="text-xs font-bold w-16 shrink-0" style={{ color: REGION_COLORS[name] ?? "#94a3b8" }}>{name}</span>
+                      <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${Math.min(100, value)}%`, backgroundColor: REGION_COLORS[name] ?? "#94a3b8" }} />
+                      </div>
+                      <span className="text-xs font-bold text-slate-700 w-14 text-right">{value.toFixed(1)}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                <h3 onClick={() => setShowSamdpDetail("currency_equity")} className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2 cursor-pointer hover:text-sky-700">
+                  <Coins className="h-4 w-4 text-sky-600" />Exposition Devise
+                </h3>
+                <div className="space-y-3">
+                  {currencyData.map(({ label, value }) => (
+                    <div key={label} className="flex items-center gap-3">
+                      <span className="text-xs font-bold w-10 shrink-0" style={{ color: CUR_COLORS[label] ?? "#94a3b8" }}>{label}</span>
+                      <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${Math.min(100, value)}%`, backgroundColor: CUR_COLORS[label] ?? "#94a3b8" }} />
+                      </div>
+                      <span className="text-xs font-bold text-slate-700 w-14 text-right">{value.toFixed(1)}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Filtre par niveau */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Niveau</span>
+          {([1, 2, 3, 4] as const).map(lvl => (
+            <button key={lvl} onClick={() => setEquityLevel(lvl)}
+              className={cn("px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                equityLevel === lvl ? "bg-sky-600 text-white shadow-sm" : "bg-slate-100 text-slate-500 hover:bg-slate-200")}>
+              Niveau {lvl}
+            </button>
           ))}
         </div>
-        <p className="text-[10px] text-slate-400 italic mt-3">Basé sur dom_country ou overrides manuels · pondéré par Wght%</p>
-      </div>
-      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-<h3 onClick={() => setShowSamdpDetail("currency_equity")} className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2 cursor-pointer hover:text-sky-700">
-  <Coins className="h-4 w-4 text-sky-600" />Exposition Devise
-</h3>
-        <div className="space-y-3">
-          {currencyData.map(({ label, value }) => (
-            <div key={label} className="flex items-center gap-3">
-              <span className="text-xs font-bold w-10 shrink-0" style={{ color: CUR_COLORS_LOCAL[label] ?? "#94a3b8" }}>{label}</span>
-              <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all"
-                  style={{ width: `${Math.min(100, value)}%`, backgroundColor: CUR_COLORS_LOCAL[label] ?? "#94a3b8" }} />
-              </div>
-              <span className="text-xs font-bold text-slate-700 w-14 text-right shrink-0">{value.toFixed(1)}%</span>
-            </div>
-          ))}
+
+        {/* Table */}
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-50 flex items-center gap-3">
+            <Search className="h-4 w-4 text-slate-400 shrink-0" />
+            <input type="text" value={equitySearch} onChange={e => setEquitySearch(e.target.value)}
+              placeholder="Rechercher…"
+              className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400" />
+            {equitySearch && <button onClick={() => setEquitySearch("")} className="p-0.5 hover:bg-slate-100 rounded"><X className="h-3.5 w-3.5 text-slate-400" /></button>}
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-slate-50/50">
+                  {[
+                    { label: "Instrument", align: "left" },
+                    { label: "ISIN", align: "left" },
+                    { label: "Type", align: "left" },
+                    { label: "Devise", align: "left" },
+                    { label: "Quantité", align: "right" },
+                    { label: "MtM (EUR)", align: "right" },
+                    { label: "Expo% (PTF)", align: "right" },
+                    { label: "Wght% (PTF)", align: "right" },
+                    { label: "Wght% (PTF-REF)", align: "right" },
+                  ].map(({ label, align }) => (
+                    <th key={label} className={cn("px-4 py-3 font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap", align === "right" ? "text-right" : "text-left")}>
+                      {label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {equityRows
+                  .filter((r: any) => r.level === equityLevel)
+                  .filter((r: any) => {
+                    if (!equitySearch) return true;
+                    const q = equitySearch.toLowerCase();
+                    return (r.name ?? "").toLowerCase().includes(q) || (r.isin ?? "").toLowerCase().includes(q);
+                  })
+                  .map((r: any, i: number) => (
+                    <tr key={i} className={cn("hover:bg-slate-50/50 transition-colors",
+                      r.level === 1 ? "bg-slate-50 font-bold" :
+                      r.level === 2 ? "bg-sky-50/30" :
+                      r.level === 3 ? "bg-slate-50/50" : "")}>
+                      <td className="px-4 py-3 truncate max-w-[200px]">
+                        {r.level === 4 && r.isin ? (
+                          <button onClick={() => {
+                            const override = manualOverrides.find((ov: any) =>
+                              (ov.manual_isin && ov.manual_isin === r.isin) ||
+                              (ov.original_asset_name && ov.original_asset_name === r.name)
+                            );
+                            onSelectInstrument({
+                              asset_name: override?.manual_asset_name || r.name,
+                              original_asset_name: r.name,
+                              isin: override?.manual_isin || r.isin,
+                              category: override?.manual_category || "Equities",
+                              region: override?.manual_region || "",
+                              currency: override?.manual_currency || (r.currency ?? ""),
+                              instrument: override?.manual_instrument || (r.instrument_type ?? "ETF"),
+                              weight: Number(r.wght_pct ?? 0) * 100,
+                            } as any);
+                          }} className="font-medium text-sky-600 hover:underline text-left">
+                            {r.name}
+                          </button>
+                        ) : (
+                          <span className={cn("font-medium", r.level <= 2 ? "text-slate-900" : "text-slate-600")}>{r.name}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-sky-600">{r.isin ?? "—"}</td>
+                      <td className="px-4 py-3 text-slate-500 text-[10px]">{r.instrument_type ?? "—"}</td>
+                      <td className="px-4 py-3 text-slate-600">{r.currency ?? "—"}</td>
+                      <td className="px-4 py-3 text-right text-slate-600">{r.quantity != null ? Number(r.quantity).toLocaleString("fr-FR", { maximumFractionDigits: 0 }) : "—"}</td>
+                      <td className="px-4 py-3 text-right font-bold text-slate-900">{r.mtm_ptf != null ? Number(r.mtm_ptf).toLocaleString("fr-FR", { maximumFractionDigits: 0 }) : "—"}</td>
+                      <td className="px-4 py-3 text-right text-slate-600">{r.expo_pct != null ? (Number(r.expo_pct) * 100).toFixed(2) + "%" : "—"}</td>
+                      <td className="px-4 py-3 text-right font-bold text-sky-600">{r.wght_pct != null ? (Number(r.wght_pct) * 100).toFixed(2) + "%" : "—"}</td>
+                      <td className="px-4 py-3 text-right text-slate-600">{r.wght_ptf_ref != null ? (Number(r.wght_ptf_ref) * 100).toFixed(2) + "%" : "—"}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-        <p className="text-[10px] text-slate-400 italic mt-3">Basé sur la devise de chaque instrument · pondéré par Wght%</p>
-      </div>
-    </div>
-  );
-})()}
+      </>
+    )}
+  </>
+)}
+
               
 {/* Table */}
 <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
@@ -3031,6 +3219,7 @@ export default function App() {
   const [samdpImportLog, setSamdpImportLog] = useState<any>(null);
   const [samdpDebtInstruments, setSamdpDebtInstruments] = useState<any[]>([]);
   const [samdpDebtImportLog, setSamdpDebtImportLog] = useState<any>(null);
+  const [samdpEquityRows, setSamdpEquityRows] = useState<any[]>([]);
   
   async function safeArray<T>(fn: () => Promise<T[]>): Promise<T[]> {
     try {
@@ -3098,6 +3287,13 @@ try {
     if (samdp.importLog) setSamdpImportLog(samdp.importLog);
   }
 } catch (e) { console.warn("SAMDP load failed", e); }
+try {
+  const eqRes = await fetch("/api/dpam-data?section=samdp_equity");
+  if (eqRes.ok) {
+    const eq = await eqRes.json();
+    if (eq.rows) setSamdpEquityRows(eq.rows);
+  }
+} catch (e) { console.warn("SAMDP equity rows load failed", e); }      
 try {
   const debtRes = await fetch("/api/dpam-data?section=samdp_debt");
   if (debtRes.ok) {
@@ -3186,6 +3382,13 @@ const refreshData = async () => {
         if (samdp.importLog) setSamdpImportLog(samdp.importLog);
       }
     } catch (e) { console.warn("SAMDP load failed", e); }
+try {
+  const eqRes = await fetch("/api/dpam-data?section=samdp_equity");
+  if (eqRes.ok) {
+    const eq = await eqRes.json();
+    if (eq.rows) setSamdpEquityRows(eq.rows);
+  }
+} catch (e) { console.warn("SAMDP equity rows load failed", e); }
     try {
       const debtRes = await fetch("/api/dpam-data?section=samdp_debt");
       if (debtRes.ok) {
@@ -4618,6 +4821,7 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
   debtData={samdpDebtInstruments}
   debtImportLog={samdpDebtImportLog}
   durations={durations}
+  equityRows={samdpEquityRows}
 />
   </motion.div>
 )}
