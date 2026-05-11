@@ -2257,9 +2257,9 @@ const avgDuration = debtData.length > 0
 
         {/* Graphes exposition — uniquement pour les lignes ETF EQUITIES level 4 */}
         {(() => {
-          const etfRows = equityRows.filter((r: any) => 
-            r.level === 5 && r.instrument_type === "ETF EQUITIES" && r.isin
-          );
+const etfRows = equityRows.filter((r: any) => 
+  r.level === 5 && r.isin
+);
           if (etfRows.length === 0) return null;
 
           const COUNTRY_TO_REGION: Record<string, string> = {
