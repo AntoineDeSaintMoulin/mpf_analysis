@@ -62,7 +62,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(405).json({ error: "Method not allowed" });
   }
-
 if (section === "samdp_equity_parse") {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   
@@ -70,89 +69,39 @@ if (section === "samdp_equity_parse") {
   if (!filename || !fileBase64) return res.status(400).json({ error: "Missing fields" });
 
   try {
-const XLSX = await import("xlsx");
-const buffer = Buffer.from(fileBase64, "base64");
-const wb = XLSX.read(buffer, { type: "buffer", cellStyles: true });
-const ws = wb.Sheets[wb.SheetNames[0]];
+    const XLSX = await import("xlsx");
+    const buffer = Buffer.from(fileBase64, "base64");
+    const wb = XLSX.read(buffer, { type: "buffer", cellStyles: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
 
     const allCellKeys = Object.keys(ws).filter((k: string) => !k.startsWith('!'));
     const instrumentRows: Map<number, any> = new Map();
     
     allCellKeys.forEach((key: string) => {
       const decoded = XLSX.utils.decode_cell(key);
-      if (!instrumentRows.has(decoded.r)) instrumentRows.set(decoded.r, { cells: {}, indent: 0 });
+      if (!instrumentRows.has(decoded.r)) instrumentRows.set(decoded.r, { cells: {} });
       const entry = instrumentRows.get(decoded.r);
       entry.cells[decoded.c] = ws[key]?.v;
-      // Lire l'indent depuis les styles de la colonne A
-      if (decoded.c === 0 && ws[key]?.s?.alignment?.indent) {
-        entry.indent = ws[key].s.alignment.indent;
-      }
     });
 
     const toNum = (v: any) => v != null && !isNaN(Number(v)) ? Number(v) : null;
     const toStr = (v: any) => v != null && String(v).trim() !== '' ? String(v).trim() : null;
 
-    const rows: any[] = [];
     const sortedEntries = Array.from(instrumentRows.entries()).sort(([a], [b]) => a - b);
 
+    const LEVEL2_NAMES = new Set(["Cash", "Futures", "Mutual funds", "Options"]);
+    const LEVEL3_TYPES = new Set([
+      "CASH: PROVISION", "CURRENCY", "DEPOSIT",
+      "FUTURE ON INDEX", "ETF EQUITIES", "OPTION ON INDEX"
+    ]);
+
+    const allRows: any[] = [];
     for (const [rowIdx, entry] of sortedEntries) {
       if (rowIdx === 0) continue;
       const name = toStr(entry.cells[0]);
       if (!name) continue;
-      
-const LEVEL2_NAMES = new Set(["Cash", "Futures", "Mutual funds", "Options"]);
-const LEVEL3_TYPES = new Set([
-  "CASH: PROVISION", "CURRENCY", "DEPOSIT",
-  "FUTURE ON INDEX", "ETF EQUITIES", "OPTION ON INDEX"
-]);
-
-const allRows: any[] = [];
-for (const [rowIdx, entry] of sortedEntries) {
-  if (rowIdx === 0) continue;
-  const name = toStr(entry.cells[0]);
-  if (!name) continue;
-  allRows.push({
-    row_index: rowIdx + 1, // +1 car 1-indexed
-    name,
-    isin: toStr(entry.cells[1]),
-    instrument_type: toStr(entry.cells[3]),
-    currency: toStr(entry.cells[13]),
-    quantity: toNum(entry.cells[14]),
-    mtm_ptf: toNum(entry.cells[18]),
-    expo_pct: toNum(entry.cells[19]),
-    wght_pct: toNum(entry.cells[22]),
-    wght_ref: toNum(entry.cells[23]),
-    wght_ptf_ref: toNum(entry.cells[24]),
-  });
-}
-
-const rows: any[] = allRows.map((row, i) => {
-  const prev = allRows[i - 1];
-  const isConsecutive = prev && row.row_index === prev.row_index + 1;
-  
-  let level: number;
-  if (i === 0) level = 1;
-  else if (isConsecutive) level = 5;
-  else if (LEVEL2_NAMES.has(row.name)) level = 2;
-  else if (
-    !row.isin &&
-    row.instrument_type &&
-    LEVEL3_TYPES.has(row.instrument_type) &&
-    row.name === row.instrument_type
-  ) level = 3;
-  else if (
-    !row.isin &&
-    LEVEL3_TYPES.has(row.instrument_type ?? "") &&
-    !LEVEL2_NAMES.has(row.name)
-  ) level = row.name === row.instrument_type ? 3 : 4;
-  else level = 4;
-  
-  return { ...row, level };
-});
-      
-      rows.push({
-        row_index: rowIdx,
-        level,
+      allRows.push({
+        row_index: rowIdx + 1,
         name,
         isin: toStr(entry.cells[1]),
         instrument_type: toStr(entry.cells[3]),
@@ -165,6 +114,30 @@ const rows: any[] = allRows.map((row, i) => {
         wght_ptf_ref: toNum(entry.cells[24]),
       });
     }
+
+    const rows: any[] = allRows.map((row, i) => {
+      const prev = allRows[i - 1];
+      const isConsecutive = prev && row.row_index === prev.row_index + 1;
+      
+      let level: number;
+      if (i === 0) level = 1;
+      else if (isConsecutive) level = 5;
+      else if (LEVEL2_NAMES.has(row.name)) level = 2;
+      else if (
+        !row.isin &&
+        row.instrument_type &&
+        LEVEL3_TYPES.has(row.instrument_type) &&
+        row.name === row.instrument_type
+      ) level = 3;
+      else if (
+        !row.isin &&
+        LEVEL3_TYPES.has(row.instrument_type ?? "") &&
+        !LEVEL2_NAMES.has(row.name)
+      ) level = row.name === row.instrument_type ? 3 : 4;
+      else level = 4;
+      
+      return { ...row, level };
+    });
 
     return res.json({ rows });
   } catch (e: any) {
