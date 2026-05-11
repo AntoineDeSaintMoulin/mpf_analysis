@@ -2284,19 +2284,28 @@ const avgDuration = debtData.length > 0
           const currencyMap = new Map<string, number>();
           const totalWghtEtf = etfRows.reduce((s: number, r: any) => s + Number(r.wght_pct ?? 0), 0);
 
-          etfRows.forEach((inst: any) => {
-            const w = Number(inst.expo_pct ?? 0) * 100;
-            if (w === 0) return;
-            const override = manualOverrides.find((ov: any) =>
-              (ov.manual_isin && ov.manual_isin === inst.isin) ||
-              (ov.original_asset_name && ov.original_asset_name === inst.name)
-            );
-            const region = override?.manual_region || COUNTRY_TO_REGION[inst.dom_country ?? ""] || "Others";
-            regionMap.set(region, (regionMap.get(region) ?? 0) + w);
-            const currency = (override?.manual_currency || inst.currency || "Other").toUpperCase();
-            currencyMap.set(currency, (currencyMap.get(currency) ?? 0) + w);
-          });
-
+etfRows.forEach((inst: any) => {
+  const w = Number(inst.expo_pct ?? 0) * 100;
+  if (w === 0) return;
+  const override = manualOverrides.find((ov: any) =>
+    (ov.manual_isin && ov.manual_isin === inst.isin) ||
+    (ov.original_asset_name && ov.original_asset_name === inst.name)
+  );
+  const isin = override?.manual_isin || inst.isin;
+  const breakdown = breakdowns[isin];
+  
+  if (breakdown && breakdown.length > 0) {
+    breakdown.forEach((entry: any) => {
+      regionMap.set(entry.region, (regionMap.get(entry.region) ?? 0) + w * entry.weight / 100);
+    });
+  } else {
+    const region = override?.manual_region || COUNTRY_TO_REGION[inst.dom_country ?? ""] || "Others";
+    regionMap.set(region, (regionMap.get(region) ?? 0) + w);
+  }
+  
+  const currency = (override?.manual_currency || inst.currency || "Other").toUpperCase();
+  currencyMap.set(currency, (currencyMap.get(currency) ?? 0) + w);
+});
 console.log("regionMap graphe:", Array.from(regionMap.entries()));
 console.log("etfRows utilisés:", etfRows.map((r: any) => `${r.name} expo=${r.expo_pct} region=${manualOverrides.find((ov: any) => ov.manual_isin === r.isin || ov.original_asset_name === r.name)?.manual_region ?? "no override"}`));
         
