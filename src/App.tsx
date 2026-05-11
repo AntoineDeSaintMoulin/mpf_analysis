@@ -2028,7 +2028,6 @@ for (let i = 0; i < allRows.length; i++) {
   if (
     next &&
     curr.name === next.name &&
-    curr.mtm_ptf === next.mtm_ptf &&
     curr.isin === next.isin
   ) {
     // Doublon — garder les deux avec niveaux différents
