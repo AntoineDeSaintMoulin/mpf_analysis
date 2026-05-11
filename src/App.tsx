@@ -3881,6 +3881,8 @@ const categoryData = useMemo(() => {
       }
     }
   });
+
+console.log("extraCash:", extraCash, "liquidities directes:", m.get("Liquidities"));
   
   // Ajouter l'exposition Equities réelle = somme des régions
   const totalEquities = regionData.reduce((s, d) => s + d.value, 0);
