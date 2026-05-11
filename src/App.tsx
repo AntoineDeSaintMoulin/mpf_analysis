@@ -3736,12 +3736,67 @@ console.log("LU2799769836:", result["LU2799769836"]);
 }, [dpamMappings, dpamBondsData, dpamEquityData]);
 
   
-  const categoryData = useMemo(() => {
-    const m = new Map<string, number>();
-    (currentPortfolio?.holdings ?? []).forEach((h) => {
-      if (!h?.category) return;
-      m.set(h.category, (m.get(h.category) ?? 0) + (h.weight ?? 0));
-    });
+const categoryData = useMemo(() => {
+  const m = new Map<string, number>();
+  
+  // Cash extra provenant des breakdowns géographiques (région "Cash")
+  let extraCash = 0;
+  
+  (currentPortfolio?.holdings ?? []).forEach((h) => {
+    if (!h?.category) return;
+    
+    if (h.category === "Equities") {
+      // Pour les Equities, on utilise l'exposition réelle via look-through
+      // (calculée dans regionData) — on ne l'ajoute pas ici, on le fera après
+      return;
+    }
+    
+    m.set(h.category, (m.get(h.category) ?? 0) + (h.weight ?? 0));
+    
+    // Chercher la part Cash dans les breakdowns
+    const bd = h.isin ? breakdowns[h.isin] : null;
+    if (bd) {
+      const cashEntry = bd.find(e => e.region === "Cash");
+      if (cashEntry) {
+        extraCash += (h.weight ?? 0) * cashEntry.weight / 100;
+      }
+    }
+    
+    // Chercher la part Cash dans les fonds DPAM
+    const dpamGeo = h.isin ? dpamLookup[h.isin]?.geoBreakdown : null;
+    if (dpamGeo) {
+      const cashEntry = dpamGeo.find((e: any) => e.region === "Cash");
+      if (cashEntry) {
+        extraCash += (h.weight ?? 0) * cashEntry.weight / 100;
+      }
+    }
+    
+    // Chercher la part Cash dans le SAMDP
+    if (h.isin === "LU1795355053" && samdpGeoBreakdown) {
+      const cashEntry = samdpGeoBreakdown.find(e => e.region === "Cash");
+      if (cashEntry) {
+        extraCash += (h.weight ?? 0) * cashEntry.weight / 100;
+      }
+    }
+  });
+  
+  // Ajouter l'exposition Equities réelle = somme des régions
+  const totalEquities = regionData.reduce((s, d) => s + d.value, 0);
+  if (totalEquities > 0) m.set("Equities", totalEquities);
+  
+  // Ajouter le cash extra aux Liquidities
+  if (extraCash > 0) {
+    m.set("Liquidities", (m.get("Liquidities") ?? 0) + extraCash);
+  }
+  
+  const profile = detectRiskProfile(currentPortfolio?.name);
+  return Array.from(m.entries()).map(([name, value]) => {
+    const gridId = CATEGORY_TO_GRID[name];
+    const target = profile && gridId ? targetGridData[gridId]?.[profile]?.["target"] ?? null : null;
+    return { name, value: +value.toFixed(1), target };
+  });
+}, [currentPortfolio, targetGridData, breakdowns, dpamLookup, samdpGeoBreakdown, regionData]);
+  
     const profile = detectRiskProfile(currentPortfolio?.name);
     return Array.from(m.entries()).map(([name, value]) => {
       const gridId = CATEGORY_TO_GRID[name];
