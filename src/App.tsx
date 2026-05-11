@@ -2474,10 +2474,33 @@ const avgDuration = debtData.length > 0
       <td className="px-4 py-3 text-right font-bold text-slate-900">{r.mtm_ptf != null ? Number(r.mtm_ptf).toLocaleString("fr-FR", { maximumFractionDigits: 0 }) : "—"}</td>
       <td className="px-4 py-3 text-right text-slate-600">{r.expo_pct != null ? (Number(r.expo_pct) * 100).toFixed(2) + "%" : "—"}</td>
       <td className="px-4 py-3 text-right font-bold text-sky-600">{r.wght_pct != null ? (Number(r.wght_pct) * 100).toFixed(2) + "%" : "—"}</td>
-      <td className="px-4 py-3 text-right text-slate-600">{r.wght_ptf_ref != null ? (Number(r.wght_ptf_ref) * 100).toFixed(2) + "%" : "—"}</td>
+   <td className="px-4 py-3 text-right text-slate-600">{r.wght_ptf_ref != null ? (Number(r.wght_ptf_ref) * 100).toFixed(2) + "%" : "—"}</td>
     </tr>
   );
 })}
+              <tfoot>
+                <tr className="bg-slate-50 border-t border-slate-200 font-bold text-xs">
+                  <td className="px-4 py-3 text-slate-700">Total</td>
+                  <td className="px-4 py-3" />
+                  <td className="px-4 py-3" />
+                  <td className="px-4 py-3" />
+                  <td className="px-4 py-3 text-right text-slate-700">
+                    {equityRows.filter((r: any) => r.level === equityLevel).reduce((s: number, r: any) => s + Number(r.quantity ?? 0), 0).toLocaleString("fr-FR", { maximumFractionDigits: 0 })}
+                  </td>
+                  <td className="px-4 py-3 text-right text-slate-900">
+                    {equityRows.filter((r: any) => r.level === equityLevel).reduce((s: number, r: any) => s + Number(r.mtm_ptf ?? 0), 0).toLocaleString("fr-FR", { maximumFractionDigits: 0 })}
+                  </td>
+                  <td className="px-4 py-3 text-right text-slate-700">
+                    {(equityRows.filter((r: any) => r.level === equityLevel).reduce((s: number, r: any) => s + Number(r.expo_pct ?? 0), 0) * 100).toFixed(2)}%
+                  </td>
+                  <td className="px-4 py-3 text-right text-sky-600">
+                    {(equityRows.filter((r: any) => r.level === equityLevel).reduce((s: number, r: any) => s + Number(r.wght_pct ?? 0), 0) * 100).toFixed(2)}%
+                  </td>
+                  <td className="px-4 py-3 text-right text-slate-700">
+                    {(equityRows.filter((r: any) => r.level === equityLevel).reduce((s: number, r: any) => s + Number(r.wght_ptf_ref ?? 0), 0) * 100).toFixed(2)}%
+                  </td>
+                </tr>
+              </tfoot>
               </tbody>
             </table>
           </div>
