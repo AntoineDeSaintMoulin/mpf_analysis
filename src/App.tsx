@@ -3821,9 +3821,26 @@ return Array.from(m.entries()).map(([name, value]) => {
     );
     const cur = hedged ? "EUR" : (h.currency ?? "Other").toUpperCase().trim();
     m.set(cur, (m.get(cur) ?? 0) + (h.weight ?? 0));
-  }
-}
+      }
+      }
     });
+    const result: { label: string; value: number }[] = [];
+    let other = 0;
+    m.forEach((weight, cur) => {
+      if (KEY_CURRENCIES.includes(cur)) {
+        result.push({ label: cur, value: +weight.toFixed(1) });
+      } else {
+        other += weight;
+      }
+    });
+    if (other > 0.05) result.push({ label: "Other", value: +other.toFixed(1) });
+    const order = ["EUR", "USD", "JPY", "Other"];
+    return result.sort((a, b) => {
+      const ai = order.indexOf(a.label);
+      const bi = order.indexOf(b.label);
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    });
+  }, [currentPortfolio, currencyBreakdowns, dpamLookup, manualOverrides]);
 
 const categoryData = useMemo(() => {
   const m = new Map<string, number>();
