@@ -1969,134 +1969,22 @@ const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
   try {
     const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs" as any);
     const buffer = await file.arrayBuffer();
-    const wb = XLSX.read(buffer, { type: "array", cellDates: true });
-    const ws = wb.Sheets[wb.SheetNames[0]];
 
-    // Lire toutes les cellules par clé pour capturer les lignes cachées
-    const allCellKeys = Object.keys(ws).filter((k: string) => !k.startsWith('!'));
-    const instrumentRows: Map<number, any[]> = new Map();
-    allCellKeys.forEach((key: string) => {
-      const decoded = XLSX.utils.decode_cell(key);
-      if (!instrumentRows.has(decoded.r)) instrumentRows.set(decoded.r, []);
-      const row = instrumentRows.get(decoded.r)!;
-      row[decoded.c] = ws[key]?.v;
+    // Envoyer le fichier en base64 au serveur pour parsing Python
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+    const parseRes = await fetch("/api/dpam-data?section=samdp_equity_parse", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: file.name, fileBase64: base64 }),
     });
 
-    const toNum = (v: any) => v != null && !isNaN(Number(v)) ? Number(v) : null;
-    const toStr = (v: any) => v != null && String(v).trim() !== '' ? String(v).trim() : null;
-
-    // Trier les lignes par index
-    const sortedRows = Array.from(instrumentRows.entries())
-      .sort(([a], [b]) => a - b);
-
-    // ── Déduire le niveau hiérarchique ──
-    // On connaît la structure exacte du fichier :
-    // Les lignes apparaissent en doublon (level N et level N+1)
-    // On détecte les doublons consécutifs et on garde le premier
-    
-    // D'abord, collecter toutes les lignes avec leurs données
-    const allRows: any[] = [];
-    for (const [rowIdx, row] of sortedRows) {
-      if (rowIdx === 0) continue; // skip header
-      const name = toStr(row[0]);
-      if (!name) continue;
-      allRows.push({
-        row_index: rowIdx,
-        name,
-        isin: toStr(row[1]),
-        instrument_type: toStr(row[3]),
-        currency: toStr(row[13]),
-        quantity: toNum(row[14]),
-        mtm_ptf: toNum(row[18]),
-        expo_pct: toNum(row[19]),
-        wght_pct: toNum(row[22]),
-        wght_ref: toNum(row[23]),
-        wght_ptf_ref: toNum(row[24]),
-      });
+    if (!parseRes.ok) {
+      alert("Erreur lors du parsing: " + await parseRes.text());
+      return;
     }
 
-    // ── Déduplication des doublons consécutifs ──
-    // Chaque instrument apparaît deux fois de suite avec les mêmes données
-    // On garde une ligne sur deux (les lignes paires = niveau 4, les impaires = niveau 5)
-    // En pratique : si la ligne suivante a le même nom ET même mtm_ptf → doublon, supprimer la seconde
-// Pas de déduplication — assigner le niveau basé sur la position
-// Les doublons consécutifs = le premier est niveau N, le second est niveau N+1
-const dedupedRows: any[] = [];
-for (let i = 0; i < allRows.length; i++) {
-  const curr = allRows[i];
-  const next = allRows[i + 1];
-  if (
-    next &&
-    curr.name === next.name &&
-    curr.isin === next.isin
-  ) {
-    // Doublon — garder les deux avec niveaux différents
-    dedupedRows.push({ ...curr, _isFirstOfPair: true });
-    dedupedRows.push({ ...next, _isSecondOfPair: true });
-    i++; // skip next car déjà ajouté
-  } else {
-    dedupedRows.push(curr);
-  }
-}
-
-    // ── Assigner les niveaux ──
-    // Structure connue du fichier :
-    // Row 1 (index 1) = Holdings → level 1
-    // Row 2 = Cash/Futures/Mutual funds/Options → level 2
-    // Row 3 = CASH: PROVISION/CURRENCY/DEPOSIT/etc → level 3
-    // Row 4 = instruments individuels → level 4
-    // Les niveaux s'imbriquent selon la position relative
-    
-    // On utilise une heuristique : détecter les sauts de niveau
-    // basée sur les noms connus de chaque niveau
-    const LEVEL2_NAMES = new Set(["Cash", "Futures", "Mutual funds", "Options"]);
-    const LEVEL3_TYPES = new Set([
-      "CASH: PROVISION", "CURRENCY", "DEPOSIT", 
-      "FUTURE ON INDEX", "ETF EQUITIES", "OPTION ON INDEX"
-    ]);
-
-const rowsWithLevel: any[] = dedupedRows.map((row, i) => {
-  const isSecond = row._isSecondOfPair === true;
-  const { _isFirstOfPair, _isSecondOfPair, ...cleanRow } = row;
-
-let level: number;
-  if (i === 0) {
-    level = 1;
-  } else if (isSecond) {
-    level = 5;
-  } else if (LEVEL2_NAMES.has(row.name)) {
-    level = 2;
-  } else if (
-    !row.isin &&
-    row.instrument_type &&
-    LEVEL3_TYPES.has(row.instrument_type) &&
-    row.name === row.instrument_type
-  ) {
-    level = 3;
-  } else if (
-    !row.isin &&
-    LEVEL3_TYPES.has(row.instrument_type ?? "") &&
-    !LEVEL2_NAMES.has(row.name)
-  ) {
-    level = row.name === row.instrument_type ? 3 : 4;
-  } else {
-    level = 4;
-  }
-
-  return { ...cleanRow, level };
-});
-    
-    console.log("Rows with levels:", rowsWithLevel.map(r => `L${r.level}: ${r.name}`));
-    console.log("Total rows:", rowsWithLevel.length);
-
-console.log("Levels distribution:", rowsWithLevel.reduce((acc: any, r: any) => {
-  acc[r.level] = (acc[r.level] ?? 0) + 1;
-  return acc;
-}, {}));
-console.log("Sample level 5:", rowsWithLevel.filter(r => r.level === 5).slice(0, 3));
-console.log("Sample pairs:", rowsWithLevel.filter((r: any) => r._isSecondOfPair).slice(0, 3));
-console.log("All rows with levels:", rowsWithLevel.map(r => `L${r.level}: ${r.name} | wght=${r.wght_pct}`));
-console.log("Row indices:", dedupedRows.map(r => `idx=${r.row_index} name=${r.name}`));
+    const { rows: rowsWithLevel } = await parseRes.json();
+    console.log("Rows from server:", rowsWithLevel.map((r: any) => `L${r.level}: ${r.name}`));
     
     if (rowsWithLevel.length === 0) {
       alert("Aucune donnée trouvée dans ce fichier.");
