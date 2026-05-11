@@ -3139,16 +3139,7 @@ try {
     }
   } catch (e) { console.error("Refresh failed", e); }
 };
-    
-    setImportLog(data.importLog);
-    setTargetGridData(data.targetGrid ?? {});
-    if (selectedId != null) {
-      const current = allP.find(p => p.id === selectedId) ?? null;
-      setCurrentPortfolio(current);
-    }
-  } catch (e) { console.error("Refresh failed", e); }
-};
-
+  
   const handleAnalyze = async () => {
     if (!currentPortfolio || analyzing) return;
     setAnalyzing(true);
