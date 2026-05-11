@@ -2097,6 +2097,7 @@ console.log("Levels distribution:", rowsWithLevel.reduce((acc: any, r: any) => {
 }, {}));
 console.log("Sample level 5:", rowsWithLevel.filter(r => r.level === 5).slice(0, 3));
 console.log("Sample pairs:", rowsWithLevel.filter((r: any) => r._isSecondOfPair).slice(0, 3));
+console.log("All rows with levels:", rowsWithLevel.map(r => `L${r.level}: ${r.name} | wght=${r.wght_pct}`));
     
     if (rowsWithLevel.length === 0) {
       alert("Aucune donnée trouvée dans ce fichier.");
