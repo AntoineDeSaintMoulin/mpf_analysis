@@ -3803,7 +3803,7 @@ const categoryData = useMemo(() => {
       const target = profile && gridId ? targetGridData[gridId]?.[profile]?.["target"] ?? null : null;
       return { name, value: +value.toFixed(1), target };
     });
-  }, [currentPortfolio, targetGridData]);
+  
 const samdpGeoBreakdown = useMemo(() => {
   if (samdpEquityRows.length === 0) return null;
   const level5 = samdpEquityRows.filter((r: any) => r.level === 5 && r.isin);
