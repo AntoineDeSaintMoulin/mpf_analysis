@@ -63,6 +63,76 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+if (section === "samdp_equity_parse") {
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  
+  const { filename, fileBase64 } = req.body;
+  if (!filename || !fileBase64) return res.status(400).json({ error: "Missing fields" });
+
+  try {
+    const { execSync } = await import("child_process");
+    const { writeFileSync, unlinkSync } = await import("fs");
+    const { join } = await import("path");
+    const { tmpdir } = await import("os");
+
+    // Écrire le fichier dans /tmp
+    const tmpPath = join(tmpdir(), `samdp_${Date.now()}.xls`);
+    writeFileSync(tmpPath, Buffer.from(fileBase64, "base64"));
+
+    // Script Python inline
+    const pythonScript = `
+import sys, json, openpyxl
+wb = openpyxl.load_workbook(sys.argv[1], data_only=True)
+ws = wb.active
+rows = []
+for row in range(2, ws.max_row + 1):
+    cell = ws.cell(row=row, column=1)
+    name = cell.value
+    if not name:
+        continue
+    indent = int(cell.alignment.indent) if cell.alignment else 0
+    level = indent
+    isin = ws.cell(row=row, column=2).value
+    inst_type = ws.cell(row=row, column=4).value
+    currency = ws.cell(row=row, column=14).value
+    quantity = ws.cell(row=row, column=15).value
+    mtm_ptf = ws.cell(row=row, column=19).value
+    expo_pct = ws.cell(row=row, column=20).value
+    wght_pct = ws.cell(row=row, column=23).value
+    wght_ref = ws.cell(row=row, column=24).value
+    wght_ptf_ref = ws.cell(row=row, column=25).value
+    rows.append({
+        "row_index": row,
+        "level": level,
+        "name": str(name).strip(),
+        "isin": str(isin).strip() if isin else None,
+        "instrument_type": str(inst_type).strip() if inst_type else None,
+        "currency": str(currency).strip() if currency else None,
+        "quantity": float(quantity) if quantity is not None else None,
+        "mtm_ptf": float(mtm_ptf) if mtm_ptf is not None else None,
+        "expo_pct": float(expo_pct) if expo_pct is not None else None,
+        "wght_pct": float(wght_pct) if wght_pct is not None else None,
+        "wght_ref": float(wght_ref) if wght_ref is not None else None,
+        "wght_ptf_ref": float(wght_ptf_ref) if wght_ptf_ref is not None else None,
+    })
+print(json.dumps(rows))
+`;
+
+    const scriptPath = join(tmpdir(), `parse_samdp_${Date.now()}.py`);
+    writeFileSync(scriptPath, pythonScript);
+
+    const output = execSync(`python3 ${scriptPath} ${tmpPath}`, { timeout: 30000 }).toString();
+    const rows = JSON.parse(output);
+
+    // Nettoyage
+    try { unlinkSync(tmpPath); unlinkSync(scriptPath); } catch {}
+
+    return res.json({ rows });
+  } catch (e: any) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+  
 if (section === "samdp_equity") {
 
   if (req.method === "GET") {
