@@ -2040,15 +2040,17 @@ const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       return { ...row, level };
     });
 
-// Post-processing Options
+  // Post-processing : enfants de niveau 5 avec noms différents du parent
+    const LEVEL3_PARENT_TYPES = new Set(["OPTION ON INDEX", "FUTURE ON INDEX"]);
     for (let i = 1; i < rowsWithLevel.length; i++) {
       if (rowsWithLevel[i].level === 4 &&
           !LEVEL2_NAMES.has(rowsWithLevel[i].name) &&
-          rowsWithLevel[i].instrument_type === "OPTION ON INDEX") {
-        // Chercher le parent L4 le plus proche
+          LEVEL3_PARENT_TYPES.has(rowsWithLevel[i].instrument_type ?? "")) {
+        // Chercher le parent L4 le plus proche avec le même instrument_type
         let hasL4Parent = false;
         for (let j = i - 1; j >= 0; j--) {
-          if (rowsWithLevel[j].level === 4 && rowsWithLevel[j].instrument_type === "OPTION ON INDEX") {
+          if (rowsWithLevel[j].level === 4 && 
+              LEVEL3_PARENT_TYPES.has(rowsWithLevel[j].instrument_type ?? "")) {
             hasL4Parent = true;
             break;
           }
