@@ -3086,17 +3086,6 @@ export default function App() {
   const [samdpDebtInstruments, setSamdpDebtInstruments] = useState<any[]>([]);
   const [samdpDebtImportLog, setSamdpDebtImportLog] = useState<any>(null);
   const [samdpEquityRows, setSamdpEquityRows] = useState<any[]>([]);
-  
-  async function safeArray<T>(fn: () => Promise<T[]>): Promise<T[]> {
-    try {
-      const r = await fn();
-      return Array.isArray(r) ? r : [];
-    } catch (e) {
-      console.error(e);
-      return [];
-    }
-  }
-
   const loadTargetGrid = async () => {
     try {
       const res = await fetch("/api/target-grid");
