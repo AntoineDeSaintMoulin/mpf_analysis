@@ -5024,7 +5024,7 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
                             </button>
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {(drillDownFilter.type === "currency" ? [...currencyDrillDownHoldings] : [...drillDownHoldings])
+                            {[...drillDownHoldings]
                               .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0))
                               .map((h, i) => (
                                 <button key={i} onClick={() => setSelectedInstrument(h)}
