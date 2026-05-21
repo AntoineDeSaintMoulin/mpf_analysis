@@ -3086,6 +3086,17 @@ export default function App() {
   const [samdpDebtInstruments, setSamdpDebtInstruments] = useState<any[]>([]);
   const [samdpDebtImportLog, setSamdpDebtImportLog] = useState<any>(null);
   const [samdpEquityRows, setSamdpEquityRows] = useState<any[]>([]);
+  
+  async function safeArray<T>(fn: () => Promise<T[]>): Promise<T[]> {
+    try {
+      const r = await fn();
+      return Array.isArray(r) ? r : [];
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  }
+
   const loadTargetGrid = async () => {
     try {
       const res = await fetch("/api/target-grid");
@@ -4101,60 +4112,8 @@ return Array.from(im.values());
  const drillDownHoldings = useMemo(() => {
   if (!drillDownFilter || drillDownFilter.type === "currency") return [];
   const holdings = currentPortfolio?.holdings ?? [];
-if (drillDownFilter.type === "category") {
-    if (drillDownFilter.value !== "Liquidities") {
-      return holdings.filter(h => h?.category === drillDownFilter.value);
-    }
-    
-    // Pour Liquidities : holdings directs + cash caché dans les fonds
-    const CASH_ISINS_SET = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
-    const result: any[] = [];
-    
-    holdings.forEach(h => {
-      if (!h) return;
-      
-      // Holdings directement en Liquidities
-      if (h.category === "Liquidities") {
-        result.push(h);
-        return;
-      }
-      
-      // Cash via breakdowns géo (ex: LU0846948437)
-      const bd = h.isin ? breakdowns[h.isin] : null;
-      if (bd) {
-        const cashEntry = bd.find(e => e.region === "Cash");
-        if (cashEntry && cashEntry.weight > 0) {
-          result.push({ ...h, asset_name: `${h.asset_name} (Cash)`, weight: (h.weight ?? 0) * cashEntry.weight / 100 });
-          return;
-        }
-      }
-      
-      // Cash via DPAM geoBreakdown
-      const dpamGeo = h.isin ? dpamLookup[h.isin]?.geoBreakdown : null;
-      if (dpamGeo) {
-        const cashEntry = dpamGeo.find((e: any) => e.region === "Cash");
-        if (cashEntry && cashEntry.weight > 0) {
-          result.push({ ...h, asset_name: `${h.asset_name} (Cash)`, weight: (h.weight ?? 0) * cashEntry.weight / 100 });
-          return;
-        }
-      }
-      
-      // Cash via SAMDP niveau 5
-      if (h.isin === "LU1795355053" && samdpEquityRows.length > 0) {
-        const cashLines = samdpEquityRows.filter((row: any) =>
-          row.level === 5 &&
-          (CASH_ISINS_SET.has((row.isin ?? "").toUpperCase()) ||
-           (row.instrument_type ?? "").toUpperCase().includes("DEPOSIT"))
-        );
-        const samdpCashPct = cashLines.reduce((s: number, row: any) => s + Number(row.wght_ptf_ref ?? 0), 0);
-        if (samdpCashPct > 0) {
-          result.push({ ...h, asset_name: `${h.asset_name} (Cash)`, weight: (h.weight ?? 0) * samdpCashPct });
-          return;
-        }
-      }
-    });
-    
-    return result.filter(h => (h.weight ?? 0) > 0).sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0));
+  if (drillDownFilter.type === "category") {
+    return holdings.filter(h => h?.category === drillDownFilter.value);
   }
 
   const SAMDP_ISINS = ["LU1795355053"];
@@ -4203,7 +4162,7 @@ if (drillDownFilter.type === "category") {
       return h;
     })
     .filter(h => (h.weight ?? 0) > 0);
-}, [currentPortfolio, drillDownFilter, breakdowns, dpamLookup, samdpGeoBreakdown, samdpEquityRows]);
+}, [currentPortfolio, drillDownFilter, breakdowns, dpamLookup, samdpGeoBreakdown]);
 
   const sortedFilteredHoldings = useMemo(() => {
     let list = (currentPortfolio?.holdings ?? []).filter((h) => {
@@ -5013,7 +4972,7 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
                             </button>
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {[...drillDownHoldings]
+                            {(drillDownFilter.type === "currency" ? [...currencyDrillDownHoldings] : [...drillDownHoldings])
                               .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0))
                               .map((h, i) => (
                                 <button key={i} onClick={() => setSelectedInstrument(h)}
