@@ -3775,12 +3775,20 @@ function applyLookThrough(holdings: Holding[]): { region: string; weight: number
       };
  
       const regionMap = new Map<string, number>();
-const CASH_LABELS = ["Cash and Derivatives", "Cash", "Derivatives", "Other"];
+const CASH_LABELS = ["Cash and Derivatives", "Cash", "Derivatives"];
+let dpamCashWeight = 0;
 countryRows.forEach((c: any) => {
-  if (CASH_LABELS.includes(c.country)) return;
+  if (CASH_LABELS.includes(c.country)) {
+    dpamCashWeight += Number(c.weight ?? 0);
+    return;
+  }
+  if (c.country === "Other") return;
   const region = COUNTRY_TO_REGION[c.country] ?? "Others";
   regionMap.set(region, (regionMap.get(region) ?? 0) + Number(c.weight ?? 0));
 });
+if (dpamCashWeight > 0) {
+  regionMap.set("Cash", dpamCashWeight);
+}
       const geo = Array.from(regionMap.entries())
   .filter(([region]) => region !== "Others" || true) // garder pour l'instant
   .map(([region, weight]) => ({ region, weight }));
