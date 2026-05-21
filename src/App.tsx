@@ -1859,12 +1859,14 @@ const [showSamdpDetail, setShowSamdpDetail] = React.useState<"currency_equity" |
     // Lire toutes les cellules par clé (contourne les row groups cachés)
     const allCellKeys = Object.keys(ws).filter(k => !k.startsWith('!'));
     const instrumentRows: Map<number, any[]> = new Map();
-    allCellKeys.forEach((key: string) => {
+allCellKeys.forEach((key: string) => {
       const decoded = XLSX.utils.decode_cell(key);
       if (!instrumentRows.has(decoded.r)) instrumentRows.set(decoded.r, []);
       const row = instrumentRows.get(decoded.r)!;
       row[decoded.c] = ws[key]?.v;
     });
+    // Lire les niveaux de groupement (outline levels) depuis !rows
+    const wsRows: any[] = (ws as any)['!rows'] ?? [];
  
     const VALID_TYPES = ["ETF BONDS", "FIXED RATE BOND", "FLOATING RATE BOND", "CONVERTIBLE BOND", "BOND"];
     const seen = new Set<string>();
@@ -2000,6 +2002,7 @@ const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       if (rowIdx === 0) continue;
       const name = toStr(row[0]);
       if (!name) continue;
+const outlineLevel = wsRows[rowIdx]?.level ?? 0;
       allRows.push({
         row_index: rowIdx + 1,
         name,
@@ -2012,9 +2015,9 @@ const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         wght_pct: toNum(row[22]),
         wght_ref: toNum(row[23]),
         wght_ptf_ref: toNum(row[24]),
+        outline_level: outlineLevel,
       });
     }
-
 const rowsWithLevel: any[] = allRows.map((row, i) => {
       const prev = allRows[i - 1];
       const isDuplicate = prev &&
@@ -2023,7 +2026,10 @@ const rowsWithLevel: any[] = allRows.map((row, i) => {
         row.instrument_type === prev.instrument_type;
 
       let level: number;
-      if (i === 0) level = 1;
+      // Si outline_level disponible, l'utiliser directement (outline 0=niveau1, 1=niveau2, etc.)
+      if (row.outline_level > 0) {
+        level = row.outline_level + 1;
+      } else if (i === 0) level = 1;
       else if (isDuplicate) level = 5;
       else if (LEVEL2_NAMES.has(row.name)) level = 2;
       else if (
@@ -2037,11 +2043,8 @@ const rowsWithLevel: any[] = allRows.map((row, i) => {
         LEVEL3_TYPES.has(row.instrument_type ?? "") &&
         !LEVEL2_NAMES.has(row.name)
       ) level = row.name === row.instrument_type ? 3 : 4;
-      else if (row.isin && prev && (prev.level === 4 || prev.level === 5) && !LEVEL2_NAMES.has(row.name)) level = 5;
       else level = 4;
-if (row.instrument_type === "OPTION ON INDEX") {
-  console.log(`Option row ${i}: name="${row.name}" isin="${row.isin}" prev_level=${prev?.level} => level=${level}`);
-}
+
       return { ...row, level };
     });
     
