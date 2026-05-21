@@ -3925,26 +3925,20 @@ const categoryData = useMemo(() => {
     // Chercher la part Cash dans les fonds DPAM
     const dpamGeo = h.isin ? dpamLookup[h.isin]?.geoBreakdown : null;
     if (dpamGeo) {
-      console.log("dpamGeo for", h.asset_name, dpamGeo);
       const cashEntry = dpamGeo.find((e: any) => e.region === "Cash");
       if (cashEntry) {
         extraCash += (h.weight ?? 0) * cashEntry.weight / 100;
       }
     }
     
-// Chercher la part Cash dans le SAMDP via les lignes niveau 5
-    if (h.isin === "LU1795355053" && samdpEquityRows.length > 0) {
-      const CASH_ISINS = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
-      const cashLines = samdpEquityRows.filter((row: any) =>
-        row.level === 5 &&
-        (
-          CASH_ISINS.has((row.isin ?? "").toUpperCase()) ||
-          (row.instrument_type ?? "").toUpperCase().includes("DEPOSIT")
-        )
-      );
-      const samdpCashPct = cashLines.reduce((s: number, row: any) => s + Number(row.wght_ptf_ref ?? 0), 0);
-      extraCash += (h.weight ?? 0) * samdpCashPct;
+    // Chercher la part Cash dans le SAMDP
+    if (h.isin === "LU1795355053" && samdpGeoBreakdown) {
+      const cashEntry = samdpGeoBreakdown.find(e => e.region === "Cash");
+      if (cashEntry) {
+        extraCash += (h.weight ?? 0) * cashEntry.weight / 100;
+      }
     }
+  });
 
 console.log("extraCash:", extraCash, "liquidities directes:", m.get("Liquidities"));
 console.log("extraCash:", extraCash, "liquidities directes:", m.get("Liquidities"));
@@ -3966,7 +3960,7 @@ console.log("breakdowns LU0846948437:", breakdowns["LU0846948437"]);
     const target = profile && gridId ? targetGridData[gridId]?.[profile]?.["target"] ?? null : null;
     return { name, value: +value.toFixed(1), target };
   });
-}, [currentPortfolio, targetGridData, breakdowns, dpamLookup, samdpGeoBreakdown, regionData, samdpEquityRows]);
+}, [currentPortfolio, targetGridData, breakdowns, dpamLookup, samdpGeoBreakdown, regionData]);
 
  // ── Credit exposure — agrégation par credit_type sur tout le portefeuille ──
 
