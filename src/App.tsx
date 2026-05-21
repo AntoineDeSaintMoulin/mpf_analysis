@@ -1985,7 +1985,8 @@ const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const row = instrumentRows.get(decoded.r)!;
       row[decoded.c] = ws[key]?.v;
     });
-
+    // Lire les niveaux de groupement (outline levels) depuis !rows
+    const wsRows: any[] = (ws as any)['!rows'] ?? [];
     const toNum = (v: any) => v != null && !isNaN(Number(v)) ? Number(v) : null;
     const toStr = (v: any) => v != null && String(v).trim() !== '' ? String(v).trim() : null;
 
