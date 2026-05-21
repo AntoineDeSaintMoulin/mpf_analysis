@@ -2045,7 +2045,8 @@ if (row.instrument_type === "OPTION ON INDEX") {
       return { ...row, level };
     });
     
-// Corriger les sous-composants avec ISIN après une ligne niveau 4
+// Corriger les sous-composants avec ISIN après une ligne niveau 4 sans ISIN
+  const PARENT_TYPES_WITH_CHILDREN = new Set(["OPTION ON INDEX", "FUTURE ON INDEX"]);
   for (let i = 1; i < rowsWithLevel.length; i++) {
     const row = rowsWithLevel[i];
     const prev = rowsWithLevel[i - 1];
@@ -2054,6 +2055,8 @@ if (row.instrument_type === "OPTION ON INDEX") {
       row.isin &&
       row.isin !== "null" &&
       (prev.level === 4 || prev.level === 5) &&
+      !prev.isin &&
+      PARENT_TYPES_WITH_CHILDREN.has(prev.instrument_type ?? "") &&
       !LEVEL2_NAMES.has(row.name)
     ) {
       rowsWithLevel[i].level = 5;
