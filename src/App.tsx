@@ -4106,8 +4106,55 @@ return Array.from(im.values());
  const drillDownHoldings = useMemo(() => {
   if (!drillDownFilter || drillDownFilter.type === "currency") return [];
   const holdings = currentPortfolio?.holdings ?? [];
-  if (drillDownFilter.type === "category") {
-    return holdings.filter(h => h?.category === drillDownFilter.value);
+if (drillDownFilter.type === "category") {
+    if (drillDownFilter.value !== "Liquidities") {
+      return holdings.filter(h => h?.category === drillDownFilter.value);
+    }
+
+    const CASH_ISINS_SET = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
+    const result: any[] = [];
+
+    holdings.forEach(h => {
+      if (!h) return;
+
+      if (h.category === "Liquidities") {
+        result.push(h);
+        return;
+      }
+
+      const bd = h.isin ? breakdowns[h.isin] : null;
+      if (bd) {
+        const cashEntry = bd.find(e => e.region === "Cash");
+        if (cashEntry && cashEntry.weight > 0) {
+          result.push({ ...h, asset_name: h.asset_name + " (Cash)", weight: (h.weight ?? 0) * cashEntry.weight / 100 });
+          return;
+        }
+      }
+
+      const dpamGeo = h.isin ? dpamLookup[h.isin]?.geoBreakdown : null;
+      if (dpamGeo) {
+        const cashEntry = dpamGeo.find((e: any) => e.region === "Cash");
+        if (cashEntry && cashEntry.weight > 0) {
+          result.push({ ...h, asset_name: h.asset_name + " (Cash)", weight: (h.weight ?? 0) * cashEntry.weight / 100 });
+          return;
+        }
+      }
+
+      if (h.isin === "LU1795355053" && samdpEquityRows.length > 0) {
+        const cashLines = samdpEquityRows.filter((row: any) =>
+          row.level === 5 &&
+          (CASH_ISINS_SET.has((row.isin ?? "").toUpperCase()) ||
+           (row.instrument_type ?? "").toUpperCase().includes("DEPOSIT"))
+        );
+        const samdpCashPct = cashLines.reduce((s: number, row: any) => s + Number(row.wght_ptf_ref ?? 0), 0);
+        if (samdpCashPct > 0) {
+          result.push({ ...h, asset_name: h.asset_name + " (Cash)", weight: (h.weight ?? 0) * samdpCashPct });
+          return;
+        }
+      }
+    });
+
+    return result.filter(h => (h.weight ?? 0) > 0).sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0));
   }
 
   const SAMDP_ISINS = ["LU1795355053"];
