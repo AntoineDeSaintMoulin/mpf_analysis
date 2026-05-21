@@ -2044,7 +2044,21 @@ if (row.instrument_type === "OPTION ON INDEX") {
 }
       return { ...row, level };
     });
-
+    
+// Corriger les sous-composants avec ISIN après une ligne niveau 4
+  for (let i = 1; i < rowsWithLevel.length; i++) {
+    const row = rowsWithLevel[i];
+    const prev = rowsWithLevel[i - 1];
+    if (
+      row.level === 4 &&
+      row.isin &&
+      row.isin !== "null" &&
+      (prev.level === 4 || prev.level === 5) &&
+      !LEVEL2_NAMES.has(row.name)
+    ) {
+      rowsWithLevel[i].level = 5;
+    }
+  }
   // Post-processing : enfants de niveau 5 avec noms différents du parent
     const LEVEL3_PARENT_TYPES = new Set(["OPTION ON INDEX", "FUTURE ON INDEX"]);
     for (let i = 1; i < rowsWithLevel.length; i++) {
