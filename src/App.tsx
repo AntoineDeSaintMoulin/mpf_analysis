@@ -1843,7 +1843,7 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
   const [debtSearch, setDebtSearch] = React.useState("");
   const [debtSortConfig, setDebtSortConfig] = React.useState<{ key: string; direction: "asc" | "desc" } | null>({ key: "wght_pct", direction: "desc" });
 const [showSamdpDetail, setShowSamdpDetail] = React.useState<"currency_equity" | "region_equity" | "currency_debt" | "credit_debt" | "duration_debt" | "cash_detail" | null>(null);
-  const [equityLevel, setEquityLevel] = React.useState<1|2|3|4|5>(4);
+  const [equityLevel, setEquityLevel] = React.useState<1|2|3|4|5>(2);
   const [regionFilter, setRegionFilter] = React.useState<string | null>(null);
   const handleDebtFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
   const file = e.target.files?.[0];
@@ -2015,7 +2015,7 @@ const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       });
     }
 
-    const rowsWithLevel: any[] = allRows.map((row, i) => {
+const rowsWithLevel: any[] = allRows.map((row, i) => {
       const prev = allRows[i - 1];
       const isDuplicate = prev &&
         row.name === prev.name &&
@@ -2037,6 +2037,7 @@ const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         LEVEL3_TYPES.has(row.instrument_type ?? "") &&
         !LEVEL2_NAMES.has(row.name)
       ) level = row.name === row.instrument_type ? 3 : 4;
+      else if (row.isin && prev && (prev.level === 4 || prev.level === 5) && !LEVEL2_NAMES.has(row.name)) level = 5;
       else level = 4;
 
       return { ...row, level };
