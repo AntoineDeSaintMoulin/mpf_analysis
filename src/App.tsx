@@ -2039,7 +2039,7 @@ const rowsWithLevel: any[] = allRows.map((row, i) => {
       ) level = row.name === row.instrument_type ? 3 : 4;
       else if (row.isin && prev && (prev.level === 4 || prev.level === 5) && !LEVEL2_NAMES.has(row.name)) level = 5;
       else level = 4;
-
+console.log(`Row ${i}: name="${row.name}" isin="${row.isin}" type="${row.instrument_type}" level=${level}`);
       return { ...row, level };
     });
 
