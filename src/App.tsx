@@ -2645,8 +2645,9 @@ debtData.forEach(inst => {
         </div>
       </div>
 
-      {/* Credit Quality */}
-      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+{/* Credit Quality */}
+                      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm cursor-pointer hover:border-violet-200 hover:shadow-md transition-all"
+                        onClick={() => setShowCreditDetail(true)}>
         <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-violet-600" />Credit Quality
         </h3>
@@ -3100,7 +3101,7 @@ export default function App() {
   const [editingCreditBreakdown, setEditingCreditBreakdown] = useState<{ isin: string; name: string } | null>(null);
   const [creditBreakdownSaving, setCreditBreakdownSaving] = useState(false);
   const [durations, setDurations] = useState<DurationsMap>({});
-  const [showDurationDetail, setShowDurationDetail] = useState(false);
+const [showCreditDetail, setShowCreditDetail] = useState(false);
   const [showCurrencyDetail, setShowCurrencyDetail] = useState<string | null>(null);
   const [dpamBondsData, setDpamBondsData] = useState<any>(null);
   const [dpamEquityData, setDpamEquityData] = useState<any>(null);
@@ -5615,7 +5616,41 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
       </Modal>
 
         {/* ── Duration detail modal ── */}
-    <Modal isOpen={showDurationDetail} onClose={() => setShowDurationDetail(false)} title="Détail Duration">
+<Modal isOpen={showCreditDetail} onClose={() => setShowCreditDetail(false)} title="Détail Credit Quality">
+  <div className="space-y-3">
+    {(currentPortfolio?.holdings ?? [])
+      .filter(h => h && ["Fixed Income", "Bonds"].includes(h.category ?? ""))
+      .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0))
+      .map((h, i) => {
+        const cbd = h.isin ? creditBreakdowns[h.isin] : null;
+        const dpamCredit = h.isin ? dpamLookup[h.isin]?.creditBreakdown : null;
+        const entries = cbd ?? dpamCredit ?? [];
+        return (
+          <div key={i} className="flex items-center justify-between py-2 border-b border-slate-50">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-slate-900 truncate max-w-[260px]">{h.asset_name ?? "—"}</p>
+              <div className="flex flex-wrap gap-1 mt-0.5">
+                {entries.length === 0 ? (
+                  <span className="text-xs text-slate-300 italic">Pas de décomposition</span>
+                ) : (
+                  entries.map((e, j) => (
+                    <span key={j} className={cn("text-xs font-bold px-1.5 py-0.5 rounded-full",
+                      e.credit_type === "Govies" ? "bg-sky-50 text-sky-700" :
+                      e.credit_type === "IG" ? "bg-emerald-50 text-emerald-700" :
+                      e.credit_type === "HY" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"
+                    )}>{e.credit_type} {e.currency} {e.weight.toFixed(1)}%</span>
+                  ))
+                )}
+              </div>
+            </div>
+            <span className="text-sm font-bold text-slate-900 w-16 text-right shrink-0">
+              {(h.weight ?? 0).toFixed(2)}%
+            </span>
+          </div>
+        );
+      })}
+  </div>
+</Modal>
       {currentPortfolio && (() => {
         const FIXED_INCOME_CATS = ["Fixed Income", "Bonds", "Liquidities"];
 const fiHoldings = (currentPortfolio.holdings ?? [])
