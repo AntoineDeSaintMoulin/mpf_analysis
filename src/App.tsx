@@ -2049,23 +2049,27 @@ const rowsWithLevel: any[] = allRows.map((row, i) => {
       return { ...row, level };
     });
     
-// Corriger les sous-composants avec ISIN après une ligne niveau 4 sans ISIN
+// Corriger les sous-composants après un niveau 4 sans ISIN de type OPTION/FUTURE
   const PARENT_TYPES_WITH_CHILDREN = new Set(["OPTION ON INDEX", "FUTURE ON INDEX"]);
+  let insideOptionFutureParent = false;
   for (let i = 1; i < rowsWithLevel.length; i++) {
     const row = rowsWithLevel[i];
     const prev = rowsWithLevel[i - 1];
-    if (
-      row.level === 4 &&
-      row.isin &&
-      row.isin !== "null" &&
-      (prev.level === 4 || prev.level === 5) &&
-      !prev.isin &&
-      PARENT_TYPES_WITH_CHILDREN.has(prev.instrument_type ?? "") &&
-      !LEVEL2_NAMES.has(row.name)
-    ) {
+    
+    // On entre dans un bloc option/future quand on voit un niveau 4 sans ISIN
+    if (prev.level === 4 && !prev.isin && PARENT_TYPES_WITH_CHILDREN.has(prev.instrument_type ?? "")) {
+      insideOptionFutureParent = true;
+    }
+    // On sort du bloc quand on remonte au niveau 3 ou moins
+    if (row.level <= 3) {
+      insideOptionFutureParent = false;
+    }
+    // Toute ligne niveau 4 dans ce bloc devient niveau 5
+    if (insideOptionFutureParent && row.level === 4 && !LEVEL2_NAMES.has(row.name)) {
       rowsWithLevel[i].level = 5;
     }
   }
+    
   // Post-processing : enfants de niveau 5 avec noms différents du parent
     const LEVEL3_PARENT_TYPES = new Set(["OPTION ON INDEX", "FUTURE ON INDEX"]);
     for (let i = 1; i < rowsWithLevel.length; i++) {
