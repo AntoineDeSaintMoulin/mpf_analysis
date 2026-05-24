@@ -4247,6 +4247,10 @@ const bd = h.isin ? breakdownsWithP30[h.isin] : null;
     .filter(h => (h.weight ?? 0) > 0);
 }, [currentPortfolio, drillDownFilter, breakdowns, dpamLookup, samdpGeoBreakdown]);
 
+const currentPortfolioEffective = useMemo(() => {
+  if (!currentPortfolio || !p30Mode || currentPortfolio.type !== "Mixed") {
+    return currentPortfolio;
+  }
   const shareHoldings = (currentPortfolio.holdings ?? []).filter(h => h?.instrument === "Share");
   const otherHoldings = (currentPortfolio.holdings ?? []).filter(h => h?.instrument !== "Share");
   const shareWeight = shareHoldings.reduce((s, h) => s + (h.weight ?? 0), 0);
