@@ -5774,10 +5774,7 @@ const contribution = totalWeight > 0 ? (h.weight ?? 0) * dur / totalWeight : 0;
         );
       })()}
 </Modal>
-  .filter(h => h && FIXED_INCOME_CATS.includes(h.category ?? "") &&
-    (h.isin ? (durations[h.isin] || h.category === "Liquidities") : h.category === "Liquidities"))
-  .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0));
-
+      
 const allFiHoldings = (currentPortfolio.holdings ?? [])
   .filter(h => h && FIXED_INCOME_CATS.includes(h.category ?? ""))
   .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0));
