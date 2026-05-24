@@ -5780,7 +5780,7 @@ const contribution = totalWeight > 0 ? (h.weight ?? 0) * dur / totalWeight : 0;
 
       {/* ── Currency detail modal ── */}
 <Modal isOpen={!!showCurrencyDetail} onClose={() => setShowCurrencyDetail(null)} title={`Exposition ${showCurrencyDetail}`}>
-  {currentPortfolio && showCurrencyDetail && (
+{currentPortfolioEffective && showCurrencyDetail && (
     <div className="space-y-4">
       <p className="text-xs text-slate-500 italic">
         Détail du calcul de l'exposition en {showCurrencyDetail}.
@@ -5796,7 +5796,7 @@ const contribution = totalWeight > 0 ? (h.weight ?? 0) * dur / totalWeight : 0;
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {(currentPortfolio.holdings ?? [])
+{(currentPortfolioEffective.holdings ?? [])
               .map(h => {
                 if (!h) return null;
                 const targetCur = showCurrencyDetail.toUpperCase();
