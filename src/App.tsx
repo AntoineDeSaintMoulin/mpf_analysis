@@ -94,7 +94,7 @@ function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "—";
   return new Date(dateStr).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
-
+const P30_ISIN = "PP3011111111";
 const COLORS = ["#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
 const CURRENCY_COLORS: Record<string, string> = {
@@ -3103,6 +3103,7 @@ export default function App() {
   const [durations, setDurations] = useState<DurationsMap>({});
 const [showCreditDetail, setShowCreditDetail] = useState(false);
   const [showCurrencyDetail, setShowCurrencyDetail] = useState<string | null>(null);
+  const [p30Mode, setP30Mode] = useState(false);
   const [dpamBondsData, setDpamBondsData] = useState<any>(null);
   const [dpamEquityData, setDpamEquityData] = useState<any>(null);
   const [dpamUploading, setDpamUploading] = useState(false);
@@ -3875,7 +3876,7 @@ return Array.from(regionMap.entries()).map(([region, weight]) => ({
   
   const regionData = useMemo(() => {
     const m = new Map<string, number>();
-    const equityHoldings = (currentPortfolio?.holdings ?? []).filter(h => h?.category === "Equities");
+const equityHoldings = (currentPortfolioEffective?.holdings ?? []).filter(h => h?.category === "Equities");
 applyLookThrough(equityHoldings).forEach(({ region, weight }) => {
   if (normalizeRegion(region) === "Cash") return;
   m.set(region, (m.get(region) ?? 0) + weight);
@@ -3891,9 +3892,9 @@ return Array.from(m.entries()).map(([name, value]) => {
   const currencyData = useMemo(() => {
     const KEY_CURRENCIES = ["EUR", "USD", "JPY"];
     const m = new Map<string, number>();
-    (currentPortfolio?.holdings ?? []).forEach((h) => {
+(currentPortfolioEffective?.holdings ?? []).forEach((h) => {
       if (!h) return;
-      const cbd = h.isin ? currencyBreakdowns[h.isin] : null;
+const cbd = h.isin ? currencyBreakdownsWithP30[h.isin] : null;
       if (cbd && cbd.length > 0) {
         for (const entry of cbd) {
           const cur = entry.currency.toUpperCase().trim();
@@ -3943,7 +3944,7 @@ const categoryData = useMemo(() => {
   // Cash extra provenant des breakdowns géographiques (région "Cash")
   let extraCash = 0;
   
-  (currentPortfolio?.holdings ?? []).forEach((h) => {
+(currentPortfolioEffective?.holdings ?? []).forEach((h) => {
     if (!h?.category) return;
     
     if (h.category !== "Equities") {
@@ -3951,7 +3952,7 @@ const categoryData = useMemo(() => {
     }
 
     // Chercher la part Cash dans les breakdowns géo (tous fonds y compris Equities)
-    const bd = h.isin ? breakdowns[h.isin] : null;
+const bd = h.isin ? breakdownsWithP30[h.isin] : null;
     if (bd) {
       const cashEntry = bd.find(e => e.region === "Cash");
       if (cashEntry) {
@@ -4146,7 +4147,7 @@ return Array.from(im.values());
 
  const drillDownHoldings = useMemo(() => {
   if (!drillDownFilter || drillDownFilter.type === "currency") return [];
-  const holdings = currentPortfolio?.holdings ?? [];
+ const holdings = currentPortfolioEffective?.holdings ?? [];
 if (drillDownFilter.type === "category") {
     if (drillDownFilter.value !== "Liquidities") {
       return holdings.filter(h => h?.category === drillDownFilter.value);
@@ -4163,7 +4164,7 @@ if (drillDownFilter.type === "category") {
         return;
       }
 
-      const bd = h.isin ? breakdowns[h.isin] : null;
+const bd = h.isin ? breakdownsWithP30[h.isin] : null;
       if (bd) {
         const cashEntry = bd.find(e => e.region === "Cash");
         if (cashEntry && cashEntry.weight > 0) {
@@ -4245,9 +4246,32 @@ if (drillDownFilter.type === "category") {
     })
     .filter(h => (h.weight ?? 0) > 0);
 }, [currentPortfolio, drillDownFilter, breakdowns, dpamLookup, samdpGeoBreakdown]);
-
+const currentPortfolioEffective = useMemo(() => {
+  if (!currentPortfolio || !p30Mode || currentPortfolio.type !== "Mixed") {
+    return currentPortfolio;
+  }
+  const shareHoldings = (currentPortfolio.holdings ?? []).filter(h => h?.instrument === "Share");
+  const otherHoldings = (currentPortfolio.holdings ?? []).filter(h => h?.instrument !== "Share");
+  const shareWeight = shareHoldings.reduce((s, h) => s + (h.weight ?? 0), 0);
+  if (shareWeight === 0) return currentPortfolio;
+  const p30Holding = {
+    id: -1,
+    asset_name: "P30",
+    isin: P30_ISIN,
+    category: "Equities",
+    region: "Global",
+    instrument: "Fund",
+    currency: "EUR",
+    weight: shareWeight,
+    original_asset_name: "P30",
+  };
+  return {
+    ...currentPortfolio,
+    holdings: [...otherHoldings, p30Holding],
+  };
+}, [currentPortfolio, p30Mode]);
   const sortedFilteredHoldings = useMemo(() => {
-    let list = (currentPortfolio?.holdings ?? []).filter((h) => {
+let list = (currentPortfolioEffective?.holdings ?? []).filter((h) => {
       if (!h) return false;
       if (!holdingsSearch) return true;
       const q = holdingsSearch.toLowerCase();
@@ -4331,7 +4355,21 @@ const filteredInstruments = useMemo(() => {
 
         {(activeTab === "Sicav" || activeTab === "Mixed") && (
           <aside className="w-72 border-r border-slate-200 bg-white p-6 flex flex-col overflow-y-auto">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4 px-2">Profils {activeTab}</p>
+<div className="flex items-center justify-between mb-4 px-2">
+  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Profils {activeTab}</p>
+  {activeTab === "Mixed" && (
+    <button
+      onClick={() => setP30Mode(v => !v)}
+      className={cn(
+        "text-[10px] font-bold px-2 py-1 rounded-lg border transition-all",
+        p30Mode
+          ? "bg-violet-600 text-white border-violet-600"
+          : "bg-white text-slate-400 border-slate-200 hover:border-violet-300"
+      )}>
+      {p30Mode ? "P30" : "Real"}
+    </button>
+  )}
+</div>
             {filteredPortfolios.length === 0
               ? <p className="text-slate-400 text-sm px-2 italic">Aucun portefeuille.</p>
               : filteredPortfolios.map((p) => (
@@ -4874,24 +4912,24 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
             {(activeTab === "Sicav" || activeTab === "Mixed") && (
               <motion.div key={`detail-${selectedId ?? "none"}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-6xl mx-auto space-y-8">
                 {detailLoading && <div className="flex items-center justify-center py-32"><Loader2 className="h-8 w-8 animate-spin text-sky-500" /></div>}
-                {!detailLoading && !currentPortfolio && (
+ {!detailLoading && !currentPortfolioEffective && (
                   <div className="flex flex-col items-center justify-center py-32 text-slate-400 gap-4">
                     <Briefcase className="h-12 w-12 opacity-30" />
                     <p className="text-lg">Sélectionnez un portefeuille.</p>
                   </div>
                 )}
-                {!detailLoading && currentPortfolio && (
+{!detailLoading && currentPortfolioEffective && (
                   <>
                     <div className="flex items-end justify-between">
                       <div>
                         <div className="flex items-center gap-3 mb-2">
                           <span className={cn("px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest",
-                            currentPortfolio.type === "Sicav" ? "bg-purple-100 text-purple-700" : "bg-amber-100 text-amber-700")}>
-                            {currentPortfolio.type ?? "—"}
+currentPortfolioEffective.type === "Sicav" ? "bg-purple-100 text-purple-700" : "bg-amber-100 text-amber-700")}>
+                            {currentPortfolioEffective.type ?? "—"}
                           </span>
-                          <h2 className="text-3xl font-bold tracking-tight text-slate-900">{portfolioLabel(currentPortfolio.name)}</h2>
+<h2 className="text-3xl font-bold tracking-tight text-slate-900">{portfolioLabel(currentPortfolioEffective.name)}</h2>
                         </div>
-                        <p className="text-slate-500 max-w-2xl">{currentPortfolio.description ?? ""}</p>
+<p className="text-slate-500 max-w-2xl">{currentPortfolioEffective.description ?? ""}</p>
                       </div>
                       <button onClick={handleAnalyze} disabled={analyzing}
                         className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-2xl font-medium hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 disabled:opacity-50">
@@ -4909,7 +4947,7 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
                           <div className="bg-sky-100 p-2 rounded-xl"><LayoutDashboard className="h-5 w-5 text-sky-600" /></div>
                           <span className="text-sm font-semibold text-slate-500">Actifs</span>
                         </div>
-                        <div className="text-3xl font-bold text-slate-900">{currentPortfolio.holdings?.length ?? 0}</div>
+<div className="text-3xl font-bold text-slate-900">{currentPortfolioEffective.holdings?.length ?? 0}</div>
                         <div className="text-xs text-slate-400 mt-1">Instruments individuels</div>
                       </div>
 
@@ -4986,7 +5024,7 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
                       </div>
                     </div>
 
-                    {(currentPortfolio.holdings?.length ?? 0) > 0 ? (
+{(currentPortfolioEffective.holdings?.length ?? 0) > 0 ? (
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
                           <h3 className="text-lg font-bold mb-6 flex items-center gap-2"><PieChartIcon className="h-5 w-5 text-sky-600" />Allocation par Catégorie</h3>
@@ -5113,7 +5151,7 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
                       )}
                     </AnimatePresence>
 
-                    {(currentPortfolio.holdings?.length ?? 0) > 0 && (
+{(currentPortfolioEffective.holdings?.length ?? 0) > 0 && (
                       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
                         <div className="px-8 py-5 flex items-center justify-between gap-4 border-b border-slate-50">
                           <h3 className="text-lg font-bold shrink-0">Détails des Positions</h3>
