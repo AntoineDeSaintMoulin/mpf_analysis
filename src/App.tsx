@@ -4267,11 +4267,7 @@ const bd = h.isin ? breakdownsWithP30[h.isin] : null;
     holdings: [...otherHoldings, p30Holding],
   };
 }, [currentPortfolio, p30Mode]);
-const currentPortfolioEffective = useMemo(() => {
-  if (!currentPortfolio || !p30Mode || currentPortfolio.type !== "Mixed") {
-    return currentPortfolio;
-  }
-  const sortedFilteredHoldings = useMemo(() => {
+const sortedFilteredHoldings = useMemo(() => {
 let list = (currentPortfolioEffective?.holdings ?? []).filter((h) => {
       if (!h) return false;
       if (!holdingsSearch) return true;
