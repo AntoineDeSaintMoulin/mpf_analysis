@@ -3888,6 +3888,33 @@ const currencyBreakdownsWithP30 = useMemo(() => ({
     { currency: "USD", weight: 50 },
   ],
 }), [currencyBreakdowns]);
+
+  const currentPortfolioEffective = useMemo(() => {
+  if (!currentPortfolio || !p30Mode || currentPortfolio.type !== "Mixed") {
+    return currentPortfolio;
+  }
+  const shareHoldings = (currentPortfolio.holdings ?? []).filter(h => h?.instrument === "Share");
+  const otherHoldings = (currentPortfolio.holdings ?? []).filter(h => h?.instrument !== "Share");
+  const shareWeight = shareHoldings.reduce((s, h) => s + (h.weight ?? 0), 0);
+  if (shareWeight === 0) return currentPortfolio;
+  const p30Holding = {
+    id: -1,
+    asset_name: "P30",
+    isin: P30_ISIN,
+    category: "Equities",
+    region: "Global",
+    instrument: "Fund",
+    currency: "EUR",
+    weight: shareWeight,
+    original_asset_name: "P30",
+  };
+  return {
+    ...currentPortfolio,
+    holdings: [...otherHoldings, p30Holding],
+  };
+}, [currentPortfolio, p30Mode]);
+
+  
   const regionData = useMemo(() => {
     const m = new Map<string, number>();
 const equityHoldings = (currentPortfolioEffective?.holdings ?? []).filter(h => h?.category === "Equities");
@@ -4261,30 +4288,7 @@ const bd = h.isin ? breakdownsWithP30[h.isin] : null;
     .filter(h => (h.weight ?? 0) > 0);
 }, [currentPortfolio, drillDownFilter, breakdowns, dpamLookup, samdpGeoBreakdown]);
 
-const currentPortfolioEffective = useMemo(() => {
-  if (!currentPortfolio || !p30Mode || currentPortfolio.type !== "Mixed") {
-    return currentPortfolio;
-  }
-  const shareHoldings = (currentPortfolio.holdings ?? []).filter(h => h?.instrument === "Share");
-  const otherHoldings = (currentPortfolio.holdings ?? []).filter(h => h?.instrument !== "Share");
-  const shareWeight = shareHoldings.reduce((s, h) => s + (h.weight ?? 0), 0);
-  if (shareWeight === 0) return currentPortfolio;
-  const p30Holding = {
-    id: -1,
-    asset_name: "P30",
-    isin: P30_ISIN,
-    category: "Equities",
-    region: "Global",
-    instrument: "Fund",
-    currency: "EUR",
-    weight: shareWeight,
-    original_asset_name: "P30",
-  };
-  return {
-    ...currentPortfolio,
-    holdings: [...otherHoldings, p30Holding],
-  };
-}, [currentPortfolio, p30Mode]);
+
 const sortedFilteredHoldings = useMemo(() => {
 let list = (currentPortfolioEffective?.holdings ?? []).filter((h) => {
       if (!h) return false;
