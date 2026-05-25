@@ -3873,7 +3873,21 @@ return Array.from(regionMap.entries()).map(([region, weight]) => ({
     weight: weight * 100,
   }));
 }, [samdpEquityRows, breakdowns, manualOverrides]);
-  
+  const breakdownsWithP30 = useMemo(() => ({
+  ...breakdowns,
+  [P30_ISIN]: [
+    { region: "Europe", weight: 50 },
+    { region: "US", weight: 50 },
+  ],
+}), [breakdowns]);
+
+const currencyBreakdownsWithP30 = useMemo(() => ({
+  ...currencyBreakdowns,
+  [P30_ISIN]: [
+    { currency: "EUR", weight: 50 },
+    { currency: "USD", weight: 50 },
+  ],
+}), [currencyBreakdowns]);
   const regionData = useMemo(() => {
     const m = new Map<string, number>();
 const equityHoldings = (currentPortfolioEffective?.holdings ?? []).filter(h => h?.category === "Equities");
