@@ -3685,7 +3685,7 @@ function applyLookThrough(holdings: Holding[]): { region: string; weight: number
       });
       continue;
     }
-    const bd = h.isin ? breakdowns[h.isin] : null;
+const bd = h.isin ? breakdownsWithP30[h.isin] : null;
     if (bd && bd.length > 0) {
         for (const entry of bd) {
           result.push({ region: normalizeRegion(entry.region), weight: (h.weight ?? 0) * entry.weight / 100 });
@@ -3929,7 +3929,7 @@ return Array.from(m.entries()).map(([name, value]) => {
       const target = profile && gridId ? targetGridData[gridId]?.[profile]?.["target"] ?? null : null;
       return { name, value: +value.toFixed(1), target };
     }).sort((a, b) => b.value - a.value);
-  }, [currentPortfolio, breakdowns, targetGridData, dpamLookup]);
+}, [currentPortfolioEffective, breakdownsWithP30, targetGridData, dpamLookup]);
 
   const currencyData = useMemo(() => {
     const KEY_CURRENCIES = ["EUR", "USD", "JPY"];
