@@ -3102,6 +3102,7 @@ export default function App() {
   const [creditBreakdownSaving, setCreditBreakdownSaving] = useState(false);
   const [durations, setDurations] = useState<DurationsMap>({});
 const [showCreditDetail, setShowCreditDetail] = useState(false);
+  const [showDurationDetail, setShowDurationDetail] = useState(false);
   const [showCurrencyDetail, setShowCurrencyDetail] = useState<string | null>(null);
   const [p30Mode, setP30Mode] = useState(false);
   const [dpamBondsData, setDpamBondsData] = useState<any>(null);
