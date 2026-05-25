@@ -3978,7 +3978,7 @@ const cbd = h.isin ? currencyBreakdownsWithP30[h.isin] : null;
       const bi = order.indexOf(b.label);
       return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
     });
-  }, [currentPortfolio, currencyBreakdowns, dpamLookup, manualOverrides]);
+}, [currentPortfolioEffective, currencyBreakdownsWithP30, dpamLookup, manualOverrides]);
 
 const categoryData = useMemo(() => {
   const m = new Map<string, number>();
