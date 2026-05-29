@@ -238,7 +238,8 @@ function computePtfWeight(
   gridId: string,
   holdings: any[],
   breakdowns: Record<string, any[]>,
-  creditBreakdowns: Record<string, any[]>
+  creditBreakdowns: Record<string, any[]>,
+  dpamLookup: Record<string, any> = {}
 ): number | null {
   if (ALWAYS_DASH.has(gridId)) return null;
 
@@ -256,7 +257,7 @@ function computePtfWeight(
     case "equities":
       return holdings.filter(h => h?.category === "Equities").reduce((s, h) => s + (h.weight ?? 0), 0);
 
-    case "eq_europe": case "eq_us": case "eq_em": case "eq_japan": case "eq_other": {
+case "eq_europe": case "eq_us": case "eq_em": case "eq_japan": case "eq_other": {
       const regionMap: Record<string, string> = { eq_europe: "Europe", eq_us: "US", eq_em: "EM", eq_japan: "Japan", eq_other: "Others" };
       const targetRegion = regionMap[gridId];
       let total = 0;
@@ -265,7 +266,12 @@ function computePtfWeight(
         if (bd && bd.length > 0) {
           bd.forEach((e: any) => { if (normalizeRegion(e.region) === targetRegion) total += (h.weight ?? 0) * e.weight / 100; });
         } else {
-          if (normalizeRegion(h.region ?? "") === targetRegion) total += h.weight ?? 0;
+          const dpamGeo = h.isin ? dpamLookup[h.isin]?.geoBreakdown : null;
+          if (dpamGeo && dpamGeo.length > 0) {
+            dpamGeo.forEach((e: any) => { if (normalizeRegion(e.region) === targetRegion) total += (h.weight ?? 0) * e.weight / 100; });
+          } else {
+            if (normalizeRegion(h.region ?? "") === targetRegion) total += h.weight ?? 0;
+          }
         }
       });
       return total;
@@ -388,12 +394,15 @@ function BreakdownDeviationTable({
   targetGridData,
   breakdowns,
   creditBreakdowns,
+  dpamLookup,
 }: {
   allPortfolios: any[];
   targetGridData: Record<string, any>;
   breakdowns: Record<string, any[]>;
   creditBreakdowns: Record<string, any[]>;
+  dpamLookup: Record<string, any>;
 }) {
+  
   const [portfolioType, setPortfolioType] = React.useState<PortfolioType>("Sicav");
   const [showBDS, setShowBDS] = React.useState(false);
   const [showVH, setShowVH] = React.useState(false);
@@ -541,7 +550,7 @@ function BreakdownDeviationTable({
 
                       // Ptf calculé
                       const ptfVal = ptf
-                        ? computePtfWeight(row.id, ptf.holdings ?? [], breakdowns, creditBreakdowns)
+computePtfWeight(row.id, ptf.holdings ?? [], breakdowns, creditBreakdowns, dpamLookup)
                         : null;
 
                       // Active = Ptf - Target
@@ -4422,11 +4431,12 @@ const filteredInstruments = useMemo(() => {
                 {sortedPortfolios.length === 0 ? (
                   <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">Aucune donnée. Importez un CSV.</div>
                 ) : (
-                  <BreakdownDeviationTable
+<BreakdownDeviationTable
                     allPortfolios={allPortfolios}
                     targetGridData={targetGridData}
                     breakdowns={breakdowns}
                     creditBreakdowns={creditBreakdowns}
+                    dpamLookup={dpamLookup}
                   />
                 )}
               </motion.div>
