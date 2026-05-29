@@ -549,9 +549,9 @@ function BreakdownDeviationTable({
                         : null;
 
                       // Ptf calculé
-                      const ptfVal = ptf
-computePtfWeight(row.id, ptf.holdings ?? [], breakdowns, creditBreakdowns, dpamLookup)
-                        : null;
+                          const ptfVal = ptf
+                          ? computePtfWeight(row.id, ptf.holdings ?? [], breakdowns, creditBreakdowns, dpamLookup)
+                          : null;
 
                       // Active = Ptf - Target
                       const activeVal = ptfVal != null && targetVal != null
