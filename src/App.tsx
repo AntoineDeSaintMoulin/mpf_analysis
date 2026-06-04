@@ -254,9 +254,24 @@ function computePtfWeight(
   };
 
   switch (gridId) {
-    case "equities":
-      return holdings.filter(h => h?.category === "Equities").reduce((s, h) => s + (h.weight ?? 0), 0);
-
+    case "equities": {
+      const regionMap2: Record<string, string> = { eq_europe: "Europe", eq_us: "US", eq_em: "EM", eq_japan: "Japan", eq_other: "Others" };
+      let total = 0;
+      holdings.filter(h => h?.category === "Equities").forEach(h => {
+        const bd = h.isin ? breakdowns[h.isin] : null;
+        if (bd && bd.length > 0) {
+          bd.forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+        } else {
+          const dpamGeo = h.isin ? dpamLookup[h.isin]?.geoBreakdown : null;
+          if (dpamGeo && dpamGeo.length > 0) {
+            dpamGeo.filter((e: any) => e.region !== "Cash").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+          } else {
+            total += h.weight ?? 0;
+          }
+        }
+      });
+      return total;
+    }
 case "eq_europe": case "eq_us": case "eq_em": case "eq_japan": case "eq_other": {
       const regionMap: Record<string, string> = { eq_europe: "Europe", eq_us: "US", eq_em: "EM", eq_japan: "Japan", eq_other: "Others" };
       const targetRegion = regionMap[gridId];
