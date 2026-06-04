@@ -239,7 +239,8 @@ function computePtfWeight(
   holdings: any[],
   breakdowns: Record<string, any[]>,
   creditBreakdowns: Record<string, any[]>,
-  dpamLookup: Record<string, any> = {}
+  dpamLookup: Record<string, any> = {},
+  samdpGeoBreakdown: { region: string; weight: number }[] | null = null
 ): number | null {
   if (ALWAYS_DASH.has(gridId)) return null;
 
@@ -254,19 +255,22 @@ function computePtfWeight(
   };
 
   switch (gridId) {
-    case "equities": {
-      const regionMap2: Record<string, string> = { eq_europe: "Europe", eq_us: "US", eq_em: "EM", eq_japan: "Japan", eq_other: "Others" };
+case "equities": {
       let total = 0;
       holdings.filter(h => h?.category === "Equities").forEach(h => {
-        const bd = h.isin ? breakdowns[h.isin] : null;
-        if (bd && bd.length > 0) {
-          bd.forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+        if (h.isin === "LU1795355053" && samdpGeoBreakdown) {
+          samdpGeoBreakdown.forEach(e => { total += (h.weight ?? 0) * e.weight / 100; });
         } else {
-          const dpamGeo = h.isin ? dpamLookup[h.isin]?.geoBreakdown : null;
-          if (dpamGeo && dpamGeo.length > 0) {
-            dpamGeo.filter((e: any) => e.region !== "Cash").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+          const bd = h.isin ? breakdowns[h.isin] : null;
+          if (bd && bd.length > 0) {
+            bd.forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
           } else {
-            total += h.weight ?? 0;
+            const dpamGeo = h.isin ? dpamLookup[h.isin]?.geoBreakdown : null;
+            if (dpamGeo && dpamGeo.length > 0) {
+              dpamGeo.filter((e: any) => e.region !== "Cash").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+            } else {
+              total += h.weight ?? 0;
+            }
           }
         }
       });
@@ -277,15 +281,19 @@ case "eq_europe": case "eq_us": case "eq_em": case "eq_japan": case "eq_other": 
       const targetRegion = regionMap[gridId];
       let total = 0;
       holdings.filter(h => h?.category === "Equities").forEach(h => {
-        const bd = h.isin ? breakdowns[h.isin] : null;
-        if (bd && bd.length > 0) {
-          bd.forEach((e: any) => { if (normalizeRegion(e.region) === targetRegion) total += (h.weight ?? 0) * e.weight / 100; });
+        if (h.isin === "LU1795355053" && samdpGeoBreakdown) {
+          samdpGeoBreakdown.forEach(e => { if (normalizeRegion(e.region) === targetRegion) total += (h.weight ?? 0) * e.weight / 100; });
         } else {
-          const dpamGeo = h.isin ? dpamLookup[h.isin]?.geoBreakdown : null;
-          if (dpamGeo && dpamGeo.length > 0) {
-            dpamGeo.forEach((e: any) => { if (normalizeRegion(e.region) === targetRegion) total += (h.weight ?? 0) * e.weight / 100; });
+          const bd = h.isin ? breakdowns[h.isin] : null;
+          if (bd && bd.length > 0) {
+            bd.forEach((e: any) => { if (normalizeRegion(e.region) === targetRegion) total += (h.weight ?? 0) * e.weight / 100; });
           } else {
-            if (normalizeRegion(h.region ?? "") === targetRegion) total += h.weight ?? 0;
+            const dpamGeo = h.isin ? dpamLookup[h.isin]?.geoBreakdown : null;
+            if (dpamGeo && dpamGeo.length > 0) {
+              dpamGeo.forEach((e: any) => { if (normalizeRegion(e.region) === targetRegion) total += (h.weight ?? 0) * e.weight / 100; });
+            } else {
+              if (normalizeRegion(h.region ?? "") === targetRegion) total += h.weight ?? 0;
+            }
           }
         }
       });
@@ -410,12 +418,14 @@ function BreakdownDeviationTable({
   breakdowns,
   creditBreakdowns,
   dpamLookup,
+  samdpGeoBreakdown,
 }: {
   allPortfolios: any[];
   targetGridData: Record<string, any>;
   breakdowns: Record<string, any[]>;
   creditBreakdowns: Record<string, any[]>;
   dpamLookup: Record<string, any>;
+  samdpGeoBreakdown: { region: string; weight: number }[] | null;
 }) {
   
   const [portfolioType, setPortfolioType] = React.useState<PortfolioType>("Sicav");
@@ -565,7 +575,7 @@ function BreakdownDeviationTable({
 
                       // Ptf calculé
                           const ptfVal = ptf
-                          ? computePtfWeight(row.id, ptf.holdings ?? [], breakdowns, creditBreakdowns, dpamLookup)
+                          ? computePtfWeight(row.id, ptf.holdings ?? [], breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown)
                           : null;
 
                       // Active = Ptf - Target
@@ -4452,6 +4462,7 @@ const filteredInstruments = useMemo(() => {
                     breakdowns={breakdowns}
                     creditBreakdowns={creditBreakdowns}
                     dpamLookup={dpamLookup}
+                    samdpGeoBreakdown={samdpGeoBreakdown}
                   />
                 )}
               </motion.div>
