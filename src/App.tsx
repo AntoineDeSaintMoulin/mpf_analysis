@@ -453,6 +453,7 @@ function BreakdownDeviationTable({
   const [showBDS, setShowBDS] = React.useState(false);
   const [showVH, setShowVH] = React.useState(false);
   const [collapsedRows, setCollapsedRows] = React.useState<Set<string>>(new Set());
+  const [drillDown, setDrillDown] = React.useState<{ rowId: string; rowLabel: string; profile: ProfileKey; ptf: any } | null>(null);
 
   const cn = (...classes: (string | undefined | false | null)[]) => classes.filter(Boolean).join(" ");
 
@@ -607,12 +608,11 @@ function BreakdownDeviationTable({
                       const isPos = (activeVal ?? 0) > 0;
                       const isNeg = (activeVal ?? 0) < 0;
 
-                      return ["Target", "Ptf", "Active"].map(col => {
+return ["Target", "Ptf", "Active"].map(col => {
                         let displayVal: number | null = null;
                         if (col === "Target") displayVal = targetVal;
                         if (col === "Ptf") displayVal = ptfVal;
                         if (col === "Active") displayVal = activeVal;
-
                         return (
                           <td key={`${profile}-${col}`}
                             className={cn(
@@ -626,6 +626,15 @@ function BreakdownDeviationTable({
                                     ? "text-sky-700 font-medium"
                                     : "text-slate-600"
                             )}>
+                            {col === "Ptf" && ptfVal != null && ptf ? (
+                              <button onClick={() => setDrillDown({ rowId: row.id, rowLabel: row.label, profile, ptf })}
+                                className="hover:underline font-medium text-sky-700">
+                                {ptfVal.toFixed(1)}%
+                              </button>
+                            ) : displayVal != null ? displayVal.toFixed(1) + "%" : "—"}
+                          </td>
+                        );
+                      });
                             {displayVal != null ? displayVal.toFixed(1) + "%" : "—"}
                           </td>
                         );
@@ -640,6 +649,141 @@ function BreakdownDeviationTable({
         </div>
       </div>
     </div>
+
+{drillDown && (() => {
+  const { rowId, rowLabel, profile, ptf } = drillDown;
+  const FI_CATS = ["Fixed Income", "Bonds"];
+  const holdings = ptf.holdings ?? [];
+
+  const rows = holdings.map((h: any) => {
+    const cbd = h.isin ? creditBreakdowns[h.isin] : null;
+    const entries = cbd ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
+    const bd = h.isin ? breakdowns[h.isin] : null;
+    const dpamGeo = h.isin ? dpamLookup[h.isin]?.geoBreakdown : null;
+
+    let exposition: number | null = null;
+
+    if (rowId === "equities") {
+      if (h.category !== "Equities") return null;
+      if (h.isin === "LU1795355053" && samdpGeoBreakdown) {
+        exposition = (h.weight ?? 0) * samdpGeoBreakdown.reduce((s: number, e: any) => s + e.weight / 100, 0);
+      } else if (bd && bd.length > 0) {
+        exposition = bd.reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
+      } else if (dpamGeo && dpamGeo.length > 0) {
+        exposition = dpamGeo.filter((e: any) => e.region !== "Cash").reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
+      } else {
+        exposition = h.weight ?? 0;
+      }
+    } else if (["eq_europe","eq_us","eq_em","eq_japan","eq_other"].includes(rowId)) {
+      if (h.category !== "Equities") return null;
+      const regionMap: Record<string, string> = { eq_europe: "Europe", eq_us: "US", eq_em: "EM", eq_japan: "Japan", eq_other: "Others" };
+      const targetRegion = regionMap[rowId];
+      const normalizeR = (r: string) => {
+        if (["Europe","Europe ex-Euroland","Euroland"].includes(r)) return "Europe";
+        if (["US","North America"].includes(r)) return "US";
+        if (["Emerging and Frontier Markets","Emerging Markets"].includes(r)) return "EM";
+        if (["Other"].includes(r)) return "Others";
+        return r;
+      };
+      if (h.isin === "LU1795355053" && samdpGeoBreakdown) {
+        exposition = samdpGeoBreakdown.filter((e: any) => normalizeR(e.region) === targetRegion).reduce((s: number, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
+      } else if (bd && bd.length > 0) {
+        exposition = bd.filter((e: any) => normalizeR(e.region) === targetRegion).reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
+      } else if (dpamGeo && dpamGeo.length > 0) {
+        exposition = dpamGeo.filter((e: any) => normalizeR(e.region) === targetRegion).reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
+      } else {
+        exposition = normalizeR(h.region ?? "") === targetRegion ? (h.weight ?? 0) : 0;
+      }
+    } else if (rowId === "fixed_income") {
+      if (!FI_CATS.includes(h.category ?? "")) return null;
+      exposition = h.weight ?? 0;
+    } else if (rowId === "fi_eur") {
+      if (!FI_CATS.includes(h.category ?? "")) return null;
+      const EUR_TYPES = ["Govies","IG","HY","EM Debt"];
+      exposition = entries.filter((e: any) => e.currency === "EUR" && EUR_TYPES.includes(e.credit_type)).reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
+    } else if (rowId === "fi_eur_gov") {
+      if (!FI_CATS.includes(h.category ?? "")) return null;
+      exposition = entries.filter((e: any) => e.credit_type === "Govies" && e.currency === "EUR").reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
+    } else if (rowId === "fi_eur_ig") {
+      if (!FI_CATS.includes(h.category ?? "")) return null;
+      exposition = entries.filter((e: any) => e.credit_type === "IG" && e.currency === "EUR").reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
+    } else if (rowId === "fi_eur_hy") {
+      if (!FI_CATS.includes(h.category ?? "")) return null;
+      exposition = entries.filter((e: any) => e.credit_type === "HY" && e.currency === "EUR").reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
+    } else if (rowId === "fi_usd") {
+      if (!FI_CATS.includes(h.category ?? "")) return null;
+      exposition = entries.filter((e: any) => e.currency === "USD").reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
+    } else if (rowId === "fi_usd_gov") {
+      if (!FI_CATS.includes(h.category ?? "")) return null;
+      exposition = entries.filter((e: any) => e.credit_type === "Govies" && e.currency === "USD").reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
+    } else if (rowId === "fi_usd_ig") {
+      if (!FI_CATS.includes(h.category ?? "")) return null;
+      exposition = entries.filter((e: any) => e.credit_type === "IG" && e.currency === "USD").reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
+    } else if (rowId === "fi_usd_hy") {
+      if (!FI_CATS.includes(h.category ?? "")) return null;
+      exposition = entries.filter((e: any) => e.credit_type === "HY" && e.currency === "USD").reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
+    } else if (rowId === "fi_em_local") {
+      if (!FI_CATS.includes(h.category ?? "")) return null;
+      exposition = entries.filter((e: any) => e.credit_type === "EM Debt").reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
+    } else if (rowId === "fi_global") {
+      if (!FI_CATS.includes(h.category ?? "")) return null;
+      const KNOWN = ["Govies","IG","HY","EM Debt"];
+      exposition = entries.filter((e: any) => !KNOWN.includes(e.credit_type)).reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
+    } else if (rowId === "short_term") {
+      if (!["Short Term","Cash","Liquidities"].includes(h.category ?? "")) return null;
+      exposition = h.weight ?? 0;
+    } else if (rowId === "alternatives") {
+      if (!["Alternatives","Gold"].includes(h.category ?? "")) return null;
+      exposition = h.weight ?? 0;
+    } else if (rowId === "alt_gold") {
+      if (h.category !== "Gold") return null;
+      exposition = h.weight ?? 0;
+    } else {
+      return null;
+    }
+
+    if (exposition === null || exposition <= 0.001) return null;
+    return { name: h.asset_name ?? "—", isin: h.isin ?? "—", weight: h.weight ?? 0, exposition };
+  }).filter(Boolean).sort((a: any, b: any) => b.exposition - a.exposition);
+
+  return (
+    <Modal isOpen={true} onClose={() => setDrillDown(null)} title={`${rowLabel} — ${profile}`}>
+      <div className="space-y-4">
+        <p className="text-xs text-slate-500 italic">Détail du calcul pour le portefeuille {ptf.name}.</p>
+        <table className="w-full text-left border-collapse text-sm">
+          <thead>
+            <tr className="bg-slate-50 border-b border-slate-100">
+              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase">Instrument</th>
+              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">Poids PTF</th>
+              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">Exposition</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {rows.map((r: any, i: number) => (
+              <tr key={i} className="hover:bg-slate-50/50">
+                <td className="px-4 py-3">
+                  <p className="font-medium text-slate-900 truncate max-w-[260px]">{r.name}</p>
+                  <p className="text-xs font-mono text-slate-400">{r.isin}</p>
+                </td>
+                <td className="px-4 py-3 text-right text-slate-600">{r.weight.toFixed(2)}%</td>
+                <td className="px-4 py-3 text-right font-bold text-sky-600">{r.exposition.toFixed(2)}%</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="bg-slate-50 border-t border-slate-200">
+              <td colSpan={2} className="px-4 py-3 font-bold text-slate-700 text-right">Total</td>
+              <td className="px-4 py-3 text-right font-bold text-slate-900">
+                {rows.reduce((s: number, r: any) => s + r.exposition, 0).toFixed(2)}%
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </Modal>
+  );
+})()}
+                  
   );
 }
  
