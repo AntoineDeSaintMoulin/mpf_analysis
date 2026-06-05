@@ -639,14 +639,11 @@ return ["Target", "Ptf", "Active"].map(col => {
                   </tr>
                 );
               })}
-            </tbody>
+          </tbody>
           </table>
         </div>
-        </div>
       </div>
-    </div>
-
-{drillDown && (() => {
+    {drillDown && (() => {
   const { rowId, rowLabel, profile, ptf } = drillDown;
   const FI_CATS = ["Fixed Income", "Bonds"];
   const holdings = ptf.holdings ?? [];
@@ -779,7 +776,7 @@ return ["Target", "Ptf", "Active"].map(col => {
     </Modal>
   );
 })()}
-                  
+    </div>
   );
 }
  
