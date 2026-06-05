@@ -230,7 +230,7 @@ const TG_STRUCTURE: { id: string; label: string; level: 0 | 1 | 2; parent?: stri
 const ALWAYS_DASH = new Set([
   "alt_conv", "alt_other",
   "fi_eur_gov_infl", "fi_usd_gov_infl",
-  "fi_em_hard", "fi_global",
+  "fi_em_hard",
 ]);
 
 // Calcule le poids d'une ligne du target grid dans un portefeuille donné
@@ -309,12 +309,13 @@ case "eq_europe": case "eq_us": case "eq_em": case "eq_japan": case "eq_other": 
     case "fixed_income":
       return holdings.filter(h => FI_CATS.includes(h?.category ?? "")).reduce((s, h) => s + (h.weight ?? 0), 0);
 
-    case "fi_eur": {
+case "fi_eur": {
       let total = 0;
+      const EUR_TYPES = ["Govies", "IG", "HY", "EM Debt"];
       holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
         const cbd = h.isin ? creditBreakdowns[h.isin] : null;
         const entries = cbd ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
-        if (entries.length > 0) entries.filter((e: any) => e.currency === "EUR").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+        if (entries.length > 0) entries.filter((e: any) => e.currency === "EUR" && EUR_TYPES.includes(e.credit_type)).forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
       });
       return total;
     }
@@ -389,12 +390,23 @@ case "eq_europe": case "eq_us": case "eq_em": case "eq_japan": case "eq_other": 
       return total;
     }
 
-    case "fi_em_local": {
+case "fi_em_local": {
       let total = 0;
       holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
         const cbd = h.isin ? creditBreakdowns[h.isin] : null;
         const entries = cbd ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
         if (entries.length > 0) entries.filter((e: any) => e.credit_type === "EM Debt").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+      });
+      return total;
+    }
+
+    case "fi_global": {
+      let total = 0;
+      const KNOWN_TYPES = ["Govies", "IG", "HY", "EM Debt"];
+      holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
+        const cbd = h.isin ? creditBreakdowns[h.isin] : null;
+        const entries = cbd ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
+        if (entries.length > 0) entries.filter((e: any) => !KNOWN_TYPES.includes(e.credit_type)).forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
       });
       return total;
     }
