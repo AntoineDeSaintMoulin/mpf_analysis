@@ -313,7 +313,8 @@ case "eq_europe": case "eq_us": case "eq_em": case "eq_japan": case "eq_other": 
       let total = 0;
       holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
         const cbd = h.isin ? creditBreakdowns[h.isin] : null;
-        if (cbd) cbd.filter((e: any) => e.currency === "EUR").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+        const entries = cbd ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
+        if (entries.length > 0) entries.filter((e: any) => e.currency === "EUR").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
       });
       return total;
     }
@@ -322,7 +323,8 @@ case "eq_europe": case "eq_us": case "eq_em": case "eq_japan": case "eq_other": 
       let total = 0;
       holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
         const cbd = h.isin ? creditBreakdowns[h.isin] : null;
-        if (cbd) cbd.filter((e: any) => e.credit_type === "Govies" && e.currency === "EUR").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+        const entries = cbd ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
+        if (entries.length > 0) entries.filter((e: any) => e.credit_type === "Govies" && e.currency === "EUR").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
       });
       return total;
     }
@@ -331,7 +333,8 @@ case "eq_europe": case "eq_us": case "eq_em": case "eq_japan": case "eq_other": 
       let total = 0;
       holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
         const cbd = h.isin ? creditBreakdowns[h.isin] : null;
-        if (cbd) cbd.filter((e: any) => e.credit_type === "IG" && e.currency === "EUR").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+        const entries = cbd ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
+        if (entries.length > 0) entries.filter((e: any) => e.credit_type === "IG" && e.currency === "EUR").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
       });
       return total;
     }
@@ -340,7 +343,8 @@ case "eq_europe": case "eq_us": case "eq_em": case "eq_japan": case "eq_other": 
       let total = 0;
       holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
         const cbd = h.isin ? creditBreakdowns[h.isin] : null;
-        if (cbd) cbd.filter((e: any) => e.credit_type === "HY" && e.currency === "EUR").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+        const entries = cbd ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
+        if (entries.length > 0) entries.filter((e: any) => e.credit_type === "HY" && e.currency === "EUR").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
       });
       return total;
     }
@@ -349,7 +353,8 @@ case "eq_europe": case "eq_us": case "eq_em": case "eq_japan": case "eq_other": 
       let total = 0;
       holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
         const cbd = h.isin ? creditBreakdowns[h.isin] : null;
-        if (cbd) cbd.filter((e: any) => e.currency === "USD").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+        const entries = cbd ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
+        if (entries.length > 0) entries.filter((e: any) => e.currency === "USD").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
       });
       return total;
     }
@@ -358,7 +363,8 @@ case "eq_europe": case "eq_us": case "eq_em": case "eq_japan": case "eq_other": 
       let total = 0;
       holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
         const cbd = h.isin ? creditBreakdowns[h.isin] : null;
-        if (cbd) cbd.filter((e: any) => e.credit_type === "Govies" && e.currency === "USD").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+        const entries = cbd ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
+        if (entries.length > 0) entries.filter((e: any) => e.credit_type === "Govies" && e.currency === "USD").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
       });
       return total;
     }
@@ -367,7 +373,8 @@ case "eq_europe": case "eq_us": case "eq_em": case "eq_japan": case "eq_other": 
       let total = 0;
       holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
         const cbd = h.isin ? creditBreakdowns[h.isin] : null;
-        if (cbd) cbd.filter((e: any) => e.credit_type === "IG" && e.currency === "USD").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+        const entries = cbd ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
+        if (entries.length > 0) entries.filter((e: any) => e.credit_type === "IG" && e.currency === "USD").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
       });
       return total;
     }
@@ -376,7 +383,8 @@ case "eq_europe": case "eq_us": case "eq_em": case "eq_japan": case "eq_other": 
       let total = 0;
       holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
         const cbd = h.isin ? creditBreakdowns[h.isin] : null;
-        if (cbd) cbd.filter((e: any) => e.credit_type === "HY" && e.currency === "USD").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+        const entries = cbd ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
+        if (entries.length > 0) entries.filter((e: any) => e.credit_type === "HY" && e.currency === "USD").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
       });
       return total;
     }
@@ -385,7 +393,8 @@ case "eq_europe": case "eq_us": case "eq_em": case "eq_japan": case "eq_other": 
       let total = 0;
       holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
         const cbd = h.isin ? creditBreakdowns[h.isin] : null;
-        if (cbd) cbd.filter((e: any) => e.credit_type === "EM Debt").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+        const entries = cbd ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
+        if (entries.length > 0) entries.filter((e: any) => e.credit_type === "EM Debt").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
       });
       return total;
     }
