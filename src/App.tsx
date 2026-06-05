@@ -635,10 +635,6 @@ return ["Target", "Ptf", "Active"].map(col => {
                           </td>
                         );
                       });
-                            {displayVal != null ? displayVal.toFixed(1) + "%" : "—"}
-                          </td>
-                        );
-                      });
                     })}
                   </tr>
                 );
