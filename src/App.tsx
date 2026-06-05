@@ -639,8 +639,9 @@ return ["Target", "Ptf", "Active"].map(col => {
                   </tr>
                 );
               })}
-       </tbody>
+</tbody>
           </table>
+        </div>
         </div>
       </div>
     {drillDown && (() => {
