@@ -3790,21 +3790,23 @@ console.log("Total rows read:", raw.length);
           setErrorMsg("Erreur upload Target Grid: " + await res.text());
         }
       } else {
-        Papa.parse(file, {
-          header: false,
-          skipEmptyLines: true,
-          complete: async (results) => {
-            try {
+const text = await file.text();
+        const encoding = text.charCodeAt(0) === 0xFF || text.charCodeAt(0) === 0xFE ? 'utf-16' : 'utf-8';
+        const fileBuffer = await file.arrayBuffer();
+        const decoder = new TextDecoder('utf-16');
+        const decodedText = decoder.decode(fileBuffer);
+        const lines = decodedText.split(/\r?\n/);
+        try {
               const map = new Map<string, any>();
-              (results.data as string[][]).forEach((row, idx) => {
+              lines.forEach((line, idx) => {
                 if (idx < 4) return;
+                const row = line.split('\t');
                 const rawName = row[1]?.trim() ?? "";
                 if (!rawName) return;
                 const code = rawName.replace("TECHNICAL.MPF.", "").trim();
                 const type = code.startsWith("MIX") ? "Mixed" : "Sicav";
                 const name = `${type} - ${code}`;
-                const raw = row[4]?.trim() ?? "";
-                const asset = raw.length > 20 ? raw.slice(0, -20).trim() : raw;
+                const asset = row[4]?.trim() ?? "";
                 if (!asset) return;
                 if (!map.has(name)) map.set(name, { name, type, description: "", holdings: [] });
                 map.get(name).holdings.push({
@@ -3817,7 +3819,7 @@ console.log("Total rows read:", raw.length);
                   currency: row[11]?.trim() || "EUR",
                 });
               });
-              const res = await fetch("/api/upload-data", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ portfolios: Array.from(map.values()) }) });
+          const res = await fetch("/api/upload-data", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ portfolios: Array.from(map.values()) }) });
               if (res.ok) {
                 setUploadSuccess(true);
                 await saveImportLog(file.name);
@@ -3826,11 +3828,18 @@ console.log("Total rows read:", raw.length);
               } else {
                 setErrorMsg("Erreur upload: " + await res.text());
               }
-            } catch (e) { setErrorMsg("Erreur lors du traitement du CSV."); }
+const res = await fetch("/api/upload-data", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ portfolios: Array.from(map.values()) }) });
+              if (res.ok) {
+                setUploadSuccess(true);
+                await saveImportLog(file.name);
+                await refreshData();
+                setTimeout(() => setUploadSuccess(false), 3000);
+              } else {
+                setErrorMsg("Erreur upload: " + await res.text());
+              }
+            } catch (e) { setErrorMsg("Erreur lors du traitement du fichier."); }
             finally { setUploading(false); }
-          },
-        });
-        return;
+        
       }
     } catch (e) { setErrorMsg("Erreur lors du traitement du fichier."); }
     finally { setUploading(false); }
@@ -4312,30 +4321,8 @@ const weightedDuration = fiHoldings.reduce((s, h) => {
         if (h.isin && !e.isin) e.isin = h.isin;
       });
     });
-// Ajouter les instruments SAMDP avec badge
-samdpInstruments.forEach((inst: any) => {
-  const key = inst.isin ?? inst.name;
-  if (!key) return;
-  if (!im.has(key)) {
-    const w: Record<string, number> = {};
-    names.forEach((n) => (w[n] = 0));
-    im.set(key, {
-      name: inst.name ?? "",
-      isin: inst.isin ?? "",
-      weights: w,
-      details: {
-        asset_name: inst.name,
-        isin: inst.isin,
-        category: "Equities",
-        region: inst.dom_country ?? "—",
-        currency: inst.currency ?? "—",
-        instrument: inst.instrument_type ?? "ETF",
-      },
-      isSamdp: true,
-      samdpWght: inst.wght_pct,
-    });
-  }
-});
+
+   
 return Array.from(im.values());
 }, [allPortfolios, samdpInstruments]);
 
@@ -4734,9 +4721,8 @@ const filteredInstruments = useMemo(() => {
                                 <td className="px-8 py-4 sticky left-0 bg-white group-hover:bg-slate-50">
 <button onClick={() => setSelectedInstrument(row.details as Holding)} className="flex items-center gap-2 text-sky-600 font-bold hover:underline text-left">
   {row.name}
-  {(row as any).isSamdp && (
-    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-600 uppercase tracking-wider shrink-0">SAMDP</span>
-  )}
+
+  
   <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
 </button>
                                 </td>
@@ -4746,9 +4732,7 @@ const filteredInstruments = useMemo(() => {
   const samdpW = (row as any).isSamdp ? (row as any).samdpWght : null;
   return (
     <td key={p.id} className="px-4 py-4 text-right font-medium text-slate-600 text-sm">
-      {w > 0 ? `${w.toFixed(1)}%` : samdpW != null ? (
-        <span className="text-violet-500 text-xs">{(Number(samdpW) * 100).toFixed(1)}%</span>
-      ) : "—"}
+{w > 0 ? `${w.toFixed(1)}%` : "—"}
     </td>
   );
 })}
