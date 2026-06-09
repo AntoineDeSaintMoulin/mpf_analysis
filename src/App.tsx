@@ -4622,22 +4622,16 @@ const filteredInstruments = useMemo(() => {
                   </div>
                 </div>
 
-                <div className="flex gap-3 items-stretch">
-                  <div className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm w-52 shrink-0">
-                    <label className="flex flex-col items-center justify-center border border-dashed border-slate-200 rounded-xl p-4 hover:border-sky-400 transition-all group cursor-pointer h-full gap-2">
-                      <input type="file" accept=".csv,.xlsx" onChange={handleFileUpload} className="hidden" />
-                      <div className="bg-slate-50 p-2 rounded-lg group-hover:bg-sky-50 transition-colors">
-                        <Upload className="h-5 w-5 text-slate-400 group-hover:text-sky-600" />
-                      </div>
-                      <div className="text-center">
-                        <p className="text-sm font-bold text-slate-900 leading-tight">Importer CSV</p>
-                        <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Remplace les données</p>
-                      </div>
+<div className="flex gap-3 items-stretch">
+                  <div className="bg-white p-2 rounded-2xl border border-slate-100 shadow-sm w-52 shrink-0">
+                    <label className="flex flex-row items-center justify-center border border-dashed border-slate-200 rounded-xl px-3 py-2 hover:border-sky-400 transition-all group cursor-pointer h-full gap-3">                      <input type="file" accept=".csv,.xlsx" onChange={handleFileUpload} className="hidden" />
+                      <Upload className="h-4 w-4 text-slate-400 group-hover:text-sky-600 shrink-0" />
+                      <span className="text-sm font-bold text-slate-900">Importer CSV</span>
                       {uploading
-                        ? <div className="flex items-center gap-1.5 bg-sky-50 px-2.5 py-1 rounded-lg"><Loader2 className="h-3.5 w-3.5 text-sky-600 animate-spin" /><span className="text-xs font-bold text-sky-700">Import…</span></div>
+                        ? <Loader2 className="h-3.5 w-3.5 text-sky-600 animate-spin shrink-0" />
                         : uploadSuccess
-                          ? <div className="flex items-center gap-1.5 bg-emerald-50 px-2.5 py-1 rounded-lg"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /><span className="text-xs font-bold text-emerald-700">Succès !</span></div>
-                          : <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase bg-slate-50 px-2.5 py-1 rounded-lg"><FileText className="h-3 w-3" />CSV</div>
+                          ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                          : null
                       }
                     </label>
                   </div>
@@ -4646,8 +4640,7 @@ const filteredInstruments = useMemo(() => {
                     { key: "quick_valuation", label: "Quick Valuation", color: "sky", entries: importLog.quick_valuation ? [importLog.quick_valuation] : [] },
                     { key: "target_grid", label: "Target Grid", color: "emerald", entries: importLog.target_grid ? [importLog.target_grid] : [] },
                   ] as const).map(({ key, label, color, entries }) => (
-                    <div key={key} className={cn("flex-1 bg-white p-4 rounded-2xl border shadow-sm flex flex-col gap-2", entries.length > 0 ? "border-slate-100" : "border-slate-100 opacity-70")}>
-                      <div className="flex items-center gap-2">
+<div key={key} className={cn("flex-1 bg-white px-4 py-2 rounded-2xl border shadow-sm flex flex-col justify-center gap-1", entries.length > 0 ? "border-slate-100" : "border-slate-100 opacity-70")}>                      <div className="flex items-center gap-2">
                         <div className={cn("w-2 h-2 rounded-full shrink-0", { "bg-sky-400": color === "sky", "bg-violet-400": color === "violet", "bg-emerald-400": color === "emerald", "bg-amber-400": color === "amber" })} />
                         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{label}</p>
                       </div>
