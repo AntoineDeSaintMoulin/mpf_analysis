@@ -3828,11 +3828,7 @@ const res = await fetch("/api/upload-data", { method: "POST", headers: { "Conten
               } else {
                 setErrorMsg("Erreur upload: " + await res.text());
               }
-            } catch (e) { setErrorMsg("Erreur lors du traitement du fichier."); }
-      }
-    } catch (e) { setErrorMsg("Erreur lors du traitement du fichier."); }
-    finally { setUploading(false); }
-        
+} catch (e) { setErrorMsg("Erreur lors du traitement du fichier."); }
       }
     } catch (e) { setErrorMsg("Erreur lors du traitement du fichier."); }
     finally { setUploading(false); }
