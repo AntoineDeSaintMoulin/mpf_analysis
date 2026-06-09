@@ -4642,11 +4642,9 @@ const filteredInstruments = useMemo(() => {
                     </label>
                   </div>
 
-                  {([
+{([
                     { key: "quick_valuation", label: "Quick Valuation", color: "sky", entries: importLog.quick_valuation ? [importLog.quick_valuation] : [] },
-                    { key: "samdp", label: "SAMDP", color: "violet", entries: importLog.samdp },
                     { key: "target_grid", label: "Target Grid", color: "emerald", entries: importLog.target_grid ? [importLog.target_grid] : [] },
-                    { key: "other", label: "Autres", color: "amber", entries: importLog.other ? [importLog.other] : [] },
                   ] as const).map(({ key, label, color, entries }) => (
                     <div key={key} className={cn("flex-1 bg-white p-4 rounded-2xl border shadow-sm flex flex-col gap-2", entries.length > 0 ? "border-slate-100" : "border-slate-100 opacity-70")}>
                       <div className="flex items-center gap-2">
