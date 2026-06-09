@@ -3819,15 +3819,6 @@ const text = await file.text();
                   currency: row[11]?.trim() || "EUR",
                 });
               });
-          const res = await fetch("/api/upload-data", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ portfolios: Array.from(map.values()) }) });
-              if (res.ok) {
-                setUploadSuccess(true);
-                await saveImportLog(file.name);
-                await refreshData();
-                setTimeout(() => setUploadSuccess(false), 3000);
-              } else {
-                setErrorMsg("Erreur upload: " + await res.text());
-              }
 const res = await fetch("/api/upload-data", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ portfolios: Array.from(map.values()) }) });
               if (res.ok) {
                 setUploadSuccess(true);
@@ -3838,7 +3829,9 @@ const res = await fetch("/api/upload-data", { method: "POST", headers: { "Conten
                 setErrorMsg("Erreur upload: " + await res.text());
               }
             } catch (e) { setErrorMsg("Erreur lors du traitement du fichier."); }
-            finally { setUploading(false); }
+      }
+    } catch (e) { setErrorMsg("Erreur lors du traitement du fichier."); }
+    finally { setUploading(false); }
         
       }
     } catch (e) { setErrorMsg("Erreur lors du traitement du fichier."); }
