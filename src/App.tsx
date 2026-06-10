@@ -248,8 +248,10 @@ function computePtfWeight(
   breakdowns: Record<string, any[]>,
   creditBreakdowns: Record<string, any[]>,
   dpamLookup: Record<string, any> = {},
-  samdpGeoBreakdown: { region: string; weight: number }[] | null = null
+  samdpGeoBreakdown: { region: string; weight: number }[] | null = null,
+  samdpDebtCreditBreakdown: { credit_type: string; currency: string; weight: number }[] | null = null
 ): number | null {
+  
   if (ALWAYS_DASH.has(gridId)) return null;
 
   const FI_CATS = ["Fixed Income", "Bonds"];
@@ -619,8 +621,8 @@ const fmt = (v: number | null) => v == null ? "—" : v.toFixed(1) + "%";
                         : null;
 
                       // Ptf calculé
-                          const ptfVal = ptf
-                          ? computePtfWeight(row.id, ptf.holdings ?? [], breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown)
+const ptfVal = ptf
+                          ? computePtfWeight(row.id, ptf.holdings ?? [], breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown, samdpDebtCreditBreakdown)
                           : null;
 
                       // Active = Ptf - Target
