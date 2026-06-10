@@ -483,8 +483,7 @@ function BreakdownDeviationTable({
   
   const [portfolioType, setPortfolioType] = React.useState<PortfolioType>("Sicav");
   const [showBDS, setShowBDS] = React.useState(false);
-  const [showVH, setShowVH] = React.useState(false);
-const [collapsedRows, setCollapsedRows] = React.useState<Set<string>>(new Set(["fi_usd"]));
+  const [showVH, setShowVH] = React.useState(false);const [collapsedRows, setCollapsedRows] = React.useState<Set<string>>(new Set(["fi_usd", "alternatives"]));
   const [drillDown, setDrillDown] = React.useState<{ rowId: string; rowLabel: string; profile: ProfileKey; ptf: any } | null>(null);
   const [useMainPortfolios, setUseMainPortfolios] = React.useState(true);
 
