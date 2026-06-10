@@ -324,8 +324,13 @@ case "eq_europe": case "eq_us": case "eq_em": case "eq_japan": case "eq_other": 
     case "alt_gold":
       return holdings.filter(h => h?.category === "Gold").reduce((s, h) => s + (h.weight ?? 0), 0);
 
-    case "fixed_income":
-      return holdings.filter(h => FI_CATS.includes(h?.category ?? "")).reduce((s, h) => s + (h.weight ?? 0), 0);
+case "fixed_income": {
+      const subIds = ["fi_eur", "fi_usd", "fi_em_local", "fi_em_hard", "fi_global"];
+      return subIds.reduce((s, id) => {
+        const v = computePtfWeight(id, holdings, breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown, samdpDebtCreditBreakdown);
+        return s + (v ?? 0);
+      }, 0);
+    }
 
 case "fi_eur": {
       let total = 0;
