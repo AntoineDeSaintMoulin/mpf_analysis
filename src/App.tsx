@@ -479,7 +479,9 @@ const [collapsedRows, setCollapsedRows] = React.useState<Set<string>>(new Set(["
     });
   }, [showBDS, showVH]);
 
-  const fmt = (v: number | null) => v == null ? "—" : v.toFixed(1) + "%";
+const fmt = (v: number | null) => v == null ? "—" : v.toFixed(1) + "%";
+
+  console.log("BDT dpamLookup keys:", Object.keys(dpamLookup));
 
   return (
     <div className="space-y-4">
