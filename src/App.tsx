@@ -459,7 +459,7 @@ function BreakdownDeviationTable({
   dpamLookup: Record<string, any>;
   samdpGeoBreakdown: { region: string; weight: number }[] | null;
   samdpDebtCreditBreakdown: { credit_type: string; currency: string; weight: number }[] | null;
-})
+}) {
   
   const [portfolioType, setPortfolioType] = React.useState<PortfolioType>("Sicav");
   const [showBDS, setShowBDS] = React.useState(false);
