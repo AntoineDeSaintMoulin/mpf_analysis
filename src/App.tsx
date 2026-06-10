@@ -330,11 +330,12 @@ case "fi_eur": {
       return total;
     }
 
-    case "fi_eur_ig": {
+case "fi_eur_ig": {
       let total = 0;
       holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
         const cbd = h.isin ? creditBreakdowns[h.isin] : null;
         const entries = cbd ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
+        console.log("fi_eur_ig", h.isin, h.asset_name, "entries:", entries, "cbd:", cbd, "dpam:", dpamLookup[h.isin ?? ""]?.creditBreakdown);
         if (entries.length > 0) entries.filter((e: any) => e.credit_type === "IG" && e.currency === "EUR").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
       });
       return total;
