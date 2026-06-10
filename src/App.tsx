@@ -324,7 +324,9 @@ case "fi_eur": {
       const EUR_TYPES = ["Govies", "IG", "HY", "EM Debt"];
       holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
         const cbd = h.isin ? creditBreakdowns[h.isin] : null;
-        const entries = cbd ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
+const SAMDP_DEBT_ISIN = "LU1545753169";
+        const samdpDebt = h.isin === SAMDP_DEBT_ISIN ? samdpDebtCreditBreakdown : null;
+        const entries = cbd ?? samdpDebt ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
         if (entries.length > 0) entries.filter((e: any) => e.currency === "EUR" && EUR_TYPES.includes(e.credit_type)).forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
       });
       return total;
@@ -334,7 +336,9 @@ case "fi_eur": {
       let total = 0;
       holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
         const cbd = h.isin ? creditBreakdowns[h.isin] : null;
-        const entries = cbd ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
+const SAMDP_DEBT_ISIN = "LU1545753169";
+        const samdpDebt = h.isin === SAMDP_DEBT_ISIN ? samdpDebtCreditBreakdown : null;
+        const entries = cbd ?? samdpDebt ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
         if (entries.length > 0) entries.filter((e: any) => e.credit_type === "Govies" && e.currency === "EUR").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
       });
       return total;
@@ -356,7 +360,9 @@ case "fi_eur_ig": {
       let total = 0;
       holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
         const cbd = h.isin ? creditBreakdowns[h.isin] : null;
-        const entries = cbd ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
+const SAMDP_DEBT_ISIN = "LU1545753169";
+        const samdpDebt = h.isin === SAMDP_DEBT_ISIN ? samdpDebtCreditBreakdown : null;
+        const entries = cbd ?? samdpDebt ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
         if (entries.length > 0) entries.filter((e: any) => e.credit_type === "HY" && e.currency === "EUR").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
       });
       return total;
@@ -366,7 +372,9 @@ case "fi_eur_ig": {
       let total = 0;
       holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
         const cbd = h.isin ? creditBreakdowns[h.isin] : null;
-        const entries = cbd ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
+const SAMDP_DEBT_ISIN = "LU1545753169";
+        const samdpDebt = h.isin === SAMDP_DEBT_ISIN ? samdpDebtCreditBreakdown : null;
+        const entries = cbd ?? samdpDebt ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
         if (entries.length > 0) entries.filter((e: any) => e.currency === "USD").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
       });
       return total;
@@ -376,7 +384,9 @@ case "fi_eur_ig": {
       let total = 0;
       holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
         const cbd = h.isin ? creditBreakdowns[h.isin] : null;
-        const entries = cbd ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
+const SAMDP_DEBT_ISIN = "LU1545753169";
+        const samdpDebt = h.isin === SAMDP_DEBT_ISIN ? samdpDebtCreditBreakdown : null;
+        const entries = cbd ?? samdpDebt ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
         if (entries.length > 0) entries.filter((e: any) => e.credit_type === "Govies" && e.currency === "USD").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
       });
       return total;
@@ -386,7 +396,9 @@ case "fi_eur_ig": {
       let total = 0;
       holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
         const cbd = h.isin ? creditBreakdowns[h.isin] : null;
-        const entries = cbd ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
+const SAMDP_DEBT_ISIN = "LU1545753169";
+        const samdpDebt = h.isin === SAMDP_DEBT_ISIN ? samdpDebtCreditBreakdown : null;
+        const entries = cbd ?? samdpDebt ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
         if (entries.length > 0) entries.filter((e: any) => e.credit_type === "IG" && e.currency === "USD").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
       });
       return total;
@@ -396,8 +408,9 @@ case "fi_eur_ig": {
       let total = 0;
       holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
         const cbd = h.isin ? creditBreakdowns[h.isin] : null;
-        const entries = cbd ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
-        if (entries.length > 0) entries.filter((e: any) => e.credit_type === "HY" && e.currency === "USD").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+        const entries = cbd ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];const SAMDP_DEBT_ISIN = "LU1545753169";
+        const samdpDebt = h.isin === SAMDP_DEBT_ISIN ? samdpDebtCreditBreakdown : null;
+        const entries = cbd ?? samdpDebt ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];        if (entries.length > 0) entries.filter((e: any) => e.credit_type === "HY" && e.currency === "USD").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
       });
       return total;
     }
@@ -406,7 +419,9 @@ case "fi_em_local": {
       let total = 0;
       holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
         const cbd = h.isin ? creditBreakdowns[h.isin] : null;
-        const entries = cbd ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
+const SAMDP_DEBT_ISIN = "LU1545753169";
+        const samdpDebt = h.isin === SAMDP_DEBT_ISIN ? samdpDebtCreditBreakdown : null;
+        const entries = cbd ?? samdpDebt ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
         if (entries.length > 0) entries.filter((e: any) => e.credit_type === "EM Debt").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
       });
       return total;
@@ -417,7 +432,9 @@ case "fi_em_local": {
       const KNOWN_TYPES = ["Govies", "IG", "HY", "EM Debt"];
       holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
         const cbd = h.isin ? creditBreakdowns[h.isin] : null;
-        const entries = cbd ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
+const SAMDP_DEBT_ISIN = "LU1545753169";
+        const samdpDebt = h.isin === SAMDP_DEBT_ISIN ? samdpDebtCreditBreakdown : null;
+        const entries = cbd ?? samdpDebt ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
         if (entries.length > 0) entries.filter((e: any) => !KNOWN_TYPES.includes(e.credit_type)).forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
       });
       return total;
