@@ -340,10 +340,11 @@ case "fi_eur": {
 
 case "fi_eur_ig": {
       let total = 0;
+      const SAMDP_DEBT_ISIN = "LU1545753169";
       holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
         const cbd = h.isin ? creditBreakdowns[h.isin] : null;
-        const entries = cbd ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
-        console.log("fi_eur_ig", h.isin, h.asset_name, "entries:", entries, "cbd:", cbd, "dpam:", dpamLookup[h.isin ?? ""]?.creditBreakdown);
+        const samdpDebt = h.isin === SAMDP_DEBT_ISIN ? samdpDebtCreditBreakdown : null;
+        const entries = cbd ?? samdpDebt ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
         if (entries.length > 0) entries.filter((e: any) => e.credit_type === "IG" && e.currency === "EUR").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
       });
       return total;
@@ -449,6 +450,7 @@ function BreakdownDeviationTable({
   creditBreakdowns,
   dpamLookup,
   samdpGeoBreakdown,
+  samdpDebtCreditBreakdown,
 }: {
   allPortfolios: any[];
   targetGridData: Record<string, any>;
@@ -456,7 +458,8 @@ function BreakdownDeviationTable({
   creditBreakdowns: Record<string, any[]>;
   dpamLookup: Record<string, any>;
   samdpGeoBreakdown: { region: string; weight: number }[] | null;
-}) {
+  samdpDebtCreditBreakdown: { credit_type: string; currency: string; weight: number }[] | null;
+})
   
   const [portfolioType, setPortfolioType] = React.useState<PortfolioType>("Sicav");
   const [showBDS, setShowBDS] = React.useState(false);
