@@ -226,13 +226,21 @@ const TG_STRUCTURE: { id: string; label: string; level: 0 | 1 | 2; parent?: stri
     { id: "st_other", label: "Other FX", level: 1, parent: "short_term" },
 ];
 
-const MAIN_PORTFOLIOS = new Set([
-  "Mixed - MIX_HIGH", "Mixed - MIX_LOW", "Mixed - MIX_MED",
-  "Mixed - MIX_MH", "Mixed - MIX_ML", "Mixed - MIX_VH",
-  "Sicav - SCV_BDS", "Sicav - SCV_CV_LOW", "Sicav - SCV_CV_MED",
-  "Sicav - SCV_CV_ML", "Sicav - SCV_HIGH", "Sicav - SCV_LOW",
-  "Sicav - SCV_MED", "Sicav - SCV_MH", "Sicav - SCV_ML",
-]);
+type PortfolioFilter = "main" | "sust" | "cv" | "rdt";
+
+const PORTFOLIO_FILTERS: Record<PortfolioFilter, (name: string) => boolean> = {
+  main: (name) => !name.includes("_SUST") && !name.includes("_CV_") && !name.includes("_T_"),
+  sust: (name) => name.includes("_SUST"),
+  cv:   (name) => name.includes("_CV_"),
+  rdt:  (name) => name.includes("_T_"),
+};
+
+const PORTFOLIO_FILTER_LABELS: Record<PortfolioFilter, string> = {
+  main: "Principaux",
+  sust: "Sustainable",
+  cv:   "Conviction",
+  rdt:  "RDT",
+};
 
 // Lignes qui ont toujours — (pas de calcul possible)
 const ALWAYS_DASH = new Set([
@@ -485,7 +493,7 @@ function BreakdownDeviationTable({
   const [showBDS, setShowBDS] = React.useState(false);
   const [showVH, setShowVH] = React.useState(false);const [collapsedRows, setCollapsedRows] = React.useState<Set<string>>(new Set(["fi_usd", "alternatives"]));
   const [drillDown, setDrillDown] = React.useState<{ rowId: string; rowLabel: string; profile: ProfileKey; ptf: any } | null>(null);
-  const [useMainPortfolios, setUseMainPortfolios] = React.useState(true);
+  const [portfolioFilter, setPortfolioFilter] = React.useState<PortfolioFilter>("main");
 
   const cn = (...classes: (string | undefined | false | null)[]) => classes.filter(Boolean).join(" ");
 
@@ -493,9 +501,9 @@ function BreakdownDeviationTable({
   const portfoliosByProfile = React.useMemo(() => {
     const map: Partial<Record<ProfileKey, any>> = {};
 const filtered = allPortfolios.filter(p => p?.type === portfolioType);
-    const main = filtered.filter(p => MAIN_PORTFOLIOS.has(p.name ?? ""));
-    const list = useMainPortfolios && main.length > 0 ? main : filtered;
-    list.forEach(p => {
+    const filterFn = PORTFOLIO_FILTERS[portfolioFilter];
+    const list = filtered.filter(p => filterFn(p.name ?? ""));
+    (list.length > 0 ? list : filtered).forEach(p => {
       const profile = portfolioToProfile(p.name ?? "");
       if (profile) map[profile] = p;
     });
@@ -544,12 +552,16 @@ const fmt = (v: number | null) => v == null ? "—" : v.toFixed(1) + "%";
           {showVH ? "Masquer VH →" : "Afficher VH →"}
         </button>
 
-        {/* Toggle portefeuilles */}
-        <button onClick={() => setUseMainPortfolios(v => !v)}
-          className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border",
-            useMainPortfolios ? "bg-sky-600 text-white border-sky-600" : "bg-white text-slate-500 border-slate-200 hover:border-slate-300")}>
-          {useMainPortfolios ? "Principaux" : "Tous"}
-        </button>
+{/* Toggle portefeuilles */}
+        <div className="flex items-center bg-slate-100 p-1 rounded-xl">
+          {(["main", "sust", "cv", "rdt"] as PortfolioFilter[]).map(f => (
+            <button key={f} onClick={() => setPortfolioFilter(f)}
+              className={cn("px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                portfolioFilter === f ? "bg-white text-sky-700 shadow-sm" : "text-slate-500 hover:text-slate-700")}>
+              {PORTFOLIO_FILTER_LABELS[f]}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Table */}
