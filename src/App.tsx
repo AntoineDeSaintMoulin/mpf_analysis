@@ -321,10 +321,10 @@ case "eq_europe": case "eq_us": case "eq_em": case "eq_japan": case "eq_other": 
 
 case "fi_eur": {
       let total = 0;
-      const EUR_TYPES = ["Govies", "IG", "HY", "EM Debt"];
+      const EUR_TYPES = ["Govies", "IG", "HY", "NR", "EM Debt"];
       holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
         const cbd = h.isin ? creditBreakdowns[h.isin] : null;
-const SAMDP_DEBT_ISIN = "LU1545753169";
+        const SAMDP_DEBT_ISIN = "LU1545753169";
         const samdpDebt = h.isin === SAMDP_DEBT_ISIN ? samdpDebtCreditBreakdown : null;
         const entries = cbd ?? samdpDebt ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
         if (entries.length > 0) entries.filter((e: any) => e.currency === "EUR" && EUR_TYPES.includes(e.credit_type)).forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
@@ -356,14 +356,14 @@ case "fi_eur_ig": {
       return total;
     }
 
-    case "fi_eur_hy": {
+case "fi_eur_hy": {
       let total = 0;
       holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
         const cbd = h.isin ? creditBreakdowns[h.isin] : null;
-const SAMDP_DEBT_ISIN = "LU1545753169";
+        const SAMDP_DEBT_ISIN = "LU1545753169";
         const samdpDebt = h.isin === SAMDP_DEBT_ISIN ? samdpDebtCreditBreakdown : null;
         const entries = cbd ?? samdpDebt ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
-        if (entries.length > 0) entries.filter((e: any) => e.credit_type === "HY" && e.currency === "EUR").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+        if (entries.length > 0) entries.filter((e: any) => (e.credit_type === "HY" || e.credit_type === "NR") && e.currency === "EUR").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
       });
       return total;
     }
