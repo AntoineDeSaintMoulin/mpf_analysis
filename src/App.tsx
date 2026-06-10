@@ -226,6 +226,14 @@ const TG_STRUCTURE: { id: string; label: string; level: 0 | 1 | 2; parent?: stri
     { id: "st_other", label: "Other FX", level: 1, parent: "short_term" },
 ];
 
+const MAIN_PORTFOLIOS = new Set([
+  "Mixed - MIX_HIGH", "Mixed - MIX_LOW", "Mixed - MIX_MED",
+  "Mixed - MIX_MH", "Mixed - MIX_ML", "Mixed - MIX_VH",
+  "Sicav - SCV_BDS", "Sicav - SCV_CV_LOW", "Sicav - SCV_CV_MED",
+  "Sicav - SCV_CV_ML", "Sicav - SCV_HIGH", "Sicav - SCV_LOW",
+  "Sicav - SCV_MED", "Sicav - SCV_MH", "Sicav - SCV_ML",
+]);
+
 // Lignes qui ont toujours — (pas de calcul possible)
 const ALWAYS_DASH = new Set([
   "alt_conv", "alt_other",
@@ -455,18 +463,20 @@ function BreakdownDeviationTable({
   const [showVH, setShowVH] = React.useState(false);
 const [collapsedRows, setCollapsedRows] = React.useState<Set<string>>(new Set(["fi_usd"]));
   const [drillDown, setDrillDown] = React.useState<{ rowId: string; rowLabel: string; profile: ProfileKey; ptf: any } | null>(null);
+  const [useMainPortfolios, setUseMainPortfolios] = React.useState(true);
 
   const cn = (...classes: (string | undefined | false | null)[]) => classes.filter(Boolean).join(" ");
 
   // Portefeuilles filtrés par type, triés par profil
   const portfoliosByProfile = React.useMemo(() => {
     const map: Partial<Record<ProfileKey, any>> = {};
-    allPortfolios
-      .filter(p => p?.type === portfolioType)
-      .forEach(p => {
-        const profile = portfolioToProfile(p.name ?? "");
-        if (profile) map[profile] = p;
-      });
+const filtered = allPortfolios.filter(p => p?.type === portfolioType);
+    const main = filtered.filter(p => MAIN_PORTFOLIOS.has(p.name ?? ""));
+    const list = useMainPortfolios && main.length > 0 ? main : filtered;
+    list.forEach(p => {
+      const profile = portfolioToProfile(p.name ?? "");
+      if (profile) map[profile] = p;
+    });
     return map;
   }, [allPortfolios, portfolioType]);
 
@@ -505,11 +515,18 @@ const fmt = (v: number | null) => v == null ? "—" : v.toFixed(1) + "%";
           {showBDS ? "← Masquer BDS" : "← Afficher BDS"}
         </button>
 
-        {/* Toggle VH */}
+{/* Toggle VH */}
         <button onClick={() => setShowVH(v => !v)}
           className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border",
             showVH ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-500 border-slate-200 hover:border-slate-300")}>
           {showVH ? "Masquer VH →" : "Afficher VH →"}
+        </button>
+
+        {/* Toggle portefeuilles */}
+        <button onClick={() => setUseMainPortfolios(v => !v)}
+          className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border",
+            useMainPortfolios ? "bg-sky-600 text-white border-sky-600" : "bg-white text-slate-500 border-slate-200 hover:border-slate-300")}>
+          {useMainPortfolios ? "Principaux" : "Tous"}
         </button>
       </div>
 
