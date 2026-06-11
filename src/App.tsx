@@ -2099,6 +2099,20 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
 const [showSamdpDetail, setShowSamdpDetail] = React.useState<"currency_equity" | "region_equity" | "currency_debt" | "credit_debt" | "duration_debt" | "cash_detail" | null>(null);
   const [equityLevel, setEquityLevel] = React.useState<1|2|3|4|5>(2);
   const [regionFilter, setRegionFilter] = React.useState<string | null>(null);
+  const exportRef = React.useRef<HTMLDivElement>(null);
+
+  const handleExportPdf = async () => {
+    if (!exportRef.current) return;
+    const html2canvas = (await import("https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.esm.js" as any)).default;
+    const jsPDF = (await import("https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" as any)).jsPDF;
+    const canvas = await html2canvas(exportRef.current, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+    const imgData = canvas.toDataURL("image/png");
+    const pdf = new jsPDF({ orientation: "portrait", unit: "px", format: [595, 842] });
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+    pdf.save(`SAMDP_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
   const handleDebtFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
   const file = e.target.files?.[0];
   if (!file) return;
@@ -3054,13 +3068,13 @@ debtData.forEach(inst => {
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
             <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
               <p className="text-sm font-bold text-slate-600">Prévisualisation A4</p>
-              <button className="flex items-center gap-2 bg-sky-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-sky-700 transition-all">
+<button onClick={handleExportPdf} className="flex items-center gap-2 bg-sky-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-sky-700 transition-all">
                 <FileText className="h-4 w-4" />
                 Exporter PDF
               </button>
             </div>
             <div className="flex items-center justify-center p-8 bg-slate-100">
-              <div className="bg-white shadow-2xl" style={{ width: "595px", minHeight: "842px", padding: "36px", boxSizing: "border-box", fontFamily: "system-ui, sans-serif" }}>
+              <div ref={exportRef} className="bg-white shadow-2xl" style={{ width: "595px", minHeight: "842px", padding: "36px", boxSizing: "border-box", fontFamily: "system-ui, sans-serif" }}>
                 
                 {/* ── EN-TÊTE ── */}
                 <div className="flex items-start justify-between mb-5 pb-4 border-b-2 border-slate-800">
