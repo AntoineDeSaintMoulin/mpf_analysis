@@ -2094,6 +2094,7 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
   const [equitySearch, setEquitySearch] = React.useState("");
   const [sortConfig, setSortConfig] = React.useState<{ key: string; direction: "asc" | "desc" } | null>({ key: "wght_pct", direction: "desc" });
   const [exportText, setExportText] = React.useState("");
+  const [exportTextDebt, setExportTextDebt] = React.useState("");
   const [debtSearch, setDebtSearch] = React.useState("");
   const [debtSortConfig, setDebtSortConfig] = React.useState<{ key: string; direction: "asc" | "desc" } | null>({ key: "wght_pct", direction: "desc" });
 const [showSamdpDetail, setShowSamdpDetail] = React.useState<"currency_equity" | "region_equity" | "currency_debt" | "credit_debt" | "duration_debt" | "cash_detail" | null>(null);
