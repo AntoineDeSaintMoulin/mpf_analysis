@@ -2113,18 +2113,29 @@ printWindow.document.write(`
           <title>SAMDP Report</title>
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: system-ui, sans-serif; background: white; }
             @page { size: A4 portrait; margin: 0; }
-            @media print {
-              html, body { width: 595px; height: 842px; }
-              body > div { width: 595px !important; box-shadow: none !important; }
+            html { width: 210mm; height: 297mm; }
+            body {
+              font-family: system-ui, sans-serif;
+              background: white;
+              width: 210mm;
+              height: 297mm;
+              overflow: hidden;
             }
-            @media screen {
-              body { display: flex; justify-content: center; background: #f1f5f9; padding: 20px; }
+            #report {
+              width: 210mm;
+              min-height: 297mm;
+              padding: 36px;
+              box-sizing: border-box;
+              background: white;
+            }
+            @media print {
+              html, body { width: 210mm; height: 297mm; }
+              #report { box-shadow: none; }
             }
           </style>
         </head>
-        <body><div style="width:595px; min-height:842px; background:white; padding:36px; box-sizing:border-box; font-family:system-ui,sans-serif;">${content}</div></body>
+        <body><div id="report">${content}</div></body>
       </html>
     `);
     printWindow.document.close();
