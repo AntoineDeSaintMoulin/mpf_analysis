@@ -3049,26 +3049,249 @@ debtData.forEach(inst => {
   </>
 )}
  {/* ── VUE EXPORT ── */}
-      {view === "Export" && (
+{view === "Export" && (
         <div className="space-y-6">
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-            <div className="p-8 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+            <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
               <p className="text-sm font-bold text-slate-600">Prévisualisation A4</p>
               <button className="flex items-center gap-2 bg-sky-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-sky-700 transition-all">
                 <FileText className="h-4 w-4" />
                 Exporter PDF
               </button>
             </div>
-            <div className="flex items-center justify-center p-8 bg-slate-100 min-h-[600px]">
-              <div className="bg-white shadow-2xl" style={{ width: "595px", minHeight: "842px", padding: "48px", boxSizing: "border-box" }}>
-                <h1 className="text-3xl font-bold text-slate-900 mb-8 border-b border-slate-200 pb-4">SAMDP</h1>
-                <textarea
-                  value={exportText}
-                  onChange={e => setExportText(e.target.value)}
-                  placeholder="Cliquez ici pour ajouter du contenu à votre rapport SAMDP..."
-                  className="w-full text-slate-700 text-sm leading-relaxed outline-none resize-none bg-transparent placeholder:text-slate-300"
-                  style={{ minHeight: "600px", fontFamily: "inherit" }}
-                />
+            <div className="flex items-center justify-center p-8 bg-slate-100">
+              <div className="bg-white shadow-2xl" style={{ width: "595px", minHeight: "842px", padding: "36px", boxSizing: "border-box", fontFamily: "system-ui, sans-serif" }}>
+                
+                {/* ── EN-TÊTE ── */}
+                <div className="flex items-start justify-between mb-5 pb-4 border-b-2 border-slate-800">
+                  <div>
+                    <h1 style={{ fontSize: "18px", fontWeight: 800, color: "#0f172a", margin: 0, letterSpacing: "-0.5px" }}>SAMDP Fund Report</h1>
+                    <p style={{ fontSize: "10px", color: "#94a3b8", marginTop: "2px" }}>
+                      {importLog ? new Date(importLog.imported_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" }) : "—"}
+                      {debtImportLog ? ` · Debt: ${new Date(debtImportLog.imported_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex gap-3">
+                    {(() => {
+                      const lvl1 = equityRows.find((r: any) => r.level === 1);
+                      return (
+                        <div style={{ textAlign: "right" }}>
+                          <p style={{ fontSize: "9px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>Equities MtM</p>
+                          <p style={{ fontSize: "16px", fontWeight: 800, color: "#0ea5e9" }}>{fmtM(lvl1?.mtm_ptf ?? null)}</p>
+                        </div>
+                      );
+                    })()}
+                    <div style={{ width: "1px", background: "#e2e8f0" }} />
+                    <div style={{ textAlign: "right" }}>
+                      <p style={{ fontSize: "9px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>Debt MtM</p>
+                      <p style={{ fontSize: "16px", fontWeight: 800, color: "#10b981" }}>{fmtM(debtData.reduce((s, i) => s + Number(i.mtm_ptf ?? 0), 0))}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── SECTION 1 : EQUITIES ── */}
+                <div style={{ marginBottom: "20px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px" }}>
+                    <div style={{ width: "3px", height: "14px", background: "#0ea5e9", borderRadius: "2px" }} />
+                    <p style={{ fontSize: "11px", fontWeight: 800, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.5px", margin: 0 }}>SAMDP Equities</p>
+                  </div>
+
+                  {/* Graphes région + devise */}
+                  {(() => {
+                    const etfRows = equityRows.filter((r: any) => r.level === 5 && r.isin);
+                    const COUNTRY_TO_REGION: Record<string, string> = {
+                      "United States": "US", "Canada": "US",
+                      "Belgium": "Europe", "France": "Europe", "Germany": "Europe", "Italy": "Europe",
+                      "Spain": "Europe", "Netherlands": "Europe", "Ireland": "Europe", "Austria": "Europe",
+                      "Sweden": "Europe", "Switzerland": "Europe", "United Kingdom": "Europe",
+                      "Japan": "Japan", "China": "EM", "South Korea": "EM", "India": "EM",
+                      "Brazil": "EM", "Taiwan": "EM",
+                    };
+                    const REGION_COLORS: Record<string, string> = { "US": "#0ea5e9", "Europe": "#10b981", "EM": "#f59e0b", "Japan": "#8b5cf6", "Others": "#94a3b8" };
+                    const CUR_COLORS_EXP: Record<string, string> = { "EUR": "#0ea5e9", "USD": "#10b981", "JPY": "#f59e0b", "GBP": "#8b5cf6", "CHF": "#ec4899" };
+                    const regionMap = new Map<string, number>();
+                    const currencyMap = new Map<string, number>();
+                    etfRows.forEach((inst: any) => {
+                      const w = Number(inst.expo_pct ?? 0) * 100;
+                      if (w === 0) return;
+                      const override = manualOverrides.find((ov: any) => (ov.manual_isin && ov.manual_isin === inst.isin) || (ov.original_asset_name && ov.original_asset_name === inst.name));
+                      const isin = override?.manual_isin || inst.isin;
+                      const bd = breakdowns[isin];
+                      if (bd && bd.length > 0) {
+                        bd.forEach((e: any) => regionMap.set(e.region, (regionMap.get(e.region) ?? 0) + w * e.weight / 100));
+                      } else {
+                        const region = override?.manual_region || COUNTRY_TO_REGION[inst.dom_country ?? ""] || "Others";
+                        regionMap.set(region, (regionMap.get(region) ?? 0) + w);
+                      }
+                      const currency = (override?.manual_currency || inst.currency || "Other").toUpperCase();
+                      currencyMap.set(currency, (currencyMap.get(currency) ?? 0) + w);
+                    });
+                    const regionData = Array.from(regionMap.entries()).map(([n, v]) => ({ name: n, value: +v.toFixed(1) })).sort((a, b) => b.value - a.value);
+                    const currencyData = Array.from(currencyMap.entries()).map(([n, v]) => ({ name: n, value: +v.toFixed(1) })).sort((a, b) => b.value - a.value);
+                    return (
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "10px" }}>
+                        <div style={{ background: "#f8fafc", borderRadius: "8px", padding: "10px" }}>
+                          <p style={{ fontSize: "9px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginBottom: "6px" }}>Exposition Régionale</p>
+                          {regionData.map(({ name, value }) => (
+                            <div key={name} style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
+                              <span style={{ fontSize: "9px", fontWeight: 700, width: "40px", color: REGION_COLORS[name] ?? "#94a3b8", flexShrink: 0 }}>{name}</span>
+                              <div style={{ flex: 1, height: "6px", background: "#e2e8f0", borderRadius: "3px", overflow: "hidden" }}>
+                                <div style={{ height: "100%", width: `${Math.min(100, value)}%`, background: REGION_COLORS[name] ?? "#94a3b8", borderRadius: "3px" }} />
+                              </div>
+                              <span style={{ fontSize: "9px", fontWeight: 700, color: "#0f172a", width: "32px", textAlign: "right", flexShrink: 0 }}>{value.toFixed(1)}%</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ background: "#f8fafc", borderRadius: "8px", padding: "10px" }}>
+                          <p style={{ fontSize: "9px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginBottom: "6px" }}>Exposition Devise</p>
+                          {currencyData.map(({ name, value }) => (
+                            <div key={name} style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
+                              <span style={{ fontSize: "9px", fontWeight: 700, width: "32px", color: CUR_COLORS_EXP[name] ?? "#94a3b8", flexShrink: 0 }}>{name}</span>
+                              <div style={{ flex: 1, height: "6px", background: "#e2e8f0", borderRadius: "3px", overflow: "hidden" }}>
+                                <div style={{ height: "100%", width: `${Math.min(100, value)}%`, background: CUR_COLORS_EXP[name] ?? "#94a3b8", borderRadius: "3px" }} />
+                              </div>
+                              <span style={{ fontSize: "9px", fontWeight: 700, color: "#0f172a", width: "32px", textAlign: "right", flexShrink: 0 }}>{value.toFixed(1)}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Niveau 2 */}
+                  <div style={{ marginBottom: "8px" }}>
+                    <p style={{ fontSize: "9px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginBottom: "4px" }}>Allocation Niveau 2</p>
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      {equityRows.filter((r: any) => r.level === 2).map((r: any) => {
+                        const label = r.name === "Cash" ? "Cash" : r.name;
+                        const CASH_ISINS = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
+                        const val = r.name === "Cash"
+                          ? equityRows.filter((row: any) => row.level === 5 && (CASH_ISINS.has((row.isin ?? "").toUpperCase()) || (row.instrument_type ?? "").toUpperCase().includes("DEPOSIT"))).reduce((s: number, row: any) => s + Number(row.wght_ptf_ref ?? 0), 0) * 100
+                          : r.expo_pct != null ? Number(r.expo_pct) * 100 : 0;
+                        const COLORS_LVL2: Record<string, string> = { "Mutual funds": "#0ea5e9", "Cash": "#10b981", "Futures": "#f59e0b", "Options": "#8b5cf6" };
+                        return (
+                          <div key={r.name} style={{ flex: 1, background: "#f8fafc", borderRadius: "6px", padding: "8px", textAlign: "center", borderTop: `3px solid ${COLORS_LVL2[r.name] ?? "#94a3b8"}` }}>
+                            <p style={{ fontSize: "8px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", margin: "0 0 2px 0" }}>{label}</p>
+                            <p style={{ fontSize: "13px", fontWeight: 800, color: "#0f172a", margin: 0 }}>{val.toFixed(1)}%</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Top holdings niveau 5 */}
+                  <div>
+                    <p style={{ fontSize: "9px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginBottom: "4px" }}>Top Holdings</p>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "9px" }}>
+                      <thead>
+                        <tr style={{ background: "#f8fafc" }}>
+                          {["Instrument", "ISIN", "Devise", "Expo%"].map(h => (
+                            <th key={h} style={{ padding: "4px 6px", textAlign: h === "Expo%" ? "right" : "left", fontWeight: 700, color: "#64748b", textTransform: "uppercase", fontSize: "8px" }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {equityRows.filter((r: any) => r.level === 5 && r.isin && Number(r.expo_pct ?? 0) > 0)
+                          .sort((a: any, b: any) => Number(b.expo_pct ?? 0) - Number(a.expo_pct ?? 0))
+                          .slice(0, 8)
+                          .map((r: any, i: number) => (
+                            <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                              <td style={{ padding: "3px 6px", color: "#0f172a", fontWeight: 500, maxWidth: "180px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</td>
+                              <td style={{ padding: "3px 6px", color: "#0ea5e9", fontFamily: "monospace" }}>{r.isin}</td>
+                              <td style={{ padding: "3px 6px", color: "#64748b" }}>{r.currency ?? "—"}</td>
+                              <td style={{ padding: "3px 6px", textAlign: "right", fontWeight: 700, color: "#0f172a" }}>{(Number(r.expo_pct ?? 0) * 100).toFixed(2)}%</td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* ── SÉPARATEUR ── */}
+                <div style={{ height: "1px", background: "#e2e8f0", margin: "16px 0" }} />
+
+                {/* ── SECTION 2 : DEBT ── */}
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px" }}>
+                    <div style={{ width: "3px", height: "14px", background: "#10b981", borderRadius: "2px" }} />
+                    <p style={{ fontSize: "11px", fontWeight: 800, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.5px", margin: 0 }}>SAMDP Debt</p>
+                    <span style={{ fontSize: "9px", color: "#94a3b8", marginLeft: "4px" }}>Duration moy. {(() => { const total = debtData.reduce((s, i) => s + Number(i.wght_pct ?? 0), 0); return total > 0 ? (debtData.reduce((s, i) => s + Number(i.modified_duration ?? 0) * Number(i.wght_pct ?? 0), 0) / total).toFixed(2) : "—"; })()} ans</span>
+                  </div>
+
+                  {/* KPIs Debt */}
+                  {(() => {
+                    const CREDIT_COLORS_PDF: Record<string, string> = { "IG": "#10b981", "HY": "#f59e0b", "Govies": "#0ea5e9", "NR": "#94a3b8" };
+                    const CUR_COLORS_PDF: Record<string, string> = { "EUR": "#0ea5e9", "USD": "#10b981", "GBP": "#8b5cf6", "JPY": "#f59e0b" };
+                    const creditMap = new Map<string, number>();
+                    const currencyMap = new Map<string, number>();
+                    debtData.forEach(inst => {
+                      const w = Number(inst.wght_pct ?? 0) * 100;
+                      if (w === 0) return;
+                      const sector = inst.bics_sector_1 ?? "";
+                      let credit = inst.ig_hy ?? "NR";
+                      if (sector.toLowerCase().includes("government") || sector.toLowerCase().includes("sovereign")) credit = "Govies";
+                      creditMap.set(credit, (creditMap.get(credit) ?? 0) + w);
+                      const currency = (inst.currency || "Other").toUpperCase();
+                      currencyMap.set(currency, (currencyMap.get(currency) ?? 0) + w);
+                    });
+                    const creditData = Array.from(creditMap.entries()).map(([n, v]) => ({ name: n, value: +v.toFixed(1) })).sort((a, b) => b.value - a.value);
+                    const currencyData = Array.from(currencyMap.entries()).map(([n, v]) => ({ name: n, value: +v.toFixed(1) })).sort((a, b) => b.value - a.value);
+                    return (
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "10px" }}>
+                        <div style={{ background: "#f8fafc", borderRadius: "8px", padding: "10px" }}>
+                          <p style={{ fontSize: "9px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginBottom: "6px" }}>Credit Quality</p>
+                          {creditData.map(({ name, value }) => (
+                            <div key={name} style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
+                              <span style={{ fontSize: "9px", fontWeight: 700, width: "44px", color: CREDIT_COLORS_PDF[name] ?? "#94a3b8", flexShrink: 0 }}>{name}</span>
+                              <div style={{ flex: 1, height: "6px", background: "#e2e8f0", borderRadius: "3px", overflow: "hidden" }}>
+                                <div style={{ height: "100%", width: `${Math.min(100, value)}%`, background: CREDIT_COLORS_PDF[name] ?? "#94a3b8", borderRadius: "3px" }} />
+                              </div>
+                              <span style={{ fontSize: "9px", fontWeight: 700, color: "#0f172a", width: "32px", textAlign: "right", flexShrink: 0 }}>{value.toFixed(1)}%</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ background: "#f8fafc", borderRadius: "8px", padding: "10px" }}>
+                          <p style={{ fontSize: "9px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginBottom: "6px" }}>Exposition Devise</p>
+                          {currencyData.map(({ name, value }) => (
+                            <div key={name} style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
+                              <span style={{ fontSize: "9px", fontWeight: 700, width: "32px", color: CUR_COLORS_PDF[name] ?? "#94a3b8", flexShrink: 0 }}>{name}</span>
+                              <div style={{ flex: 1, height: "6px", background: "#e2e8f0", borderRadius: "3px", overflow: "hidden" }}>
+                                <div style={{ height: "100%", width: `${Math.min(100, value)}%`, background: CUR_COLORS_PDF[name] ?? "#94a3b8", borderRadius: "3px" }} />
+                              </div>
+                              <span style={{ fontSize: "9px", fontWeight: 700, color: "#0f172a", width: "32px", textAlign: "right", flexShrink: 0 }}>{value.toFixed(1)}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Top obligations */}
+                  <div>
+                    <p style={{ fontSize: "9px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginBottom: "4px" }}>Top Obligations</p>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "9px" }}>
+                      <thead>
+                        <tr style={{ background: "#f8fafc" }}>
+                          {["Instrument", "ISIN", "Rating", "Mod. Dur.", "Wght%"].map(h => (
+                            <th key={h} style={{ padding: "4px 6px", textAlign: ["Mod. Dur.", "Wght%"].includes(h) ? "right" : "left", fontWeight: 700, color: "#64748b", textTransform: "uppercase", fontSize: "8px" }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...debtData].sort((a, b) => Number(b.wght_pct ?? 0) - Number(a.wght_pct ?? 0)).slice(0, 10).map((inst, i) => (
+                          <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                            <td style={{ padding: "3px 6px", color: "#0f172a", fontWeight: 500, maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{inst.name}</td>
+                            <td style={{ padding: "3px 6px", color: "#10b981", fontFamily: "monospace" }}>{inst.isin}</td>
+                            <td style={{ padding: "3px 6px", color: "#64748b" }}>{inst.rating_cai ?? "—"}</td>
+                            <td style={{ padding: "3px 6px", textAlign: "right", color: "#64748b" }}>{inst.modified_duration != null ? Number(inst.modified_duration).toFixed(2) : "—"}</td>
+                            <td style={{ padding: "3px 6px", textAlign: "right", fontWeight: 700, color: "#0f172a" }}>{(Number(inst.wght_pct ?? 0) * 100).toFixed(2)}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
               </div>
             </div>
           </div>
