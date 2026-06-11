@@ -3338,7 +3338,31 @@ debtData.forEach(inst => {
                         ))}
                       </tbody>
                     </table>
-                  </div>
+                </div>
+                </div>
+
+                {/* ── DISCLAIMER ── */}
+                <div style={{ marginTop: "20px", borderTop: "1px solid #e2e8f0", paddingTop: "12px" }}>
+                  <p style={{ fontSize: "9px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "6px" }}>Note de gestion</p>
+                  <textarea
+                    value={exportText}
+                    onChange={e => setExportText(e.target.value)}
+                    placeholder="Décrivez ici la politique de gestion du fonds, ses objectifs, son univers d'investissement…"
+                    style={{
+                      width: "100%",
+                      minHeight: "80px",
+                      fontSize: "9px",
+                      color: "#334155",
+                      lineHeight: "1.6",
+                      border: "1px dashed #cbd5e1",
+                      borderRadius: "6px",
+                      padding: "8px",
+                      resize: "vertical",
+                      outline: "none",
+                      fontFamily: "system-ui, sans-serif",
+                      background: "#fafafa",
+                    }}
+                  />
                 </div>
 
               </div>
@@ -3346,7 +3370,7 @@ debtData.forEach(inst => {
           </div>
         </div>
       )}
-
+      
       {/* ── Modales détail ── */}
       {/* ── Modale Devise Equity ── */}
       <Modal isOpen={showSamdpDetail === "currency_equity"} onClose={() => setShowSamdpDetail(null)} title="Détail Exposition Devise — Equities">
