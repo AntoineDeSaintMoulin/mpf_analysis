@@ -3118,7 +3118,7 @@ debtData.forEach(inst => {
                 <div className="page bg-white shadow-2xl" style={{ fontFamily: "system-ui, sans-serif" }}>
   
                 {/* ── EN-TÊTE ── */}
-                <div className="flex items-start justify-between mb-5 pb-4 border-b-2 border-slate-800">
+<div style={{ display: "flex", alignItems: "start", justifyContent: "space-between", marginBottom: "20px", paddingBottom: "16px", borderBottom: "2px solid #0f172a" }}>
                   <div>
                     <h1 style={{ fontSize: "18px", fontWeight: 800, color: "#0f172a", margin: 0, letterSpacing: "-0.5px" }}>SAMDP Fund Report</h1>
                     <p style={{ fontSize: "10px", color: "#94a3b8", marginTop: "2px" }}>
