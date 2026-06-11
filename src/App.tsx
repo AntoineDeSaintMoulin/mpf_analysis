@@ -3310,10 +3310,9 @@ debtData.forEach(inst => {
 
                 {/* ── SECTION 2 : DEBT ── */}
                 <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px" }}>
+<div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px" }}>
                     <div style={{ width: "3px", height: "14px", background: "#10b981", borderRadius: "2px" }} />
                     <p style={{ fontSize: "11px", fontWeight: 800, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.5px", margin: 0 }}>SAMDP Debt</p>
-                    <span style={{ fontSize: "9px", color: "#94a3b8", marginLeft: "4px" }}>Duration moy. {(() => { const total = debtData.reduce((s, i) => s + Number(i.wght_pct ?? 0), 0); return total > 0 ? (debtData.reduce((s, i) => s + Number(i.modified_duration ?? 0) * Number(i.wght_pct ?? 0), 0) / total).toFixed(2) : "—"; })()} ans</span>
                   </div>
 
                   {/* KPIs Debt */}
@@ -3335,7 +3334,7 @@ debtData.forEach(inst => {
                     const creditData = Array.from(creditMap.entries()).map(([n, v]) => ({ name: n, value: +v.toFixed(1) })).sort((a, b) => b.value - a.value);
                     const currencyData = Array.from(currencyMap.entries()).map(([n, v]) => ({ name: n, value: +v.toFixed(1) })).sort((a, b) => b.value - a.value);
                     return (
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "10px" }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "2fr 2fr 1fr", gap: "12px", marginBottom: "10px" }}>
                         <div style={{ background: "#f8fafc", borderRadius: "8px", padding: "10px" }}>
                           <p style={{ fontSize: "9px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginBottom: "6px" }}>Credit Quality</p>
                           {creditData.map(({ name, value }) => (
@@ -3359,6 +3358,13 @@ debtData.forEach(inst => {
                               <span style={{ fontSize: "9px", fontWeight: 700, color: "#0f172a", width: "32px", textAlign: "right", flexShrink: 0 }}>{value.toFixed(1)}%</span>
                             </div>
                           ))}
+                        </div>
+                        <div style={{ background: "#f8fafc", borderRadius: "8px", padding: "10px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                          <p style={{ fontSize: "9px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginBottom: "6px" }}>Duration</p>
+                          <p style={{ fontSize: "28px", fontWeight: 800, color: "#0f172a", margin: 0, lineHeight: 1 }}>
+                            {(() => { const total = debtData.reduce((s, i) => s + Number(i.wght_pct ?? 0), 0); return total > 0 ? (debtData.reduce((s, i) => s + Number(i.modified_duration ?? 0) * Number(i.wght_pct ?? 0), 0) / total).toFixed(2) : "—"; })()}
+                          </p>
+                          <p style={{ fontSize: "8px", color: "#94a3b8", marginTop: "4px" }}>années</p>
                         </div>
                       </div>
                     );
