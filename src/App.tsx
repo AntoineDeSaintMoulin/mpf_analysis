@@ -3108,9 +3108,12 @@ debtData.forEach(inst => {
                 Exporter PDF
               </button>
             </div>
-            <div className="flex items-center justify-center p-8 bg-slate-100">
-              <div ref={exportRef} className="bg-white shadow-2xl" style={{ width: "595px", minHeight: "842px", padding: "36px", boxSizing: "border-box", fontFamily: "system-ui, sans-serif" }}>
+            <div className="flex flex-col items-center gap-8 p-8 bg-slate-100">
+              <div ref={exportRef}>
                 
+              {/* ── PAGE 1 : EQUITIES ── */}
+              <div className="bg-white shadow-2xl" style={{ width: "595px", minHeight: "842px", padding: "36px", boxSizing: "border-box", fontFamily: "system-ui, sans-serif", marginBottom: "0" }}>
+  
                 {/* ── EN-TÊTE ── */}
                 <div className="flex items-start justify-between mb-5 pb-4 border-b-2 border-slate-800">
                   <div>
@@ -3256,8 +3259,35 @@ debtData.forEach(inst => {
                   </div>
                 </div>
 
-                {/* ── SÉPARATEUR ── */}
-                <div style={{ height: "1px", background: "#e2e8f0", margin: "16px 0" }} />
+{/* ── DISCLAIMER PAGE 1 ── */}
+                <div style={{ marginTop: "20px", borderTop: "1px solid #e2e8f0", paddingTop: "12px" }}>
+                  <p style={{ fontSize: "9px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "6px" }}>Note de gestion — Equities</p>
+                  <textarea
+                    value={exportText}
+                    onChange={e => setExportText(e.target.value)}
+                    placeholder="Décrivez ici la politique de gestion du fonds Equities…"
+                    style={{ width: "100%", minHeight: "80px", fontSize: "9px", color: "#334155", lineHeight: "1.6", border: "1px dashed #cbd5e1", borderRadius: "6px", padding: "8px", resize: "vertical", outline: "none", fontFamily: "system-ui, sans-serif", background: "#fafafa" }}
+                  />
+                </div>
+
+              </div>
+
+              {/* ── PAGE 2 : DEBT ── */}
+              <div className="bg-white shadow-2xl" style={{ width: "595px", minHeight: "842px", padding: "36px", boxSizing: "border-box", fontFamily: "system-ui, sans-serif" }}>
+
+                {/* ── EN-TÊTE PAGE 2 ── */}
+                <div style={{ display: "flex", alignItems: "start", justifyContent: "space-between", marginBottom: "20px", paddingBottom: "16px", borderBottom: "2px solid #0f172a" }}>
+                  <div>
+                    <h1 style={{ fontSize: "18px", fontWeight: 800, color: "#0f172a", margin: 0, letterSpacing: "-0.5px" }}>SAMDP Fund Report</h1>
+                    <p style={{ fontSize: "10px", color: "#94a3b8", marginTop: "2px" }}>
+                      {debtImportLog ? new Date(debtImportLog.imported_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" }) : "—"}
+                    </p>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <p style={{ fontSize: "9px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>Debt MtM</p>
+                    <p style={{ fontSize: "16px", fontWeight: 800, color: "#10b981" }}>{fmtM(debtData.reduce((s, i) => s + Number(i.mtm_ptf ?? 0), 0))}</p>
+                  </div>
+                </div>
 
                 {/* ── SECTION 2 : DEBT ── */}
                 <div>
@@ -3341,30 +3371,18 @@ debtData.forEach(inst => {
                 </div>
                 </div>
 
-                {/* ── DISCLAIMER ── */}
+{/* ── DISCLAIMER PAGE 2 ── */}
                 <div style={{ marginTop: "20px", borderTop: "1px solid #e2e8f0", paddingTop: "12px" }}>
-                  <p style={{ fontSize: "9px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "6px" }}>Note de gestion</p>
+                  <p style={{ fontSize: "9px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "6px" }}>Note de gestion — Debt</p>
                   <textarea
-                    value={exportText}
-                    onChange={e => setExportText(e.target.value)}
-                    placeholder="Décrivez ici la politique de gestion du fonds, ses objectifs, son univers d'investissement…"
-                    style={{
-                      width: "100%",
-                      minHeight: "80px",
-                      fontSize: "9px",
-                      color: "#334155",
-                      lineHeight: "1.6",
-                      border: "1px dashed #cbd5e1",
-                      borderRadius: "6px",
-                      padding: "8px",
-                      resize: "vertical",
-                      outline: "none",
-                      fontFamily: "system-ui, sans-serif",
-                      background: "#fafafa",
-                    }}
+                    value={exportTextDebt}
+                    onChange={e => setExportTextDebt(e.target.value)}
+                    placeholder="Décrivez ici la politique de gestion du fonds Debt, ses objectifs, son univers d'investissement…"
+                    style={{ width: "100%", minHeight: "80px", fontSize: "9px", color: "#334155", lineHeight: "1.6", border: "1px dashed #cbd5e1", borderRadius: "6px", padding: "8px", resize: "vertical", outline: "none", fontFamily: "system-ui, sans-serif", background: "#fafafa" }}
                   />
                 </div>
 
+              </div>
               </div>
             </div>
           </div>
