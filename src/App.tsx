@@ -2130,15 +2130,17 @@ printWindow.document.write(`
               box-sizing: border-box;
               background: white;
             }
-              @media print {
-              html, body { width: 210mm; height: 297mm; }
-              #report { box-shadow: none; }
+            @page { size: A4 portrait; margin: 0; }
+            @media print {
               * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; print-color-adjust: exact !important; }
+              .page { width: 210mm; min-height: 297mm; page-break-after: always; box-shadow: none !important; }
+              .page:last-child { page-break-after: avoid; }
             }
+            .page { width: 210mm; min-height: 297mm; padding: 36px; box-sizing: border-box; background: white; }
             * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; print-color-adjust: exact !important; }
           </style>
         </head>
-        <body><div id="report">${content}</div></body>
+        <body>${content}</body>
       </html>
     `);
     printWindow.document.close();
@@ -3113,7 +3115,7 @@ debtData.forEach(inst => {
               <div ref={exportRef}>
                 
               {/* ── PAGE 1 : EQUITIES ── */}
-              <div className="bg-white shadow-2xl" style={{ width: "595px", minHeight: "842px", padding: "36px", boxSizing: "border-box", fontFamily: "system-ui, sans-serif", marginBottom: "0" }}>
+<div className="page bg-white shadow-2xl" style={{ width: "595px", minHeight: "842px", padding: "36px", boxSizing: "border-box", fontFamily: "system-ui, sans-serif" }}>
   
                 {/* ── EN-TÊTE ── */}
                 <div className="flex items-start justify-between mb-5 pb-4 border-b-2 border-slate-800">
@@ -3274,7 +3276,7 @@ debtData.forEach(inst => {
               </div>
 
               {/* ── PAGE 2 : DEBT ── */}
-              <div className="bg-white shadow-2xl" style={{ width: "595px", minHeight: "842px", padding: "36px", boxSizing: "border-box", fontFamily: "system-ui, sans-serif" }}>
+<div className="page bg-white shadow-2xl" style={{ width: "595px", minHeight: "842px", padding: "36px", boxSizing: "border-box", fontFamily: "system-ui, sans-serif" }}>
 
                 {/* ── EN-TÊTE PAGE 2 ── */}
                 <div style={{ display: "flex", alignItems: "start", justifyContent: "space-between", marginBottom: "20px", paddingBottom: "16px", borderBottom: "2px solid #0f172a" }}>
