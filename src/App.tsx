@@ -3136,11 +3136,6 @@ debtData.forEach(inst => {
                         </div>
                       );
                     })()}
-                    <div style={{ width: "1px", background: "#e2e8f0" }} />
-                    <div style={{ textAlign: "right" }}>
-                      <p style={{ fontSize: "9px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>Debt MtM</p>
-                      <p style={{ fontSize: "16px", fontWeight: 800, color: "#10b981" }}>{fmtM(debtData.reduce((s, i) => s + Number(i.mtm_ptf ?? 0), 0))}</p>
-                    </div>
                   </div>
                 </div>
 
@@ -3246,9 +3241,8 @@ debtData.forEach(inst => {
                         </tr>
                       </thead>
                       <tbody>
-                        {equityRows.filter((r: any) => r.level === 5 && r.isin && Number(r.expo_pct ?? 0) > 0)
+                       {equityRows.filter((r: any) => r.level === 5 && r.isin && Number(r.expo_pct ?? 0) > 0)
                           .sort((a: any, b: any) => Number(b.expo_pct ?? 0) - Number(a.expo_pct ?? 0))
-                          .slice(0, 8)
                           .map((r: any, i: number) => (
                             <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
                               <td style={{ padding: "3px 6px", color: "#0f172a", fontWeight: 500, maxWidth: "180px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</td>
@@ -3360,7 +3354,7 @@ debtData.forEach(inst => {
                         </tr>
                       </thead>
                       <tbody>
-                        {[...debtData].sort((a, b) => Number(b.wght_pct ?? 0) - Number(a.wght_pct ?? 0)).slice(0, 10).map((inst, i) => (
+{[...debtData].sort((a, b) => Number(b.wght_pct ?? 0) - Number(a.wght_pct ?? 0)).map((inst, i) => (
                           <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
                             <td style={{ padding: "3px 6px", color: "#0f172a", fontWeight: 500, maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{inst.name}</td>
                             <td style={{ padding: "3px 6px", color: "#10b981", fontFamily: "monospace" }}>{inst.isin}</td>
