@@ -2136,7 +2136,7 @@ printWindow.document.write(`
               .page { width: 210mm; min-height: 297mm; page-break-after: always; box-shadow: none !important; }
               .page:last-child { page-break-after: avoid; }
             }
-            .page { width: 210mm; min-height: 297mm; padding: 36px; box-sizing: border-box; background: white; }
+            .page { width: 210mm; min-height: 297mm; padding: 20mm; box-sizing: border-box; background: white; font-size: 9pt; }
             * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; print-color-adjust: exact !important; }
           </style>
         </head>
@@ -3115,7 +3115,7 @@ debtData.forEach(inst => {
               <div ref={exportRef}>
                 
               {/* ── PAGE 1 : EQUITIES ── */}
-<div className="page bg-white shadow-2xl" style={{ width: "595px", minHeight: "842px", padding: "36px", boxSizing: "border-box", fontFamily: "system-ui, sans-serif" }}>
+                <div className="page bg-white shadow-2xl" style={{ fontFamily: "system-ui, sans-serif" }}>
   
                 {/* ── EN-TÊTE ── */}
                 <div className="flex items-start justify-between mb-5 pb-4 border-b-2 border-slate-800">
@@ -3276,7 +3276,7 @@ debtData.forEach(inst => {
               </div>
 
               {/* ── PAGE 2 : DEBT ── */}
-<div className="page bg-white shadow-2xl" style={{ width: "595px", minHeight: "842px", padding: "36px", boxSizing: "border-box", fontFamily: "system-ui, sans-serif" }}>
+<div className="page bg-white shadow-2xl" style={{ fontFamily: "system-ui, sans-serif" }}>
 
                 {/* ── EN-TÊTE PAGE 2 ── */}
                 <div style={{ display: "flex", alignItems: "start", justifyContent: "space-between", marginBottom: "20px", paddingBottom: "16px", borderBottom: "2px solid #0f172a" }}>
