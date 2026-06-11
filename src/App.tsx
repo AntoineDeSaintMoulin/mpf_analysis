@@ -2129,10 +2129,12 @@ printWindow.document.write(`
               box-sizing: border-box;
               background: white;
             }
-            @media print {
+              @media print {
               html, body { width: 210mm; height: 297mm; }
               #report { box-shadow: none; }
+              * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; print-color-adjust: exact !important; }
             }
+            * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; print-color-adjust: exact !important; }
           </style>
         </head>
         <body><div id="report">${content}</div></body>
