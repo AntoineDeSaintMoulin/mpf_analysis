@@ -2106,7 +2106,7 @@ const handleExportPdf = () => {
     const content = exportRef.current.innerHTML;
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
-    printWindow.document.write(`
+printWindow.document.write(`
       <!DOCTYPE html>
       <html>
         <head>
@@ -2114,13 +2114,17 @@ const handleExportPdf = () => {
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { font-family: system-ui, sans-serif; background: white; }
-            @page { size: A4; margin: 0; }
+            @page { size: A4 portrait; margin: 0; }
             @media print {
-              body { width: 595px; }
+              html, body { width: 595px; height: 842px; }
+              body > div { width: 595px !important; box-shadow: none !important; }
+            }
+            @media screen {
+              body { display: flex; justify-content: center; background: #f1f5f9; padding: 20px; }
             }
           </style>
         </head>
-        <body>${content}</body>
+        <body><div style="width:595px; min-height:842px; background:white; padding:36px; box-sizing:border-box; font-family:system-ui,sans-serif;">${content}</div></body>
       </html>
     `);
     printWindow.document.close();
