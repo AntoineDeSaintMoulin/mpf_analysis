@@ -2409,7 +2409,8 @@ const rowsWithLevel: any[] = allRows.map((row, i) => {
 const debtLeafRows = debtData.filter((i: any) => i.level === 4 || i.level === 5 || (!i.level && i.isin));
 
 const filteredDebt = React.useMemo(() => {
-let list = debtData.filter((inst: any) => inst.level === debtHierarchyLevel).filter((inst: any) => {
+  console.log("debtData total:", debtData.length, "levels:", debtData.map((i: any) => i.level));
+  let list = debtData.filter((inst: any) => inst.level === debtHierarchyLevel).filter((inst: any) => {
     if (!debtSearch) return true;
     const q = debtSearch.toLowerCase();
     return (inst.name ?? "").toLowerCase().includes(q) ||
