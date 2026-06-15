@@ -2711,7 +2711,9 @@ console.log("etfRows utilisés:", etfRows.map((r: any) => `${r.name} expo=${r.ex
   <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-violet-100 shrink-0" />Options</span>
 </div>
 {/* Filtre par niveau */}
-<Search className="h-4 w-4 text-slate-400 shrink-0" />
+<div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-50 flex items-center gap-3">
+            <Search className="h-4 w-4 text-slate-400 shrink-0" />
             <input type="text" value={equitySearch} onChange={e => setEquitySearch(e.target.value)}
               placeholder="Rechercher…"
               className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400" />
