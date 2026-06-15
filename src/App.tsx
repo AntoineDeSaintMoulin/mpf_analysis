@@ -2972,11 +2972,19 @@ debtData.forEach(inst => {
           ))}
         </div>
 
+{/* Légende couleurs par type */}
+        <div className="flex items-center gap-4 px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-sky-100 shrink-0" />Govies</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-100 shrink-0" />IG</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-amber-100 shrink-0" />HY</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-slate-100 shrink-0" />NR</span>
+        </div>
+
         {/* Table */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-50 flex items-center gap-3">
             <Search className="h-4 w-4 text-slate-400 shrink-0" />
-            <input type="text" value={debtSearch}
+            <input type="text" value={debtSearch} onChange={e => setDebtSearch(e.target.value)}
               onChange={e => setDebtSearch(e.target.value)}
               placeholder="Rechercher un instrument, ISIN ou émetteur…"
               className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400" />
@@ -3027,8 +3035,19 @@ debtData.forEach(inst => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filteredDebt.map((inst) => (
-                  <tr key={inst.isin} className="hover:bg-slate-50/50 transition-colors">
+{filteredDebt.map((inst) => {
+                  const sector = inst.bics_sector_1 ?? "";
+                  const isGov = sector.toLowerCase().includes("government") || sector.toLowerCase().includes("sovereign");
+                  const ighy = inst.ig_hy ?? "";
+                  const DEBT_ROW_COLORS: Record<string, string> = {
+                    gov: "bg-sky-50/60",
+                    ig: "bg-emerald-50/60",
+                    hy: "bg-amber-50/60",
+                    nr: "bg-slate-50/60",
+                  };
+                  const colorKey = isGov ? "gov" : ighy.toUpperCase() === "IG" ? "ig" : ighy.toUpperCase() === "HY" ? "hy" : "nr";
+                  return (
+                  <tr key={inst.isin} className={cn("transition-colors hover:opacity-90", DEBT_ROW_COLORS[colorKey])}>
                     <td className="px-4 py-3 truncate max-w-[200px]">
                       <button
                         onClick={() => {
@@ -3080,9 +3099,10 @@ debtData.forEach(inst => {
                     <td className="px-4 py-3 text-right text-slate-600">{inst.gov_spread != null ? Number(inst.gov_spread).toFixed(1) + "bp" : "—"}</td>
                     <td className="px-4 py-3 text-right font-bold text-slate-900">{inst.mtm_ptf != null ? Number(inst.mtm_ptf).toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : "—"}</td>
                     <td className="px-4 py-3 text-right font-bold text-sky-600">{inst.wght_pct != null ? (Number(inst.wght_pct) * 100).toFixed(2) + "%" : "—"}</td>
-                    <td className="px-4 py-3 text-right text-slate-600">{inst.expo_pct != null ? (Number(inst.expo_pct) * 100).toFixed(2) + "%" : "—"}</td>
+<td className="px-4 py-3 text-right text-slate-600">{inst.expo_pct != null ? (Number(inst.expo_pct) * 100).toFixed(2) + "%" : "—"}</td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
               <tfoot>
                 <tr className="bg-slate-50 border-t border-slate-200">
