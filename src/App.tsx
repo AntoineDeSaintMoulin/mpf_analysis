@@ -2405,6 +2405,8 @@ const rowsWithLevel: any[] = allRows.map((row, i) => {
       return { key, direction: "desc" };
     });
   };
+const debtLeafRows = debtData.filter((i: any) => i.level === 4 || i.level === 5 || (!i.level && i.isin));
+
 const filteredDebt = React.useMemo(() => {
 let list = debtLeafRows.filter(inst => {
     if (debtLevel !== "all") {
@@ -2434,7 +2436,6 @@ let list = debtLeafRows.filter(inst => {
   return list;
 }, [debtData, debtSearch, debtSortConfig]);
  
-const debtLeafRows = debtData.filter((i: any) => i.level === 4 || i.level === 5 || (!i.level && i.isin));
 const totalDebtWght = debtLeafRows.reduce((s, i) => s + Number(i.wght_pct ?? 0), 0);
 const totalDebtMtm = debtLeafRows.reduce((s, i) => s + Number(i.mtm_ptf ?? 0), 0);
 const avgDuration = debtData.length > 0
