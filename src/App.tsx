@@ -2074,8 +2074,9 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
   const [exportText, setExportText] = React.useState("");
   const [exportTextDebt, setExportTextDebt] = React.useState("");
   const [debtSearch, setDebtSearch] = React.useState("");
-  const [debtSortConfig, setDebtSortConfig] = React.useState<{ key: string; direction: "asc" | "desc" } | null>({ key: "wght_pct", direction: "desc" });
-const [showSamdpDetail, setShowSamdpDetail] = React.useState<"currency_equity" | "region_equity" | "currency_debt" | "credit_debt" | "duration_debt" | "cash_detail" | null>(null);
+const [debtSortConfig, setDebtSortConfig] = React.useState<{ key: string; direction: "asc" | "desc" } | null>({ key: "wght_pct", direction: "desc" });
+  const [debtLevel, setDebtLevel] = React.useState<"all" | "gov" | "ig" | "hy" | "nr">("all");
+  const [showSamdpDetail, setShowSamdpDetail] = React.useState<"currency_equity" | "region_equity" | "currency_debt" | "credit_debt" | "duration_debt" | "cash_detail" | null>(null);
   const [equityLevel, setEquityLevel] = React.useState<1|2|3|4|5>(2);
   const [regionFilter, setRegionFilter] = React.useState<string | null>(null);
   const exportRef = React.useRef<HTMLDivElement>(null);
@@ -2407,8 +2408,17 @@ const rowsWithLevel: any[] = allRows.map((row, i) => {
       return { key, direction: "desc" };
     });
   };
- const filteredDebt = React.useMemo(() => {
+const filteredDebt = React.useMemo(() => {
   let list = debtData.filter(inst => {
+    if (debtLevel !== "all") {
+      const sector = inst.bics_sector_1 ?? "";
+      const isGov = sector.toLowerCase().includes("government") || sector.toLowerCase().includes("sovereign");
+      const credit = isGov ? "gov" : (inst.ig_hy ?? "nr").toLowerCase();
+      if (debtLevel === "gov" && !isGov) return false;
+      if (debtLevel === "ig" && (isGov || (inst.ig_hy ?? "").toUpperCase() !== "IG")) return false;
+      if (debtLevel === "hy" && (isGov || (inst.ig_hy ?? "").toUpperCase() !== "HY")) return false;
+      if (debtLevel === "nr" && (isGov || inst.ig_hy != null)) return false;
+    }
     if (!debtSearch) return true;
     const q = debtSearch.toLowerCase();
     return (inst.name ?? "").toLowerCase().includes(q) ||
@@ -2700,9 +2710,17 @@ console.log("etfRows utilisés:", etfRows.map((r: any) => `${r.name} expo=${r.ex
   <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-100 shrink-0" />Mutual funds</span>
   <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-violet-100 shrink-0" />Options</span>
 </div>
-        {/* Table */}
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-50 flex items-center gap-3">
+{/* Filtre par niveau */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Niveau</span>
+          {(["all", "gov", "ig", "hy", "nr"] as const).map(lvl => (
+            <button key={lvl} onClick={() => setDebtLevel(lvl)}
+              className={cn("px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                debtLevel === lvl ? "bg-sky-600 text-white shadow-sm" : "bg-slate-100 text-slate-500 hover:bg-slate-200")}>
+              {lvl === "all" ? "Tous" : lvl === "gov" ? "Govies" : lvl === "ig" ? "IG" : lvl === "hy" ? "HY" : "NR"}
+            </button>
+          ))}
+        </div>
             <Search className="h-4 w-4 text-slate-400 shrink-0" />
             <input type="text" value={equitySearch} onChange={e => setEquitySearch(e.target.value)}
               placeholder="Rechercher…"
