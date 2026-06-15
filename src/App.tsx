@@ -326,10 +326,13 @@ case "eq_europe": case "eq_us": case "eq_em": case "eq_japan": case "eq_other": 
 
 case "fixed_income": {
       const subIds = ["fi_eur", "fi_usd", "fi_em_local", "fi_em_hard", "fi_global"];
-      return subIds.reduce((s, id) => {
+      const result = subIds.reduce((s, id) => {
         const v = computePtfWeight(id, holdings, breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown, samdpDebtCreditBreakdown);
+        console.log("fixed_income sub:", id, "=", v);
         return s + (v ?? 0);
       }, 0);
+      console.log("fixed_income total:", result);
+      return result;
     }
 
 case "fi_eur": {
