@@ -2141,45 +2141,38 @@ printWindow.document.write(`
     const wb = XLSX.read(buffer, { type: "array", cellDates: true });
     const ws = wb.Sheets[wb.SheetNames[0]];
  
-    // Lire toutes les cellules par clé (contourne les row groups cachés)
-    const allCellKeys = Object.keys(ws).filter(k => !k.startsWith('!'));
+const allCellKeys = Object.keys(ws).filter(k => !k.startsWith('!'));
     const instrumentRows: Map<number, any[]> = new Map();
-allCellKeys.forEach((key: string) => {
+    allCellKeys.forEach((key: string) => {
       const decoded = XLSX.utils.decode_cell(key);
       if (!instrumentRows.has(decoded.r)) instrumentRows.set(decoded.r, []);
       const row = instrumentRows.get(decoded.r)!;
       row[decoded.c] = ws[key]?.v;
     });
- 
-    const VALID_TYPES = ["ETF BONDS", "FIXED RATE BOND", "FLOATING RATE BOND", "CONVERTIBLE BOND", "BOND"];
-    const seen = new Set<string>();
-    const instruments: any[] = [];
- 
+
+    const wsRows: any[] = (ws as any)['!rows'] ?? [];
     const toNum = (v: any) => v != null && !isNaN(Number(v)) ? Number(v) : null;
     const toStr = (v: any) => v != null && String(v).trim() !== '' ? String(v).trim() : null;
     const toDate = (v: any) => {
       if (!v) return null;
       if (v instanceof Date) return v.toISOString().slice(0, 10);
       if (typeof v === 'string') return v.slice(0, 10);
-      try {
-        const d = XLSX.SSF?.parse_date_code?.(v);
-        if (d) return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
-      } catch {}
       return String(v).slice(0, 10);
     };
- 
-    instrumentRows.forEach((row, rowIdx) => {
-      if (rowIdx <= 1) return; // skip headers
-      const isin = toStr(row[1]); // col B = index 1
-      const type = toStr(row[46]); // col AV = index 46 (instrument type)
-      if (!type || !VALID_TYPES.some(t => type.toUpperCase().includes(t.replace("BOND", "").trim()) || type === t)) return;
-      if (!isin || seen.has(isin)) return;
-      seen.add(isin);
- 
-      instruments.push({
-        name: toStr(row[0]) ?? "",
-        isin,
-        instrument_type: type,
+
+    const sortedRows = Array.from(instrumentRows.entries()).sort(([a], [b]) => a - b);
+    const allRows: any[] = [];
+
+    for (const [rowIdx, row] of sortedRows) {
+      if (rowIdx <= 1) return;
+      const name = toStr(row[0]);
+      if (!name) continue;
+      const outlineLevel = wsRows[rowIdx]?.level ?? 0;
+      allRows.push({
+        row_index: rowIdx + 1,
+        name,
+        isin: toStr(row[1]),
+        instrument_type: toStr(row[46]),
         issuer: toStr(row[3]),
         coupon_rate: toNum(row[4]),
         maturity_date: toDate(row[5]),
@@ -2187,43 +2180,53 @@ allCellKeys.forEach((key: string) => {
         seniority: toStr(row[8]),
         quote_date: toDate(row[9]),
         quote: toNum(row[10]),
-        accrued_int: toNum(row[11]),
         quantity: toNum(row[14]),
         nominal: toNum(row[16]),
         mtm_ptf: toNum(row[17]),
         wght_pct: toNum(row[18]),
         expo_pct: toNum(row[19]),
         ytw: toNum(row[20]),
-        ytm: toNum(row[21]),
         modified_duration: toNum(row[28]),
         gov_spread: toNum(row[26]),
         bics_sector_1: toStr(row[35]),
-        bics_sector_2: toStr(row[36]),
         issuer_country: toStr(row[37]),
         dom_country: toStr(row[38]),
-        geo_area: toStr(row[40]),
-        rating_moodys: toStr(row[41]),
-        rating_sp: toStr(row[42]),
-        rating_fitch: toStr(row[43]),
         rating_cai: toStr(row[44]),
         ig_hy: toStr(row[45]),
-        esg_score: toNum(row[48]),
-        mat_y: toNum(row[60]),
-        bondsegment: toStr(row[58]),
+        outline_level: outlineLevel,
       });
+    }
+
+    // Assigner les niveaux selon outline_level
+    const rowsWithLevel: any[] = allRows.map((row, i) => {
+      let level: number;
+      if (row.outline_level > 0) {
+        level = row.outline_level + 1;
+      } else if (i === 0) {
+        level = 1;
+      } else {
+        level = 2;
+      }
+      return { ...row, level };
     });
- 
-console.log("Debt instruments found:", instruments.length, "first rows:", Array.from(instrumentRows.entries()).slice(0, 5));
- 
-    if (instruments.length === 0) {
-      alert("Aucun instrument obligataire trouvé dans ce fichier.");
+
+    console.log("Debt rows found:", rowsWithLevel.length, "sample:", rowsWithLevel.slice(0, 5));
+
+    if (rowsWithLevel.length === 0) {
+      alert("Aucune ligne trouvée dans ce fichier.");
       return;
     }
- 
+
     const apiRes = await fetch("/api/dpam-data?section=samdp_debt", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ filename: file.name, instruments }),
+      body: JSON.stringify({ filename: file.name, instruments: rowsWithLevel }),
+    });
+ 
+   const apiRes = await fetch("/api/dpam-data?section=samdp_debt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: file.name, instruments: rowsWithLevel }),
     });
  
     if (apiRes.ok) {
