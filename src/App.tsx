@@ -2198,14 +2198,14 @@ for (const [rowIdx, row] of sortedRows) {
     }
 
     // Assigner les niveaux selon outline_level
-    const rowsWithLevel: any[] = allRows.map((row, i) => {
+const rowsWithLevel: any[] = allRows.map((row, i) => {
       let level: number;
-      if (row.outline_level > 0) {
-        level = row.outline_level + 1;
-      } else if (i === 0) {
+      if (i === 0) {
         level = 1;
-      } else {
+      } else if (row.outline_level === 0) {
         level = 2;
+      } else {
+        level = row.outline_level + 1;
       }
       return { ...row, level };
     });
@@ -2406,7 +2406,7 @@ const rowsWithLevel: any[] = allRows.map((row, i) => {
     });
   };
 const filteredDebt = React.useMemo(() => {
-  let list = debtData.filter(inst => {
+let list = debtLeafRows.filter(inst => {
     if (debtLevel !== "all") {
       const sector = inst.bics_sector_1 ?? "";
       const isGov = sector.toLowerCase().includes("government") || sector.toLowerCase().includes("sovereign");
@@ -2434,8 +2434,11 @@ const filteredDebt = React.useMemo(() => {
   return list;
 }, [debtData, debtSearch, debtSortConfig]);
  
-const totalDebtWght = debtData.reduce((s, i) => s + Number(i.wght_pct ?? 0), 0);
-const totalDebtMtm = debtData.reduce((s, i) => s + Number(i.mtm_ptf ?? 0), 0);
+const debtLeafRows = React.useMemo(() => 
+  debtData.filter((i: any) => i.level === 4 || (i.level === 5) || (!i.level && i.isin)),
+[debtData]);
+const totalDebtWght = debtLeafRows.reduce((s, i) => s + Number(i.wght_pct ?? 0), 0);
+const totalDebtMtm = debtLeafRows.reduce((s, i) => s + Number(i.mtm_ptf ?? 0), 0);
 const avgDuration = debtData.length > 0
   ? debtData.reduce((s, i) => {
       const override = manualOverrides.find(ov =>
