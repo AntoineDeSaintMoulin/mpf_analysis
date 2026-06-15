@@ -2527,7 +2527,7 @@ const avgDuration = debtData.length > 0
     if (!file) return;
     if (file.name.toLowerCase().startsWith("holdings am transparency")) {
       handleFileUpload(e);
-    } else if (file.name.toLowerCase().startsWith("fi holdings")) {
+} else if (file.name.toLowerCase().startsWith("fi holdings") || file.name.toLowerCase().startsWith("fi_holdings")) {
       handleDebtFileUpload(e);
     } else {
       alert("Le fichier doit commencer par 'Holdings AM Transparency' ou 'FI Holdings'");
