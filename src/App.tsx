@@ -4356,13 +4356,27 @@ const bd = h.isin ? breakdownsWithP30[h.isin] : null;
         { currency: "Other", weight: Number(curRow.other ?? 0) },
       ].filter(e => e.weight > 0.01) : null;
  
-      // Credit
+// Credit — on cherche la part "Government" dans les secteurs
       const creditRows = (dpamBondsData.ratings ?? []).find((r: any) => r.instrument_col === col_index);
-      const credit = creditRows ? [
-        { credit_type: "IG", currency: "EUR", weight: Number(creditRows.ig ?? 0) },
-        { credit_type: "HY", currency: "EUR", weight: Number(creditRows.hy ?? 0) },
-        { credit_type: "Others", currency: "EUR", weight: Number(creditRows.others ?? 0) },
-      ].filter(e => e.weight > 0.01) : null;
+      const sectorRows = (dpamBondsData.sectors ?? []).filter((s: any) => s.instrument_col === col_index);
+      const govWeight = sectorRows
+        .filter((s: any) => (s.sector ?? "").toLowerCase().includes("government") || (s.sector ?? "").toLowerCase().includes("sovereign"))
+        .reduce((sum: number, s: any) => sum + Number(s.weight ?? 0), 0);
+      const credit = creditRows ? (() => {
+        const ig = Number(creditRows.ig ?? 0);
+        const hy = Number(creditRows.hy ?? 0);
+        const others = Number(creditRows.others ?? 0);
+        const nonGovTotal = ig + hy + others;
+        // Si on a des govies via secteurs, on les soustrait du IG (qui inclut souvent les govies)
+        const govPct = Math.min(govWeight, ig);
+        const igNet = ig - govPct;
+        return [
+          { credit_type: "Govies", currency: "EUR", weight: govPct },
+          { credit_type: "IG", currency: "EUR", weight: igNet },
+          { credit_type: "HY", currency: "EUR", weight: hy },
+          { credit_type: "Others", currency: "EUR", weight: others },
+        ].filter(e => e.weight > 0.01);
+      })() : null;
  
       result[isin] = { geoBreakdown: geo, currencyBreakdown: currency, creditBreakdown: credit };
     }
