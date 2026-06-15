@@ -2171,8 +2171,6 @@ allCellKeys.forEach((key: string) => {
       const row = instrumentRows.get(decoded.r)!;
       row[decoded.c] = ws[key]?.v;
     });
-    // Lire les niveaux de groupement (outline levels) depuis !rows
-    console.log("!rows:", JSON.stringify(wsRows?.slice(0, 50)));
  
     const VALID_TYPES = ["ETF BONDS", "FIXED RATE BOND", "FLOATING RATE BOND", "CONVERTIBLE BOND", "BOND"];
     const seen = new Set<string>();
