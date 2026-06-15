@@ -2711,17 +2711,7 @@ console.log("etfRows utilisés:", etfRows.map((r: any) => `${r.name} expo=${r.ex
   <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-violet-100 shrink-0" />Options</span>
 </div>
 {/* Filtre par niveau */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Niveau</span>
-          {(["all", "gov", "ig", "hy", "nr"] as const).map(lvl => (
-            <button key={lvl} onClick={() => setDebtLevel(lvl)}
-              className={cn("px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
-                debtLevel === lvl ? "bg-sky-600 text-white shadow-sm" : "bg-slate-100 text-slate-500 hover:bg-slate-200")}>
-              {lvl === "all" ? "Tous" : lvl === "gov" ? "Govies" : lvl === "ig" ? "IG" : lvl === "hy" ? "HY" : "NR"}
-            </button>
-          ))}
-        </div>
-            <Search className="h-4 w-4 text-slate-400 shrink-0" />
+<Search className="h-4 w-4 text-slate-400 shrink-0" />
             <input type="text" value={equitySearch} onChange={e => setEquitySearch(e.target.value)}
               placeholder="Rechercher…"
               className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400" />
@@ -2968,11 +2958,24 @@ debtData.forEach(inst => {
   );
 })()}
         
+{/* Filtre par niveau */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Filtre</span>
+          {(["all", "gov", "ig", "hy", "nr"] as const).map(lvl => (
+            <button key={lvl} onClick={() => setDebtLevel(lvl)}
+              className={cn("px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                debtLevel === lvl ? "bg-sky-600 text-white shadow-sm" : "bg-slate-100 text-slate-500 hover:bg-slate-200")}>
+              {lvl === "all" ? "Tous" : lvl === "gov" ? "Govies" : lvl === "ig" ? "IG" : lvl === "hy" ? "HY" : "NR"}
+            </button>
+          ))}
+        </div>
+
         {/* Table */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-50 flex items-center gap-3">
             <Search className="h-4 w-4 text-slate-400 shrink-0" />
-            <input type="text" value={debtSearch} onChange={e => setDebtSearch(e.target.value)}
+            <input type="text" value={debtSearch}
+              onChange={e => setDebtSearch(e.target.value)}
               placeholder="Rechercher un instrument, ISIN ou émetteur…"
               className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400" />
             {debtSearch && <button onClick={() => setDebtSearch("")} className="p-0.5 hover:bg-slate-100 rounded"><X className="h-3.5 w-3.5 text-slate-400" /></button>}
