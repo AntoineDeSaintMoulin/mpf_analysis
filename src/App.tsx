@@ -2163,8 +2163,8 @@ const allCellKeys = Object.keys(ws).filter(k => !k.startsWith('!'));
     const sortedRows = Array.from(instrumentRows.entries()).sort(([a], [b]) => a - b);
     const allRows: any[] = [];
 
-    for (const [rowIdx, row] of sortedRows) {
-      if (rowIdx <= 1) return;
+for (const [rowIdx, row] of sortedRows) {
+      if (rowIdx <= 1) continue;
       const name = toStr(row[0]);
       if (!name) continue;
       const outlineLevel = wsRows[rowIdx]?.level ?? 0;
@@ -2217,13 +2217,7 @@ const allCellKeys = Object.keys(ws).filter(k => !k.startsWith('!'));
       return;
     }
 
-    const apiRes = await fetch("/api/dpam-data?section=samdp_debt", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ filename: file.name, instruments: rowsWithLevel }),
-    });
- 
-   const apiRes = await fetch("/api/dpam-data?section=samdp_debt", {
+const apiRes = await fetch("/api/dpam-data?section=samdp_debt", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ filename: file.name, instruments: rowsWithLevel }),
