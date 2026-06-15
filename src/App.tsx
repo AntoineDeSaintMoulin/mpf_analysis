@@ -336,16 +336,11 @@ case "fixed_income": {
     }
 
 case "fi_eur": {
-      let total = 0;
-      const EUR_TYPES = ["Govies", "IG", "HY", "EM Debt"];
-      holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
-        const cbd = h.isin ? creditBreakdowns[h.isin] : null;
-        const SAMDP_DEBT_ISIN = "LU1545753169";
-        const samdpDebt = h.isin === SAMDP_DEBT_ISIN ? samdpDebtCreditBreakdown : null;
-        const entries = cbd ?? samdpDebt ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
-        if (entries.length > 0) entries.filter((e: any) => e.currency === "EUR" && EUR_TYPES.includes(e.credit_type)).forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
-      });
-      return total;
+      const subIds = ["fi_eur_gov", "fi_eur_ig", "fi_eur_hy"];
+      return subIds.reduce((s, id) => {
+        const v = computePtfWeight(id, holdings, breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown, samdpDebtCreditBreakdown);
+        return s + (v ?? 0);
+      }, 0);
     }
 
     case "fi_eur_gov": {
