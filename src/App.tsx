@@ -2075,7 +2075,8 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
   const [exportTextDebt, setExportTextDebt] = React.useState("");
   const [debtSearch, setDebtSearch] = React.useState("");
 const [debtSortConfig, setDebtSortConfig] = React.useState<{ key: string; direction: "asc" | "desc" } | null>({ key: "wght_pct", direction: "desc" });
-  const [debtLevel, setDebtLevel] = React.useState<"all" | "gov" | "ig" | "hy" | "nr">("all");
+const [debtLevel, setDebtLevel] = React.useState<"all" | "gov" | "ig" | "hy" | "nr">("all");
+  const [debtHierarchyLevel, setDebtHierarchyLevel] = React.useState<1|2|3|4|5>(4);
   const [showSamdpDetail, setShowSamdpDetail] = React.useState<"currency_equity" | "region_equity" | "currency_debt" | "credit_debt" | "duration_debt" | "cash_detail" | null>(null);
   const [equityLevel, setEquityLevel] = React.useState<1|2|3|4|5>(2);
   const [regionFilter, setRegionFilter] = React.useState<string | null>(null);
@@ -2408,7 +2409,7 @@ const rowsWithLevel: any[] = allRows.map((row, i) => {
 const debtLeafRows = debtData.filter((i: any) => i.level === 4 || i.level === 5 || (!i.level && i.isin));
 
 const filteredDebt = React.useMemo(() => {
-let list = debtLeafRows.filter(inst => {
+let list = debtData.filter((inst: any) => inst.level === debtHierarchyLevel).filter(inst => {
     if (debtLevel !== "all") {
       const sector = inst.bics_sector_1 ?? "";
       const isGov = sector.toLowerCase().includes("government") || sector.toLowerCase().includes("sovereign");
@@ -2434,7 +2435,7 @@ let list = debtLeafRows.filter(inst => {
     });
   }
   return list;
-}, [debtData, debtSearch, debtSortConfig]);
+}, [debtData, debtSearch, debtSortConfig, debtHierarchyLevel]);
  
 const totalDebtWght = debtLeafRows.reduce((s, i) => s + Number(i.wght_pct ?? 0), 0);
 const totalDebtMtm = debtLeafRows.reduce((s, i) => s + Number(i.mtm_ptf ?? 0), 0);
@@ -2958,7 +2959,17 @@ debtData.forEach(inst => {
     </div>
   );
 })()}
-        
+        {/* Filtre par niveau hiérarchique */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Niveau</span>
+          {([1, 2, 3, 4, 5] as const).map(lvl => (
+            <button key={lvl} onClick={() => setDebtHierarchyLevel(lvl)}
+              className={cn("px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                debtHierarchyLevel === lvl ? "bg-sky-600 text-white shadow-sm" : "bg-slate-100 text-slate-500 hover:bg-slate-200")}>
+              Niveau {lvl}
+            </button>
+          ))}
+        </div>
 {/* Filtre par niveau */}
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Filtre</span>
