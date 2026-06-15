@@ -444,15 +444,21 @@ const SAMDP_DEBT_ISIN = "LU1545753169";
       return total;
     }
 
-    case "fi_global": {
+case "fi_global": {
       let total = 0;
-      const KNOWN_TYPES = ["Govies", "IG", "HY", "EM Debt"];
+      const KNOWN_TYPES = ["Govies", "IG", "HY", "EM Debt", "NR", "Others"];
       holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
         const cbd = h.isin ? creditBreakdowns[h.isin] : null;
-const SAMDP_DEBT_ISIN = "LU1545753169";
+        const SAMDP_DEBT_ISIN = "LU1545753169";
         const samdpDebt = h.isin === SAMDP_DEBT_ISIN ? samdpDebtCreditBreakdown : null;
-        const entries = cbd ?? samdpDebt ?? (h.isin ? dpamLookup[h.isin]?.creditBreakdown : null) ?? [];
-        if (entries.length > 0) entries.filter((e: any) => !KNOWN_TYPES.includes(e.credit_type)).forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+        const dpamCredit = h.isin ? dpamLookup[h.isin]?.creditBreakdown : null;
+        const entries = cbd ?? samdpDebt ?? dpamCredit ?? [];
+        if (entries.length > 0) {
+          entries.filter((e: any) => !KNOWN_TYPES.includes(e.credit_type)).forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+        } else {
+          // Pas de credit breakdown — fallback : tout le poids va dans fi_global
+          total += h.weight ?? 0;
+        }
       });
       return total;
     }
