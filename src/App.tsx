@@ -756,38 +756,12 @@ const rows = holdings.map((h: any) => {
     } else if (rowId === "fixed_income") {
       if (!FI_CATS.includes(h.category ?? "")) return null;
       exposition = h.weight ?? 0;
-    } else if (rowId === "fi_eur") {
+    } else if (["fi_eur","fi_eur_gov","fi_eur_ig","fi_eur_hy","fi_usd","fi_usd_gov","fi_usd_ig","fi_usd_hy","fi_em_local","fi_global","fixed_income"].includes(rowId)) {
       if (!FI_CATS.includes(h.category ?? "")) return null;
-      const EUR_TYPES = ["Govies","IG","HY","EM Debt"];
-      exposition = entries.filter((e: any) => e.currency === "EUR" && EUR_TYPES.includes(e.credit_type)).reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
-    } else if (rowId === "fi_eur_gov") {
-      if (!FI_CATS.includes(h.category ?? "")) return null;
-      exposition = entries.filter((e: any) => e.credit_type === "Govies" && e.currency === "EUR").reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
-    } else if (rowId === "fi_eur_ig") {
-      if (!FI_CATS.includes(h.category ?? "")) return null;
-      exposition = entries.filter((e: any) => e.credit_type === "IG" && e.currency === "EUR").reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
-    } else if (rowId === "fi_eur_hy") {
-      if (!FI_CATS.includes(h.category ?? "")) return null;
-      exposition = entries.filter((e: any) => e.credit_type === "HY" && e.currency === "EUR").reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
-    } else if (rowId === "fi_usd") {
-      if (!FI_CATS.includes(h.category ?? "")) return null;
-      exposition = entries.filter((e: any) => e.currency === "USD").reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
-    } else if (rowId === "fi_usd_gov") {
-      if (!FI_CATS.includes(h.category ?? "")) return null;
-      exposition = entries.filter((e: any) => e.credit_type === "Govies" && e.currency === "USD").reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
-    } else if (rowId === "fi_usd_ig") {
-      if (!FI_CATS.includes(h.category ?? "")) return null;
-      exposition = entries.filter((e: any) => e.credit_type === "IG" && e.currency === "USD").reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
-    } else if (rowId === "fi_usd_hy") {
-      if (!FI_CATS.includes(h.category ?? "")) return null;
-      exposition = entries.filter((e: any) => e.credit_type === "HY" && e.currency === "USD").reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
-    } else if (rowId === "fi_em_local") {
-      if (!FI_CATS.includes(h.category ?? "")) return null;
-      exposition = entries.filter((e: any) => e.credit_type === "EM Debt").reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
-    } else if (rowId === "fi_global") {
-      if (!FI_CATS.includes(h.category ?? "")) return null;
-      const KNOWN = ["Govies","IG","HY","EM Debt"];
-      exposition = entries.filter((e: any) => !KNOWN.includes(e.credit_type)).reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
+      // Calcul d'exposition pour un holding individuel en isolant sa contribution
+      const holdingOnly = [h];
+      const val = computePtfWeight(rowId, holdingOnly, breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown, samdpDebtCreditBreakdown);
+      exposition = val ?? 0;
     } else if (rowId === "short_term") {
       if (!["Short Term","Cash","Liquidities"].includes(h.category ?? "")) return null;
       exposition = h.weight ?? 0;
