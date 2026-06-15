@@ -2236,7 +2236,7 @@ allCellKeys.forEach((key: string) => {
       });
     });
  
-    console.log("Debt instruments found:", instruments.length);
+console.log("Debt instruments found:", instruments.length, "first rows:", Array.from(instrumentRows.entries()).slice(0, 5));
  
     if (instruments.length === 0) {
       alert("Aucun instrument obligataire trouvé dans ce fichier.");
