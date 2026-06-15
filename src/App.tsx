@@ -337,7 +337,7 @@ case "fixed_income": {
 
 case "fi_eur": {
       let total = 0;
-      const EUR_TYPES = ["Govies", "IG", "HY", "NR", "EM Debt"];
+      const EUR_TYPES = ["Govies", "IG", "HY", "EM Debt"];
       holdings.filter(h => FI_CATS.includes(h?.category ?? "")).forEach(h => {
         const cbd = h.isin ? creditBreakdowns[h.isin] : null;
         const SAMDP_DEBT_ISIN = "LU1545753169";
