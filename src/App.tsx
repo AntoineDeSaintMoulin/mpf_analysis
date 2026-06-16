@@ -3007,25 +3007,19 @@ debtData.forEach(inst => {
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-50/50">
-                  {[
+                 {[
                     { key: "name", label: "Instrument", align: "left" },
                     { key: "isin", label: "ISIN", align: "left" },
                     { key: "instrument_type", label: "Type", align: "left" },
                     { key: "issuer", label: "Émetteur", align: "left" },
-                    { key: "currency", label: "Devise", align: "left" },
-                    { key: "coupon_rate", label: "Coupon", align: "right" },
-                    { key: "maturity_date", label: "Échéance", align: "right" },
-                    { key: "dom_country", label: "Pays", align: "left" },
-                    { key: "bics_sector_1", label: "Secteur", align: "left" },
-                    { key: "rating_cai", label: "Rating", align: "left" },
-                    { key: "ig_hy", label: "IG/HY", align: "left" },
-                    { key: "quote", label: "Quote", align: "right" },
-                    { key: "modified_duration", label: "Mod. Dur.", align: "right" },
-                    { key: "ytw", label: "YTW", align: "right" },
-                    { key: "gov_spread", label: "Gov Sprd", align: "right" },
                     { key: "mtm_ptf", label: "MtM (EUR)", align: "right" },
                     { key: "wght_pct", label: "Wght%", align: "right" },
                     { key: "expo_pct", label: "Expo%", align: "right" },
+                    { key: "modified_duration", label: "Mod. Dur.", align: "right" },
+                    { key: "currency", label: "Devise", align: "left" },
+                    { key: "bics_sector_1", label: "Secteur", align: "left" },
+                    { key: "rating_cai", label: "Rating", align: "left" },
+                    { key: "ig_hy", label: "IG/HY", align: "left" },
                   ].map(({ key, label, align }) => (
                     <th key={key} className={cn("px-4 py-3 font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap", align === "right" ? "text-right" : "text-left")}>
                       <span className="flex items-center gap-1" style={{ justifyContent: align === "right" ? "flex-end" : "flex-start" }}>
@@ -3095,15 +3089,16 @@ const TYPE_ROW_COLORS: Record<string, string> = {
                         {inst.name}
                       </button>
                     </td>
-                    <td className="px-4 py-3 font-mono text-sky-600 font-bold">{inst.isin ?? "—"}</td>
+                   <td className="px-4 py-3 font-mono text-sky-600 font-bold">{inst.isin ?? "—"}</td>
                     <td className="px-4 py-3">
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700">{inst.instrument_type ?? "—"}</span>
                     </td>
                     <td className="px-4 py-3 text-slate-600 truncate max-w-[120px]">{inst.issuer ?? "—"}</td>
+                    <td className="px-4 py-3 text-right font-bold text-slate-900">{inst.mtm_ptf != null ? Number(inst.mtm_ptf).toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : "—"}</td>
+                    <td className="px-4 py-3 text-right font-bold text-sky-600">{inst.wght_pct != null ? (Number(inst.wght_pct) * 100).toFixed(2) + "%" : "—"}</td>
+                    <td className="px-4 py-3 text-right text-slate-600">{inst.expo_pct != null ? (Number(inst.expo_pct) * 100).toFixed(2) + "%" : "—"}</td>
+                    <td className="px-4 py-3 text-right font-bold text-slate-700">{inst.modified_duration != null ? Number(inst.modified_duration).toFixed(2) : "—"}</td>
                     <td className="px-4 py-3 text-slate-600">{inst.currency ?? "—"}</td>
-                    <td className="px-4 py-3 text-right text-slate-600">{inst.coupon_rate != null ? (Number(inst.coupon_rate) * 100).toFixed(2) + "%" : "—"}</td>
-                    <td className="px-4 py-3 text-right text-slate-400">{inst.maturity_date?.slice(0, 10) ?? "—"}</td>
-                    <td className="px-4 py-3 text-slate-600">{inst.dom_country ?? "—"}</td>
                     <td className="px-4 py-3 text-slate-600 truncate max-w-[100px]">{inst.bics_sector_1 ?? "—"}</td>
                     <td className="px-4 py-3">
                       {inst.rating_cai && (
@@ -3118,23 +3113,16 @@ const TYPE_ROW_COLORS: Record<string, string> = {
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right text-slate-600">{inst.quote != null ? Number(inst.quote).toFixed(3) : "—"}</td>
-                    <td className="px-4 py-3 text-right font-bold text-slate-700">{inst.modified_duration != null ? Number(inst.modified_duration).toFixed(2) : "—"}</td>
-                    <td className="px-4 py-3 text-right text-slate-600">{inst.ytw != null ? (Number(inst.ytw) * 100).toFixed(2) + "%" : "—"}</td>
-                    <td className="px-4 py-3 text-right text-slate-600">{inst.gov_spread != null ? Number(inst.gov_spread).toFixed(1) + "bp" : "—"}</td>
-                    <td className="px-4 py-3 text-right font-bold text-slate-900">{inst.mtm_ptf != null ? Number(inst.mtm_ptf).toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : "—"}</td>
-                    <td className="px-4 py-3 text-right font-bold text-sky-600">{inst.wght_pct != null ? (Number(inst.wght_pct) * 100).toFixed(2) + "%" : "—"}</td>
-<td className="px-4 py-3 text-right text-slate-600">{inst.expo_pct != null ? (Number(inst.expo_pct) * 100).toFixed(2) + "%" : "—"}</td>
                   </tr>
 );
                 })}
               </tbody>
               <tfoot>
                 <tr className="bg-slate-50 border-t border-slate-200">
-                  <td colSpan={15} className="px-4 py-3 font-bold text-slate-700">Total</td>
+                  <td colSpan={4} className="px-4 py-3 font-bold text-slate-700">Total</td>
                   <td className="px-4 py-3 text-right font-bold text-slate-900">{totalDebtMtm.toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
                   <td className="px-4 py-3 text-right font-bold text-sky-600">{(totalDebtWght * 100).toFixed(2)}%</td>
-                  <td className="px-4 py-3" />
+                  <td colSpan={6} className="px-4 py-3" />
                 </tr>
               </tfoot>
             </table>
