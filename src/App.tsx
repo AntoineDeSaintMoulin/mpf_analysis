@@ -3837,7 +3837,7 @@ useEffect(() => {
   const current = allPortfolios.find(p => p.id === selectedId) ?? null;
   setCurrentPortfolio(current);
 }, [selectedId, allPortfolios]);
-const assignDebtLevels = (instruments: any[]) => {
+  
   const LEVEL1_NAMES = new Set(["CASH: PROVISION", "CURRENCY", "ETF BONDS", "FIXED RATE BOND", "FLOATING RATE BOND"]);
   const EXCLUDE_PREFIXES = ["Normal", "Cash Value Date", "Cash : Forward", "Holdings", "SAMDP"];
   const seen = new Set<string>();
