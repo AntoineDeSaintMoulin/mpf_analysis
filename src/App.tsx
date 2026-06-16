@@ -2427,9 +2427,8 @@ const filteredDebt = React.useMemo(() => {
   return list;
 }, [debtData, debtSearch, debtSortConfig, debtHierarchyLevel]);
    
- 
-const totalDebtWght = debtLeafRows.reduce((s, i) => s + Number(i.wght_pct ?? 0), 0);
-const totalDebtMtm = debtLeafRows.reduce((s, i) => s + Number(i.mtm_ptf ?? 0), 0);
+const totalDebtWght = debtData.filter((i: any) => i.level === 2).reduce((s: number, i: any) => s + Number(i.wght_pct ?? 0), 0);
+const totalDebtMtm = debtData.filter((i: any) => i.level === 2).reduce((s: number, i: any) => s + Number(i.mtm_ptf ?? 0), 0);
 const avgDuration = debtLeafRows.length > 0
   ? debtLeafRows.reduce((s, i) => {
       const override = manualOverrides.find(ov =>
@@ -2839,8 +2838,8 @@ console.log("etfRows utilisés:", etfRows.map((r: any) => `${r.name} expo=${r.ex
         {/* KPI cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: "Instruments", value: debtData.length.toString(), sub: "Obligations & ETF Bonds" },
-            { label: "Poids Total", value: fmtPct(totalDebtWght), sub: "Wght% cumulé" },
+{ label: "Instruments", value: debtData.filter((i: any) => i.level === 2).length.toString(), sub: "Obligations & ETF Bonds" },
+            { label: "Poids Total", value: (totalDebtWght * 100).toFixed(2) + "%", sub: "Wght% cumulé" },
             { label: "MtM Total", value: fmtM(totalDebtMtm), sub: "EUR" },
             { label: "Duration Moy.", value: avgDuration.toFixed(2), sub: "années (pondérée)" },
           ].map(({ label, value, sub }) => (
@@ -2909,11 +2908,11 @@ debtData.forEach(inst => {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Exposition Devise */}
+{/* Exposition Devise */}
       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-<h3 onClick={() => setShowSamdpDetail("credit_debt")} className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2 cursor-pointer hover:text-violet-700">
-  <TrendingUp className="h-4 w-4 text-violet-600" />Credit Quality
-</h3>
+        <h3 onClick={() => setShowSamdpDetail("currency_debt")} className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2 cursor-pointer hover:text-sky-700">
+          <Coins className="h-4 w-4 text-sky-600" />Exposition Devise
+        </h3>
         <div className="space-y-3">
           {currencyData.map(({ label, value }) => (
             <div key={label} className="flex items-center gap-3">
