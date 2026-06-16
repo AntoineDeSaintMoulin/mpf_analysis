@@ -3335,22 +3335,24 @@ debtData.forEach(inst => {
                     <p style={{ fontSize: "11px", fontWeight: 800, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.5px", margin: 0 }}>SAMDP Debt</p>
                   </div>
 
-                  {/* KPIs Debt */}
-                  {(() => {
-                    const CREDIT_COLORS_PDF: Record<string, string> = { "IG": "#10b981", "HY": "#f59e0b", "Govies": "#0ea5e9", "NR": "#94a3b8" };
-                    const CUR_COLORS_PDF: Record<string, string> = { "EUR": "#0ea5e9", "USD": "#10b981", "GBP": "#8b5cf6", "JPY": "#f59e0b" };
-                    const creditMap = new Map<string, number>();
-                    const currencyMap = new Map<string, number>();
-                    debtData.forEach(inst => {
-                      const w = Number(inst.wght_pct ?? 0) * 100;
-                      if (w === 0) return;
-                      const sector = inst.bics_sector_1 ?? "";
-                      let credit = inst.ig_hy ?? "NR";
-                      if (sector.toLowerCase().includes("government") || sector.toLowerCase().includes("sovereign")) credit = "Govies";
-                      creditMap.set(credit, (creditMap.get(credit) ?? 0) + w);
-                      const currency = (inst.currency || "Other").toUpperCase();
-                      currencyMap.set(currency, (currencyMap.get(currency) ?? 0) + w);
-                    });
+{/* KPIs Debt */}
+{(() => {
+  const CREDIT_COLORS_PDF: Record<string, string> = { "IG": "#10b981", "HY": "#f59e0b", "Govies": "#0ea5e9", "NR": "#94a3b8" };
+  const CUR_COLORS_PDF: Record<string, string> = { "EUR": "#0ea5e9", "USD": "#10b981", "GBP": "#8b5cf6", "JPY": "#f59e0b" };
+  const creditMap = new Map<string, number>();
+  const currencyMap = new Map<string, number>();
+  const LEVEL1_NAMES_PDF = new Set(["CASH: PROVISION", "CURRENCY", "ETF BONDS", "FIXED RATE BOND", "FLOATING RATE BOND"]);
+  const debtLevel2 = debtData.filter((i: any) => i.level === 2 && !LEVEL1_NAMES_PDF.has(i.name));
+  debtLevel2.forEach(inst => {
+    const w = Number(inst.wght_pct ?? 0) * 100;
+    if (w === 0) return;
+    const sector = inst.bics_sector_1 ?? "";
+    let credit = inst.ig_hy ?? "NR";
+    if (sector.toLowerCase().includes("government") || sector.toLowerCase().includes("sovereign")) credit = "Govies";
+    creditMap.set(credit, (creditMap.get(credit) ?? 0) + w);
+    const currency = (inst.currency || "Other").toUpperCase();
+    currencyMap.set(currency, (currencyMap.get(currency) ?? 0) + w);
+  });
                     const creditData = Array.from(creditMap.entries()).map(([n, v]) => ({ name: n, value: +v.toFixed(1) })).sort((a, b) => b.value - a.value);
                     const currencyData = Array.from(currencyMap.entries()).map(([n, v]) => ({ name: n, value: +v.toFixed(1) })).sort((a, b) => b.value - a.value);
                     return (
