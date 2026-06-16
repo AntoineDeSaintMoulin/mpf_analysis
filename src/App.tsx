@@ -2076,7 +2076,7 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
   const [debtSearch, setDebtSearch] = React.useState("");
 const [debtSortConfig, setDebtSortConfig] = React.useState<{ key: string; direction: "asc" | "desc" } | null>({ key: "wght_pct", direction: "desc" });
 const [debtLevel, setDebtLevel] = React.useState<"all" | "gov" | "ig" | "hy" | "nr">("all");
-  const [debtHierarchyLevel, setDebtHierarchyLevel] = React.useState<1|2|3|4|5>(4);
+const [debtHierarchyLevel, setDebtHierarchyLevel] = React.useState<1|2>(2);
   const [showSamdpDetail, setShowSamdpDetail] = React.useState<"currency_equity" | "region_equity" | "currency_debt" | "credit_debt" | "duration_debt" | "cash_detail" | null>(null);
   const [equityLevel, setEquityLevel] = React.useState<1|2|3|4|5>(2);
   const [regionFilter, setRegionFilter] = React.useState<string | null>(null);
@@ -2954,11 +2954,11 @@ debtData.forEach(inst => {
         {/* Filtre par niveau hiérarchique */}
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Niveau</span>
-          {([1, 2, 3, 4, 5] as const).map(lvl => (
+{([1, 2] as const).map(lvl => (
             <button key={lvl} onClick={() => setDebtHierarchyLevel(lvl)}
               className={cn("px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
                 debtHierarchyLevel === lvl ? "bg-sky-600 text-white shadow-sm" : "bg-slate-100 text-slate-500 hover:bg-slate-200")}>
-              Niveau {lvl}
+              {lvl === 1 ? "Par type" : "Détail"}
             </button>
           ))}
         </div>
@@ -3829,18 +3829,14 @@ useEffect(() => {
   setCurrentPortfolio(current);
 }, [selectedId, allPortfolios]);
 const assignDebtLevels = (instruments: any[]) => {
-  const LEVEL1 = new Set(["Holdings"]);
-  const LEVEL2 = new Set(["SAMDP L - DEBTS & CURRENCIES"]);
-  const LEVEL5_NAMES = new Set(["Normal (NOR)", "Cash Value Date (VAL)", "Cash : Forward Settlement (DIF)"]);
-  return instruments.map(inst => {
-    let level: number;
-    if (LEVEL1.has(inst.name)) level = 1;
-    else if (LEVEL2.has(inst.name)) level = 2;
-    else if (LEVEL5_NAMES.has(inst.name)) level = 5;
-    else if (!inst.isin && inst.name === inst.instrument_type) level = 3;
-    else level = 4;
-    return { ...inst, level };
-  });
+  const LEVEL1_NAMES = new Set(["CASH: PROVISION", "CURRENCY", "ETF BONDS", "FIXED RATE BOND", "FLOATING RATE BOND"]);
+  const EXCLUDE_NAMES = ["Normal", "Cash Value Date", "Cash : Forward"];
+  return instruments
+    .filter(inst => !EXCLUDE_NAMES.some(prefix => (inst.name ?? "").startsWith(prefix)))
+    .map(inst => {
+      const level = LEVEL1_NAMES.has(inst.name) ? 1 : 2;
+      return { ...inst, level };
+    });
 };
 
 useEffect(() => {
