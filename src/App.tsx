@@ -3047,7 +3047,7 @@ debtData.forEach(inst => {
                   };
                   const rowColor = TYPE_ROW_COLORS[inst.instrument_type ?? ""] ?? "";
                   return (
-                  <tr key={`${inst.isin}-${inst.row_index}`} className={cn("transition-colors hover:opacity-90", rowColor)}>
+                  <tr key={inst.id ?? `${inst.name}-${inst.row_index}`} className={cn("transition-colors hover:opacity-90", rowColor)}>
                     <td className="px-4 py-3 truncate max-w-[200px]">
                       <button
                         onClick={() => {
