@@ -2984,14 +2984,6 @@ debtData.forEach(inst => {
           );
         })()}
 
-{/* Légende couleurs par type */}
-        <div className="flex items-center gap-4 px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-sky-100 shrink-0" />Govies</span>
-          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-100 shrink-0" />IG</span>
-          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-amber-100 shrink-0" />HY</span>
-          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-slate-100 shrink-0" />NR</span>
-        </div>
-
         {/* Table */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-50 flex items-center gap-3">
