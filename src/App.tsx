@@ -2416,7 +2416,7 @@ const filteredDebt = React.useMemo(() => {
            (inst.isin ?? "").toLowerCase().includes(q) ||
            (inst.issuer ?? "").toLowerCase().includes(q);
   });
-  if (debtSortConfig) {
+  if (debtSortConfig && debtHierarchyLevel >= 3) {
     list = [...list].sort((a, b) => {
       const av = (a as any)[debtSortConfig.key] ?? 0;
       const bv = (b as any)[debtSortConfig.key] ?? 0;
