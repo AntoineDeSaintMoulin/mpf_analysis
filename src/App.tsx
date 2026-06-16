@@ -2406,6 +2406,7 @@ const rowsWithLevel: any[] = allRows.map((row, i) => {
       return { key, direction: "desc" };
     });
   };
+console.log("debtData.length:", debtData.length, "level1:", debtData.filter((i:any) => i.level === 1).length, "level2:", debtData.filter((i:any) => i.level === 2).length);
 const debtLeafRows = debtData.filter((i: any) => i.level === 2 && i.isin);
 const filteredDebt = React.useMemo(() => {
   const LEVEL1_NAMES = new Set(["CASH: PROVISION", "CURRENCY", "ETF BONDS", "FIXED RATE BOND", "FLOATING RATE BOND"]);
