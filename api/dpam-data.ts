@@ -126,8 +126,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const logRes = await pool.query(`SELECT * FROM samdp_debt_import_log ORDER BY imported_at DESC LIMIT 1`);
         if (logRes.rows.length === 0) return res.json({ instruments: [], importLog: null });
         const importId = logRes.rows[0].id;
-        const instruments = await pool.query(
-          `SELECT * FROM samdp_debt_instruments WHERE import_id=$1 ORDER BY wght_pct DESC NULLS LAST`,
+const instruments = await pool.query(
+          `SELECT * FROM samdp_debt_instruments WHERE import_id=$1 ORDER BY id ASC`,
           [importId]
         );
         return res.json({ instruments: instruments.rows, importLog: logRes.rows[0] });
