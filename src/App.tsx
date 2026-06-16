@@ -2406,10 +2406,8 @@ const rowsWithLevel: any[] = allRows.map((row, i) => {
       return { key, direction: "desc" };
     });
   };
-const debtLeafRows = debtData.filter((i: any) => i.level === 4 || i.level === 5 || (!i.level && i.isin));
-
+const debtLeafRows = debtData.filter((i: any) => i.level === 4 && i.isin && i.name !== "Normal (NOR)");
 const filteredDebt = React.useMemo(() => {
-  console.log("debtData total:", debtData.length, "levels:", debtData.map((i: any) => i.level));
   let list = debtData.filter((inst: any) => inst.level === debtHierarchyLevel).filter((inst: any) => {
     if (!debtSearch) return true;
     const q = debtSearch.toLowerCase();
@@ -2432,8 +2430,8 @@ const filteredDebt = React.useMemo(() => {
  
 const totalDebtWght = debtLeafRows.reduce((s, i) => s + Number(i.wght_pct ?? 0), 0);
 const totalDebtMtm = debtLeafRows.reduce((s, i) => s + Number(i.mtm_ptf ?? 0), 0);
-const avgDuration = debtData.length > 0
-  ? debtData.reduce((s, i) => {
+const avgDuration = debtLeafRows.length > 0
+  ? debtLeafRows.reduce((s, i) => {
       const override = manualOverrides.find(ov =>
         (ov.manual_isin && ov.manual_isin === i.isin) ||
         (ov.original_asset_name && ov.original_asset_name === i.name)
@@ -2441,8 +2439,8 @@ const avgDuration = debtData.length > 0
       // Chercher la duration dans les instrument_duration si override existe
       const dur = durations[override?.manual_isin || i.isin]?.duration ?? Number(i.modified_duration ?? 0);
       return s + dur * Number(i.wght_pct ?? 0);
-    }, 0) /
-    debtData.reduce((s, i) => s + Number(i.wght_pct ?? 0), 0)
+}, 0) /
+    debtLeafRows.reduce((s, i) => s + Number(i.wght_pct ?? 0), 0)
   : 0;
   const filteredEquity = React.useMemo(() => {
     let list = equityData.filter(inst => {
@@ -3868,12 +3866,13 @@ const assignDebtLevels = (instruments: any[]) => {
   const LEVEL1 = new Set(["Holdings"]);
   const LEVEL2 = new Set(["SAMDP L - DEBTS & CURRENCIES"]);
   const LEVEL5_NAMES = new Set(["Normal (NOR)", "Cash Value Date (VAL)", "Cash : Forward Settlement (DIF)"]);
+  const LEVEL3_NAMES = new Set(["CASH: PROVISION", "CURRENCY", "ETF BONDS", "FIXED RATE BOND", "FLOATING RATE BOND"]);
   return instruments.map(inst => {
     let level: number;
     if (LEVEL1.has(inst.name)) level = 1;
     else if (LEVEL2.has(inst.name)) level = 2;
     else if (LEVEL5_NAMES.has(inst.name)) level = 5;
-    else if (inst.name === inst.instrument_type) level = 3;
+    else if (LEVEL3_NAMES.has(inst.name)) level = 3;
     else level = 4;
     return { ...inst, level };
   });
