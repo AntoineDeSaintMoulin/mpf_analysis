@@ -2500,7 +2500,7 @@ const avgDuration = debtLeafRows.length > 0
       {/* ── Import bar ── */}
 <div className="flex items-center gap-3 bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-2">
   <label className="flex items-center gap-2 border border-dashed border-slate-200 rounded-xl px-3 py-1.5 hover:border-sky-400 transition-all group cursor-pointer shrink-0">
-  <input type="file" accept=".xls,.xlsx" onChange={(e) => {
+<input type="file" accept=".xls,.xlsx" onClick={(e) => { (e.target as HTMLInputElement).value = ""; }} onChange={(e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.name.toLowerCase().startsWith("holdings am transparency")) {
