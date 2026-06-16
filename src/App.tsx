@@ -3866,13 +3866,12 @@ const assignDebtLevels = (instruments: any[]) => {
   const LEVEL1 = new Set(["Holdings"]);
   const LEVEL2 = new Set(["SAMDP L - DEBTS & CURRENCIES"]);
   const LEVEL5_NAMES = new Set(["Normal (NOR)", "Cash Value Date (VAL)", "Cash : Forward Settlement (DIF)"]);
-  const LEVEL3_NAMES = new Set(["CASH: PROVISION", "CURRENCY", "ETF BONDS", "FIXED RATE BOND", "FLOATING RATE BOND"]);
   return instruments.map(inst => {
     let level: number;
     if (LEVEL1.has(inst.name)) level = 1;
     else if (LEVEL2.has(inst.name)) level = 2;
     else if (LEVEL5_NAMES.has(inst.name)) level = 5;
-    else if (LEVEL3_NAMES.has(inst.name)) level = 3;
+    else if (!inst.isin && inst.name === inst.instrument_type) level = 3;
     else level = 4;
     return { ...inst, level };
   });
