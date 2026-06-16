@@ -3049,7 +3049,13 @@ debtData.forEach(inst => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-{filteredDebt.map((inst) => {
+{debtData.filter((inst: any) => inst.level === debtHierarchyLevel).filter((inst: any) => {
+  if (!debtSearch) return true;
+  const q = debtSearch.toLowerCase();
+  return (inst.name ?? "").toLowerCase().includes(q) ||
+         (inst.isin ?? "").toLowerCase().includes(q) ||
+         (inst.issuer ?? "").toLowerCase().includes(q);
+}).map((inst: any) => {
                   const sector = inst.bics_sector_1 ?? "";
                   const isGov = sector.toLowerCase().includes("government") || sector.toLowerCase().includes("sovereign");
                   const ighy = inst.ig_hy ?? "";
@@ -3122,7 +3128,7 @@ const TYPE_ROW_COLORS: Record<string, string> = {
                     <td className="px-4 py-3 text-right font-bold text-sky-600">{inst.wght_pct != null ? (Number(inst.wght_pct) * 100).toFixed(2) + "%" : "—"}</td>
 <td className="px-4 py-3 text-right text-slate-600">{inst.expo_pct != null ? (Number(inst.expo_pct) * 100).toFixed(2) + "%" : "—"}</td>
                   </tr>
-                  );
+);
                 })}
               </tbody>
               <tfoot>
