@@ -2870,7 +2870,9 @@ console.log("etfRows utilisés:", etfRows.map((r: any) => `${r.name} expo=${r.ex
   const currencyMap = new Map<string, number>();
   const creditMap = new Map<string, number>();
 
-debtData.forEach(inst => {
+const LEVEL1_NAMES_GRAPH = new Set(["CASH: PROVISION", "CURRENCY", "ETF BONDS", "FIXED RATE BOND", "FLOATING RATE BOND"]);
+const debtLevel2Graph = debtData.filter((i: any) => i.level === 2 && !LEVEL1_NAMES_GRAPH.has(i.name));
+debtLevel2Graph.forEach(inst => {
   const w = Number(inst.wght_pct ?? 0) * 100;
   if (w === 0) return;
 
