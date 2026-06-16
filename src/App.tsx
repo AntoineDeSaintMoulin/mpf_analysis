@@ -3834,7 +3834,7 @@ try {
   const debtRes = await fetch("/api/dpam-data?section=samdp_debt");
   if (debtRes.ok) {
     const debt = await debtRes.json();
-    if (debt.instruments) setSamdpDebtInstruments(debt.instruments);
+if (debt.instruments) setSamdpDebtInstruments(assignDebtLevels(debt.instruments));
     if (debt.importLog) setSamdpDebtImportLog(debt.importLog);
   }
 } catch (e) { console.warn("SAMDP Debt load failed", e); }
@@ -3864,12 +3864,27 @@ useEffect(() => {
   const current = allPortfolios.find(p => p.id === selectedId) ?? null;
   setCurrentPortfolio(current);
 }, [selectedId, allPortfolios]);
+const assignDebtLevels = (instruments: any[]) => {
+  const LEVEL1 = new Set(["Holdings"]);
+  const LEVEL2 = new Set(["SAMDP L - DEBTS & CURRENCIES"]);
+  const LEVEL5_NAMES = new Set(["Normal (NOR)", "Cash Value Date (VAL)", "Cash : Forward Settlement (DIF)"]);
+  return instruments.map(inst => {
+    let level: number;
+    if (LEVEL1.has(inst.name)) level = 1;
+    else if (LEVEL2.has(inst.name)) level = 2;
+    else if (LEVEL5_NAMES.has(inst.name)) level = 5;
+    else if (inst.name === inst.instrument_type) level = 3;
+    else level = 4;
+    return { ...inst, level };
+  });
+};
+
 useEffect(() => {
   const handler = async () => {
     const res = await fetch("/api/dpam-data?section=samdp_debt");
     if (res.ok) {
       const data = await res.json();
-      if (data.instruments) setSamdpDebtInstruments(data.instruments);
+      if (data.instruments) setSamdpDebtInstruments(assignDebtLevels(data.instruments));
       if (data.importLog) setSamdpDebtImportLog(data.importLog);
     }
   };
@@ -3939,7 +3954,7 @@ try {
       const debtRes = await fetch("/api/dpam-data?section=samdp_debt");
       if (debtRes.ok) {
         const debt = await debtRes.json();
-        if (debt.instruments) setSamdpDebtInstruments(debt.instruments);
+if (debt.instruments) setSamdpDebtInstruments(assignDebtLevels(debt.instruments));
         if (debt.importLog) setSamdpDebtImportLog(debt.importLog);
       }
     } catch (e) { console.warn("SAMDP Debt load failed", e); }
