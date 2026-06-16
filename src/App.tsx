@@ -2406,6 +2406,7 @@ const rowsWithLevel: any[] = allRows.map((row, i) => {
       return { key, direction: "desc" };
     });
   };
+console.log("debtData levels:", debtData.map((i: any) => `${i.name} → level=${i.level} isin=${i.isin} instrument_type=${i.instrument_type}`));
 const debtLeafRows = debtData.filter((i: any) => i.level === 4 && i.isin && i.name !== "Normal (NOR)");
 const filteredDebt = React.useMemo(() => {
   let list = debtData.filter((inst: any) => inst.level === debtHierarchyLevel).filter((inst: any) => {
