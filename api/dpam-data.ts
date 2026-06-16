@@ -126,8 +126,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const logRes = await pool.query(`SELECT * FROM samdp_debt_import_log ORDER BY imported_at DESC LIMIT 1`);
         if (logRes.rows.length === 0) return res.json({ instruments: [], importLog: null });
         const importId = logRes.rows[0].id;
-        const instruments = await pool.query(
-          `SELECT * FROM samdp_debt_instruments WHERE import_id=$1 ORDER BY wght_pct DESC`,
+const instruments = await pool.query(
+          `SELECT * FROM samdp_debt_instruments WHERE import_id=$1 ORDER BY row_index ASC`,
           [importId]
         );
         return res.json({ instruments: instruments.rows, importLog: logRes.rows[0] });
@@ -152,25 +152,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         for (const inst of instruments) {
           await pool.query(`
             INSERT INTO samdp_debt_instruments (
-              import_id, name, isin, instrument_type, issuer, coupon_rate, maturity_date,
-              currency, seniority, quote, quote_date, accrued_int, quantity, nominal,
-              mtm_ptf, wght_pct, expo_pct, ytw, ytm, modified_duration, gov_spread,
-              bics_sector_1, bics_sector_2, issuer_country, dom_country, geo_area,
-              rating_moodys, rating_sp, rating_fitch, rating_cai, ig_hy,
-              esg_score, mat_y, bondsegment
+              import_id, row_index, level, name, isin, instrument_type, issuer, coupon_rate, maturity_date,
+              currency, seniority, quote, quote_date, quantity, nominal,
+              mtm_ptf, wght_pct, expo_pct, ytw, modified_duration, gov_spread,
+              bics_sector_1, issuer_country, dom_country,
+              rating_cai, ig_hy
             ) VALUES (
               $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-              $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34
+              $21,$22,$23,$24,$25,$26
             )
           `, [
-            importId, inst.name, inst.isin, inst.instrument_type, inst.issuer,
+            importId, inst.row_index, inst.level, inst.name, inst.isin, inst.instrument_type, inst.issuer,
             inst.coupon_rate, inst.maturity_date, inst.currency, inst.seniority,
-            inst.quote, inst.quote_date, inst.accrued_int, inst.quantity, inst.nominal,
-            inst.mtm_ptf, inst.wght_pct, inst.expo_pct, inst.ytw, inst.ytm,
-            inst.modified_duration, inst.gov_spread, inst.bics_sector_1, inst.bics_sector_2,
-            inst.issuer_country, inst.dom_country, inst.geo_area,
-            inst.rating_moodys, inst.rating_sp, inst.rating_fitch, inst.rating_cai,
-            inst.ig_hy, inst.esg_score, inst.mat_y, inst.bondsegment
+            inst.quote, inst.quote_date, inst.quantity, inst.nominal,
+            inst.mtm_ptf, inst.wght_pct, inst.expo_pct, inst.ytw,
+            inst.modified_duration, inst.gov_spread, inst.bics_sector_1,
+            inst.issuer_country, inst.dom_country,
+            inst.rating_cai, inst.ig_hy
           ]);
         }
         return res.json({ ok: true, importId, count: instruments.length });
