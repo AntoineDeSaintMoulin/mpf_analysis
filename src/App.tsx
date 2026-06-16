@@ -3033,23 +3033,8 @@ debtData.forEach(inst => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-{debtData.filter((inst: any) => inst.level === debtHierarchyLevel).filter((inst: any) => {
-  if (!debtSearch) return true;
-  const q = debtSearch.toLowerCase();
-  return (inst.name ?? "").toLowerCase().includes(q) ||
-         (inst.isin ?? "").toLowerCase().includes(q) ||
-         (inst.issuer ?? "").toLowerCase().includes(q);
-}).map((inst: any) => {
-                  const sector = inst.bics_sector_1 ?? "";
-                  const isGov = sector.toLowerCase().includes("government") || sector.toLowerCase().includes("sovereign");
-                  const ighy = inst.ig_hy ?? "";
-                  const DEBT_ROW_COLORS: Record<string, string> = {
-                    gov: "bg-sky-50/60",
-                    ig: "bg-emerald-50/60",
-                    hy: "bg-amber-50/60",
-                    nr: "bg-slate-50/60",
-                  };
-const TYPE_ROW_COLORS: Record<string, string> = {
+{filteredDebt.map((inst: any) => {
+                  const TYPE_ROW_COLORS: Record<string, string> = {
                     "ETF BONDS": "bg-sky-50/60",
                     "FIXED RATE BOND": "bg-emerald-50/60",
                     "FLOATING RATE BOND": "bg-amber-50/60",
@@ -3081,7 +3066,7 @@ const TYPE_ROW_COLORS: Record<string, string> = {
                         {inst.name}
                       </button>
                     </td>
-                   <td className="px-4 py-3 font-mono text-sky-600 font-bold">{inst.isin ?? "—"}</td>
+                    <td className="px-4 py-3 font-mono text-sky-600 font-bold">{inst.isin ?? "—"}</td>
                     <td className="px-4 py-3">
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700">{inst.instrument_type ?? "—"}</span>
                     </td>
@@ -3106,7 +3091,7 @@ const TYPE_ROW_COLORS: Record<string, string> = {
                       )}
                     </td>
                   </tr>
-);
+                );
                 })}
               </tbody>
               <tfoot>
