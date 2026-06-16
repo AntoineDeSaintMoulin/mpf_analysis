@@ -2408,7 +2408,7 @@ const rowsWithLevel: any[] = allRows.map((row, i) => {
   };
 const debtLeafRows = debtData.filter((i: any) => i.level === 2 && i.isin);
 const filteredDebt = React.useMemo(() => {
-  let list = debtData.filter((inst: any) => inst.level === debtHierarchyLevel).filter((inst: any) => {
+  let list = debtData.filter((inst: any) => debtHierarchyLevel === 1 ? inst.level === 1 : inst.level === 2 && !["CASH: PROVISION", "CURRENCY", "ETF BONDS", "FIXED RATE BOND", "FLOATING RATE BOND"].includes(inst.name)).filter((inst: any) => {
     if (!debtSearch) return true;
     const q = debtSearch.toLowerCase();
     return (inst.name ?? "").toLowerCase().includes(q) ||
@@ -3836,11 +3836,19 @@ useEffect(() => {
 const assignDebtLevels = (instruments: any[]) => {
   const LEVEL1_NAMES = new Set(["CASH: PROVISION", "CURRENCY", "ETF BONDS", "FIXED RATE BOND", "FLOATING RATE BOND"]);
   const EXCLUDE_PREFIXES = ["Normal", "Cash Value Date", "Cash : Forward", "Holdings", "SAMDP"];
+  const seen = new Set<string>();
   return instruments
     .filter(inst => !EXCLUDE_PREFIXES.some(prefix => (inst.name ?? "").startsWith(prefix)))
     .map(inst => {
       const level = LEVEL1_NAMES.has(inst.name) ? 1 : 2;
       return { ...inst, level };
+    })
+    .filter(inst => {
+      if (inst.level === 1) {
+        if (seen.has(inst.name)) return false;
+        seen.add(inst.name);
+      }
+      return true;
     });
 };
 
