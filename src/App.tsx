@@ -2406,8 +2406,7 @@ const rowsWithLevel: any[] = allRows.map((row, i) => {
       return { key, direction: "desc" };
     });
   };
-console.log("debtData levels:", debtData.map((i: any) => `${i.name} → level=${i.level} isin=${i.isin} instrument_type=${i.instrument_type}`));
-const debtLeafRows = debtData.filter((i: any) => i.level === 4 && i.isin && i.name !== "Normal (NOR)");
+const debtLeafRows = debtData.filter((i: any) => i.level === 2 && i.isin);
 const filteredDebt = React.useMemo(() => {
   let list = debtData.filter((inst: any) => inst.level === debtHierarchyLevel).filter((inst: any) => {
     if (!debtSearch) return true;
@@ -3095,12 +3094,19 @@ debtData.forEach(inst => {
                 );
                 })}
               </tbody>
-              <tfoot>
+<tfoot>
                 <tr className="bg-slate-50 border-t border-slate-200">
                   <td colSpan={4} className="px-4 py-3 font-bold text-slate-700">Total</td>
-                  <td className="px-4 py-3 text-right font-bold text-slate-900">{totalDebtMtm.toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
-                  <td className="px-4 py-3 text-right font-bold text-sky-600">{(totalDebtWght * 100).toFixed(2)}%</td>
-                  <td colSpan={6} className="px-4 py-3" />
+                  <td className="px-4 py-3 text-right font-bold text-slate-900">
+                    {filteredDebt.reduce((s: number, i: any) => s + Number(i.mtm_ptf ?? 0), 0).toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </td>
+                  <td className="px-4 py-3 text-right font-bold text-sky-600">
+                    {(filteredDebt.reduce((s: number, i: any) => s + Number(i.wght_pct ?? 0), 0) * 100).toFixed(2)}%
+                  </td>
+                  <td className="px-4 py-3 text-right text-slate-600">
+                    {(filteredDebt.reduce((s: number, i: any) => s + Number(i.expo_pct ?? 0), 0) * 100).toFixed(2)}%
+                  </td>
+                  <td colSpan={5} className="px-4 py-3" />
                 </tr>
               </tfoot>
             </table>
@@ -3830,9 +3836,9 @@ useEffect(() => {
 }, [selectedId, allPortfolios]);
 const assignDebtLevels = (instruments: any[]) => {
   const LEVEL1_NAMES = new Set(["CASH: PROVISION", "CURRENCY", "ETF BONDS", "FIXED RATE BOND", "FLOATING RATE BOND"]);
-  const EXCLUDE_NAMES = ["Normal", "Cash Value Date", "Cash : Forward"];
+  const EXCLUDE_PREFIXES = ["Normal", "Cash Value Date", "Cash : Forward", "Holdings", "SAMDP"];
   return instruments
-    .filter(inst => !EXCLUDE_NAMES.some(prefix => (inst.name ?? "").startsWith(prefix)))
+    .filter(inst => !EXCLUDE_PREFIXES.some(prefix => (inst.name ?? "").startsWith(prefix)))
     .map(inst => {
       const level = LEVEL1_NAMES.has(inst.name) ? 1 : 2;
       return { ...inst, level };
