@@ -4376,19 +4376,24 @@ const bd = h.isin ? breakdownsWithP30[h.isin] : null;
 }
   
   // ── Derived data ───────────────────────────────────────────────────────────
-  const dpamLookup = useMemo(() => {
+const dpamLookup = useMemo(() => {
   const result: Record<string, {
     geoBreakdown: { region: string; weight: number }[] | null;
     currencyBreakdown: { currency: string; weight: number }[] | null;
     creditBreakdown: { credit_type: string; currency: string; weight: number }[] | null;
+    duration: number | null;
   }> = {};
  
   for (const mapping of dpamMappings) {
     const { isin, dpam_type, col_index } = mapping;
  
-    if (dpam_type === "bonds" && dpamBondsData) {
+  if (dpam_type === "bonds" && dpamBondsData) {
       // Geo : pas de geo bonds directs, on skip
       const geo = null;
+
+      // Duration
+      const globalRow = (dpamBondsData.globals ?? []).find((g: any) => g.instrument_col === col_index);
+      const duration = globalRow?.modified_duration ?? globalRow?.duration ?? null;
  
       // Currency
       const curRow = (dpamBondsData.currencies ?? []).find((c: any) => c.instrument_col === col_index);
@@ -4421,7 +4426,7 @@ const bd = h.isin ? breakdownsWithP30[h.isin] : null;
         ].filter(e => e.weight > 0.01);
       })() : null;
  
-      result[isin] = { geoBreakdown: geo, currencyBreakdown: currency, creditBreakdown: credit };
+result[isin] = { geoBreakdown: geo, currencyBreakdown: currency, creditBreakdown: credit, duration };
     }
  
     if (dpam_type === "equity" && dpamEquityData) {
@@ -4474,7 +4479,7 @@ if (dpamCashWeight > 0) {
   .filter(([region]) => region !== "Others" || true) // garder pour l'instant
   .map(([region, weight]) => ({ region, weight }));
       
-      result[isin] = { geoBreakdown: geo.length > 0 ? geo : null, currencyBreakdown: currency, creditBreakdown: null };
+result[isin] = { geoBreakdown: geo.length > 0 ? geo : null, currencyBreakdown: currency, creditBreakdown: null, duration: null };
     }
   }
  console.log("dpamLookup:", result);
@@ -4599,8 +4604,9 @@ return Array.from(m.entries()).map(([name, value]) => {
     }).sort((a, b) => b.value - a.value);
 }, [currentPortfolioEffective, breakdownsWithP30, targetGridData, dpamLookup]);
 
-  const currencyData = useMemo(() => {
+ const currencyData = useMemo(() => {
     const KEY_CURRENCIES = ["EUR", "USD", "JPY"];
+    const SAMDP_DEBT_ISIN_CUR = "LU1545753169";
     const m = new Map<string, number>();
 (currentPortfolioEffective?.holdings ?? []).forEach((h) => {
       if (!h) return;
@@ -4610,8 +4616,21 @@ const cbd = h.isin ? currencyBreakdownsWithP30[h.isin] : null;
           const cur = entry.currency.toUpperCase().trim();
           m.set(cur, (m.get(cur) ?? 0) + (h.weight ?? 0) * entry.weight / 100);
         }
+} else if (h.isin === SAMDP_DEBT_ISIN_CUR && samdpDebtInstruments.length > 0) {
+  const debtLeafRows = samdpDebtInstruments.filter((i: any) => i.level === 2 && i.isin);
+  const totalW = debtLeafRows.reduce((s: number, i: any) => s + Number(i.wght_pct ?? 0), 0);
+  if (totalW > 0) {
+    const curMap = new Map<string, number>();
+    debtLeafRows.forEach((i: any) => {
+      const cur = (i.currency || "Other").toUpperCase().trim();
+      curMap.set(cur, (curMap.get(cur) ?? 0) + Number(i.wght_pct ?? 0) / totalW * 100);
+    });
+    curMap.forEach((pct, cur) => {
+      m.set(cur, (m.get(cur) ?? 0) + (h.weight ?? 0) * pct / 100);
+    });
+  }
 } else {
-  const dpamCur = h.isin && (h.asset_name ?? "").startsWith("DPAM")
+  const dpamCur = h.isin
     ? dpamLookup[h.isin]?.currencyBreakdown
     : null;
   if (dpamCur && dpamCur.length > 0) {
@@ -4646,7 +4665,7 @@ const cbd = h.isin ? currencyBreakdownsWithP30[h.isin] : null;
       const bi = order.indexOf(b.label);
       return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
     });
-}, [currentPortfolioEffective, currencyBreakdownsWithP30, dpamLookup, manualOverrides]);
+}, [currentPortfolioEffective, currencyBreakdownsWithP30, dpamLookup, manualOverrides, samdpDebtInstruments]);
 
 const categoryData = useMemo(() => {
   const m = new Map<string, number>();
@@ -4717,8 +4736,9 @@ console.log("breakdowns LU0846948437:", breakdowns["LU0846948437"]);
  // ── Credit exposure — agrégation par credit_type sur tout le portefeuille ──
 
   
-  const creditData = useMemo(() => {
+const creditData = useMemo(() => {
     const FIXED_INCOME_CATS = ["Fixed Income", "Bonds"];
+    const SAMDP_DEBT_ISIN_CD = "LU1545753169";
     const m = new Map<string, number>();
     (currentPortfolio?.holdings ?? []).forEach((h) => {
       if (!h || !FIXED_INCOME_CATS.includes(h.category ?? "")) return;
@@ -4727,9 +4747,13 @@ console.log("breakdowns LU0846948437:", breakdowns["LU0846948437"]);
         for (const entry of cbd) {
           m.set(entry.credit_type, (m.get(entry.credit_type) ?? 0) + (h.weight ?? 0) * entry.weight / 100);
         }
+      } else if (h.isin === SAMDP_DEBT_ISIN_CD && samdpDebtCreditBreakdown) {
+        for (const entry of samdpDebtCreditBreakdown) {
+          m.set(entry.credit_type, (m.get(entry.credit_type) ?? 0) + (h.weight ?? 0) * entry.weight / 100);
+        }
       } else {
         // Priorité 2 : données DPAM credit
-        const dpamCredit = h.isin && (h.asset_name ?? "").startsWith("DPAM")
+        const dpamCredit = h.isin
           ? dpamLookup[h.isin]?.creditBreakdown
           : null;
         if (dpamCredit && dpamCredit.length > 0) {
@@ -4743,22 +4767,39 @@ console.log("breakdowns LU0846948437:", breakdowns["LU0846948437"]);
     return order
       .filter(ct => (m.get(ct) ?? 0) > 0.01)
       .map(ct => ({ name: ct, value: +((m.get(ct) ?? 0).toFixed(1)) }));
-  }, [currentPortfolio, creditBreakdowns]);
+  }, [currentPortfolio, creditBreakdowns, dpamLookup, samdpDebtCreditBreakdown]);
+
+const SAMDP_DEBT_ISIN = "LU1545753169";
+
+function getEffectiveDuration(isin: string | null | undefined): number | null {
+  if (!isin) return null;
+  if (durations[isin]) return durations[isin].duration;
+  if (isin === SAMDP_DEBT_ISIN && samdpDebtInstruments.length > 0) {
+    const debtLeafRows = samdpDebtInstruments.filter((i: any) => i.level === 2 && i.isin);
+    const totalW = debtLeafRows.reduce((s: number, i: any) => s + Number(i.wght_pct ?? 0), 0);
+    if (totalW === 0) return null;
+    const weighted = debtLeafRows.reduce((s: number, i: any) => s + Number(i.modified_duration ?? 0) * Number(i.wght_pct ?? 0), 0);
+    return +(weighted / totalW).toFixed(2);
+  }
+  const dpamDur = dpamLookup[isin]?.duration;
+  if (dpamDur != null) return dpamDur;
+  return null;
+}
 
 const portfolioDuration = useMemo(() => {
   const FIXED_INCOME_CATS = ["Fixed Income", "Bonds", "Liquidities"];
-const fiHoldings = (currentPortfolio?.holdings ?? []).filter(h =>
-  h && FIXED_INCOME_CATS.includes(h.category ?? "") &&
-  (h.isin ? (durations[h.isin] || h.category === "Liquidities") : h.category === "Liquidities")
-);
+  const fiHoldings = (currentPortfolio?.holdings ?? []).filter(h =>
+    h && FIXED_INCOME_CATS.includes(h.category ?? "") &&
+    (h.isin ? (getEffectiveDuration(h.isin) != null || h.category === "Liquidities") : h.category === "Liquidities")
+  );
   const totalWeight = fiHoldings.reduce((s, h) => s + (h.weight ?? 0), 0);
   if (totalWeight === 0) return null;
-const weightedDuration = fiHoldings.reduce((s, h) => {
-  const dur = durations[h.isin!]?.duration ?? 0;
-  return s + (h.weight ?? 0) * dur;
-}, 0);
+  const weightedDuration = fiHoldings.reduce((s, h) => {
+    const dur = getEffectiveDuration(h.isin) ?? 0;
+    return s + (h.weight ?? 0) * dur;
+  }, 0);
   return +(weightedDuration / totalWeight).toFixed(2);
-}, [currentPortfolio, durations]);
+}, [currentPortfolio, durations, dpamLookup, samdpDebtInstruments]);
   
   const CREDIT_COLORS: Record<string, string> = {
     "Govies":  "#0ea5e9",
@@ -6346,12 +6387,13 @@ currentPortfolioEffective.type === "Sicav" ? "bg-purple-100 text-purple-700" : "
       })}
   </div>
 </Modal>
-<Modal isOpen={showDurationDetail} onClose={() => setShowDurationDetail(false)} title="Détail Duration">
+
+      <Modal isOpen={showDurationDetail} onClose={() => setShowDurationDetail(false)} title="Détail Duration">
   {currentPortfolio && (() => {
         const FIXED_INCOME_CATS = ["Fixed Income", "Bonds", "Liquidities"];
 const fiHoldings = (currentPortfolio.holdings ?? [])
   .filter(h => h && FIXED_INCOME_CATS.includes(h.category ?? "") &&
-    (h.isin ? (durations[h.isin] || h.category === "Liquidities") : h.category === "Liquidities"))
+    (h.isin ? (getEffectiveDuration(h.isin) != null || h.category === "Liquidities") : h.category === "Liquidities"))
   .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0));
 
 const allFiHoldings = (currentPortfolio.holdings ?? [])
@@ -6366,9 +6408,9 @@ const allFiHoldings = (currentPortfolio.holdings ?? [])
               <div className="px-4 py-2 bg-slate-50 border-b border-slate-100">
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Instruments utilisés ({fiHoldings.length} / {allFiHoldings.length})</p>
               </div>
-              <div className="divide-y divide-slate-50 max-h-32 overflow-y-auto">
+<div className="divide-y divide-slate-50 max-h-32 overflow-y-auto">
                 {allFiHoldings.map((h, i) => {
-                  const hasDur = h.category === "Liquidities" || (h.isin && durations[h.isin]);
+                  const hasDur = h.category === "Liquidities" || (h.isin && getEffectiveDuration(h.isin) != null);
                   return (
                     <div key={i} className="flex items-center justify-between px-4 py-2">
                       <span className={cn("text-xs truncate max-w-[220px]", hasDur ? "text-slate-700 font-medium" : "text-slate-300 italic")}>
@@ -6396,8 +6438,8 @@ const allFiHoldings = (currentPortfolio.holdings ?? [])
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {fiHoldings.map((h, i) => {
-const dur = Number((h.isin && durations[h.isin]?.duration) ?? 0);
+{fiHoldings.map((h, i) => {
+const dur = Number((h.isin && getEffectiveDuration(h.isin)) ?? 0);
 const contribution = totalWeight > 0 ? (h.weight ?? 0) * dur / totalWeight : 0;
                     return (
                       <tr key={i} className="hover:bg-slate-50/50 transition-colors">
