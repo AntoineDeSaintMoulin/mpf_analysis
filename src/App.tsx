@@ -2078,6 +2078,7 @@ const [debtSortConfig, setDebtSortConfig] = React.useState<{ key: string; direct
 const [debtLevel, setDebtLevel] = React.useState<"all" | "gov" | "ig" | "hy" | "nr">("all");
 const [debtHierarchyLevel, setDebtHierarchyLevel] = React.useState<1|2>(2);
   const [showSamdpDetail, setShowSamdpDetail] = React.useState<"currency_equity" | "region_equity" | "currency_debt" | "credit_debt" | "duration_debt" | "cash_detail" | null>(null);
+const [creditDebtFilter, setCreditDebtFilter] = React.useState<string | null>(null);
   const [equityLevel, setEquityLevel] = React.useState<1|2|3|4|5>(2);
   const [regionFilter, setRegionFilter] = React.useState<string | null>(null);
   const exportRef = React.useRef<HTMLDivElement>(null);
@@ -2935,24 +2936,26 @@ debtLevel2Graph.forEach(inst => {
       </div>
 
 {/* Credit Quality */}
-                      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm cursor-pointer hover:border-violet-200 hover:shadow-md transition-all"
-                        onClick={() => setShowCreditDetail(true)}>
-        <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
-          <TrendingUp className="h-4 w-4 text-violet-600" />Credit Quality
-        </h3>
-        <div className="space-y-3">
-          {creditData.map(({ label, value }) => (
-            <div key={label} className="flex items-center gap-3">
-              <span className="text-xs font-bold w-16 shrink-0" style={{ color: CREDIT_COLORS_LOCAL[label] ?? "#94a3b8" }}>{label}</span>
-              <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all"
-                  style={{ width: `${Math.min(100, value)}%`, backgroundColor: CREDIT_COLORS_LOCAL[label] ?? "#94a3b8" }} />
-              </div>
-              <span className="text-xs font-bold text-slate-700 w-14 text-right shrink-0">{value.toFixed(1)}%</span>
-            </div>
-          ))}
+<div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+  <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+    <TrendingUp className="h-4 w-4 text-violet-600" />Credit Quality
+  </h3>
+  <div className="space-y-3">
+    {creditData.map(({ label, value }) => (
+      <div key={label} onClick={() => { setCreditDebtFilter(label); setShowSamdpDetail("credit_debt"); }}
+        className="flex items-center gap-3 cursor-pointer group">
+        <span className="text-xs font-bold w-16 shrink-0 group-hover:opacity-70 transition-opacity" style={{ color: CREDIT_COLORS_LOCAL[label] ?? "#94a3b8" }}>{label}</span>
+        <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
+          <div className="h-full rounded-full transition-all group-hover:opacity-75"
+            style={{ width: `${Math.min(100, value)}%`, backgroundColor: CREDIT_COLORS_LOCAL[label] ?? "#94a3b8" }} />
         </div>
+        <span className="text-xs font-bold text-slate-700 w-14 text-right shrink-0">{value.toFixed(1)}%</span>
+        <ArrowRight className="h-3 w-3 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
       </div>
+    ))}
+    <p className="text-[10px] text-slate-400 italic pt-1">Cliquez pour détail</p>
+  </div>
+</div>
     </div>
   );
 })()}
@@ -3563,32 +3566,72 @@ debtLevel2Graph.forEach(inst => {
         </div>
       </Modal>
 
-      {/* ── Modale Credit Quality Debt ── */}
-      <Modal isOpen={showSamdpDetail === "credit_debt"} onClose={() => setShowSamdpDetail(null)} title="Détail Credit Quality — Debt">
-        <div className="space-y-3">
-          {debtData.map(inst => {
-            const w = Number(inst.wght_pct ?? 0) * 100;
-            if (w === 0) return null;
-            const sector = inst.bics_sector_1 ?? "";
-            let credit = inst.ig_hy ?? "NR";
-            if (sector.toLowerCase().includes("government") || sector.toLowerCase().includes("sovereign")) credit = "Govies";
+{/* ── Modale Credit Quality Debt ── */}
+      <Modal isOpen={showSamdpDetail === "credit_debt"} onClose={() => { setShowSamdpDetail(null); setCreditDebtFilter(null); }} title={`Détail Credit Quality — ${creditDebtFilter ?? "Debt"}`}>
+        <div className="space-y-4">
+          <p className="text-xs text-slate-500 italic">Instruments contribuant à la catégorie {creditDebtFilter}.</p>
+          {(() => {
+            const LEVEL1_NAMES_MODAL = new Set(["CASH: PROVISION", "CURRENCY", "ETF BONDS", "FIXED RATE BOND", "FLOATING RATE BOND"]);
+            const rows = debtData
+              .filter((inst: any) => inst.level === 2 && !LEVEL1_NAMES_MODAL.has(inst.name))
+              .map((inst: any) => {
+                const sector = inst.bics_sector_1 ?? "";
+                const override = manualOverrides.find((ov: any) =>
+                  (ov.manual_isin && ov.manual_isin === inst.isin) ||
+                  (ov.original_asset_name && ov.original_asset_name === inst.name)
+                );
+                let credit = inst.ig_hy ?? "NR";
+                if (override?.manual_category && ["Govies", "IG", "HY", "NR", "EM Debt"].includes(override.manual_category)) {
+                  credit = override.manual_category;
+                } else if (sector.toLowerCase().includes("government") || sector.toLowerCase().includes("sovereign")) {
+                  credit = "Govies";
+                }
+                if (credit !== creditDebtFilter) return null;
+                const w = Number(inst.wght_pct ?? 0) * 100;
+                if (w === 0) return null;
+                return { inst, credit, w };
+              })
+              .filter(Boolean)
+              .sort((a: any, b: any) => b.w - a.w);
+
+            const total = rows.reduce((s: number, r: any) => s + r.w, 0);
+
             return (
-              <div key={inst.isin} className="flex items-center justify-between py-2 border-b border-slate-50">
-                <div>
-                  <p className="text-sm font-medium text-slate-900 truncate max-w-[240px]">{inst.name}</p>
-                  <p className="text-xs text-slate-400">{inst.rating_cai ?? "—"} · {inst.bics_sector_1 ?? "—"}</p>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full",
-                    credit === "Govies" ? "bg-sky-50 text-sky-700" :
-                    credit === "IG" ? "bg-emerald-50 text-emerald-700" :
-                    credit === "HY" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"
-                  )}>{credit}</span>
-                  <span className="text-sm font-bold text-slate-900 w-16 text-right">{w.toFixed(2)}%</span>
-                </div>
-              </div>
+              <table className="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100">
+                    <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase">Instrument</th>
+                    <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase">Rating</th>
+                    <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">Wght%</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {rows.map((r: any, i: number) => (
+                    <tr key={i} className="hover:bg-slate-50/50">
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-slate-900 truncate max-w-[220px]">{r.inst.name}</p>
+                        <p className="text-xs font-mono text-slate-400">{r.inst.isin ?? "—"} · {r.inst.bics_sector_1 ?? "—"}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full",
+                          r.credit === "Govies" ? "bg-sky-50 text-sky-700" :
+                          r.credit === "IG" ? "bg-emerald-50 text-emerald-700" :
+                          r.credit === "HY" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"
+                        )}>{r.inst.rating_cai ?? "—"}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-violet-600">{r.w.toFixed(2)}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-slate-50 border-t border-slate-200">
+                    <td colSpan={2} className="px-4 py-3 font-bold text-slate-700 text-right">Total {creditDebtFilter}</td>
+                    <td className="px-4 py-3 text-right font-bold text-slate-900">{total.toFixed(2)}%</td>
+                  </tr>
+                </tfoot>
+              </table>
             );
-          }).filter(Boolean)}
+          })()}
         </div>
       </Modal>
 
