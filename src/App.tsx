@@ -1633,13 +1633,20 @@ const [regionFilter, setRegionFilter] = React.useState<string | null>(null);
 
   // Holdings filtrés pour la table
 const filteredHoldings = React.useMemo(() => {
+    const EUROPE_REGIONS = new Set(["Europe", "Europe ex-Euroland", "Euroland", "Europe ex-Eurolan"]);
     return (currentPortfolio?.holdings ?? []).filter((h: any) => {
       if (search) {
         const q = search.toLowerCase();
         if (!(h.asset_name ?? "").toLowerCase().includes(q) && !(h.isin ?? "").toLowerCase().includes(q)) return false;
       }
       if (categoryFilter && (h.category ?? "") !== categoryFilter) return false;
-      if (regionFilter && (h.region ?? "") !== regionFilter) return false;
+      if (regionFilter) {
+        if (regionFilter === "Europe") {
+          if (!EUROPE_REGIONS.has(h.region ?? "")) return false;
+        } else {
+          if ((h.region ?? "") !== regionFilter) return false;
+        }
+      }
       return true;
     });
   }, [currentPortfolio, search, categoryFilter, regionFilter]);
@@ -1867,14 +1874,22 @@ const filteredHoldings = React.useMemo(() => {
             ))}
             <div className="w-px h-4 bg-slate-200 shrink-0 mx-1" />
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider shrink-0">Région</span>
-            {Array.from(new Set((currentPortfolio?.holdings ?? []).map((h: any) => h.region).filter(Boolean))).sort().map((reg: any) => (
-              <button key={reg} onClick={() => setRegionFilter(regionFilter === reg ? null : reg)}
-                className={cn("px-3 py-1 rounded-lg text-xs font-bold transition-all border",
-                  regionFilter === reg
-                    ? "bg-amber-500 text-white border-amber-500"
-                    : "bg-white text-slate-500 border-slate-200 hover:border-amber-300")}>
-                {reg}
-              </button>
+{(() => {
+              const EUROPE_REGIONS = new Set(["Europe", "Europe ex-Euroland", "Euroland", "Europe ex-Eurolan"]);
+              const rawRegions = Array.from(new Set((currentPortfolio?.holdings ?? []).map((h: any) => h.region).filter(Boolean)));
+              const hasEurope = rawRegions.some(r => EUROPE_REGIONS.has(r));
+              const otherRegions = rawRegions.filter(r => !EUROPE_REGIONS.has(r)).sort();
+              const regions = hasEurope ? ["Europe", ...otherRegions] : otherRegions;
+              return regions.map((reg: string) => (
+                <button key={reg} onClick={() => setRegionFilter(regionFilter === reg ? null : reg)}
+                  className={cn("px-3 py-1 rounded-lg text-xs font-bold transition-all border",
+                    regionFilter === reg
+                      ? "bg-amber-500 text-white border-amber-500"
+                      : "bg-white text-slate-500 border-slate-200 hover:border-amber-300")}>
+                  {reg}
+                </button>
+              ));
+            })()}
             ))}
             {(categoryFilter || regionFilter) && (
               <button onClick={() => { setCategoryFilter(null); setRegionFilter(null); }}
