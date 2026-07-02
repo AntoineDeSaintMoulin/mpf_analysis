@@ -2888,13 +2888,7 @@ debtLevel2Graph.forEach(inst => {
   const currency = (override?.manual_currency || inst.currency || "Other").toUpperCase();
   currencyMap.set(currency, (currencyMap.get(currency) ?? 0) + w);
 
-  // Credit quality — priorité 1 : creditBreakdowns manuel (fiche instrument)
-  const manualCreditBreakdown = inst.isin ? breakdowns[inst.isin] : null;
-  const creditBd = inst.isin ? (breakdowns as any)[inst.isin] : null;
-  // On cherche dans creditBreakdowns (prop passée au composant)
-  // Note : breakdowns ici est geo, pas credit — il faut utiliser la prop correcte
-  // Priorité 2 : manual_category override
-const manualCreditBreakdown = inst.isin ? creditBreakdowns[inst.isin] : null;
+  const manualCreditBreakdown = inst.isin ? creditBreakdowns[inst.isin] : null;
   const ighy = inst.ig_hy ?? "NR";
   const sector = inst.bics_sector_1 ?? "";
 
@@ -2917,6 +2911,7 @@ const manualCreditBreakdown = inst.isin ? creditBreakdowns[inst.isin] : null;
     }
     creditMap.set(credit, (creditMap.get(credit) ?? 0) + w);
   }
+  });
   
   const currencyData = Array.from(currencyMap.entries())
     .map(([label, value]) => ({ label, value: +value.toFixed(2) }))
