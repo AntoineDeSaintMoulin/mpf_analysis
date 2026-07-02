@@ -978,18 +978,23 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
     </div>
   </div>
   <div className="flex flex-wrap gap-2">
-    {mainInstruments
+{mainInstruments
       .filter((inst: any) => inst.name.toLowerCase().includes(bondsSearch.toLowerCase()))
-      .map((inst: any) => (
-        <button key={inst.col_index}
-          onClick={() => setSelectedCol(inst.col_index)}
-          className={cn("px-3 py-1.5 rounded-xl text-xs font-medium transition-all border",
-            selectedCol === inst.col_index
-              ? "bg-sky-600 text-white border-sky-600 shadow-sm"
-              : "bg-white text-slate-600 border-slate-200 hover:border-sky-300")}>
-          {inst.name.replace("DPAM B BONDS ", "").replace("DPAM L BONDS ", "").trim()}
-        </button>
-      ))}
+      .map((inst: any) => {
+        const isMapped = mappings.some((m: any) => m.col_index === inst.col_index && m.dpam_type === "bonds");
+        return (
+          <button key={inst.col_index}
+            onClick={() => setSelectedCol(inst.col_index)}
+            className={cn("px-3 py-1.5 rounded-xl text-xs font-medium transition-all border",
+              selectedCol === inst.col_index
+                ? "bg-sky-600 text-white border-sky-600 shadow-sm"
+                : isMapped
+                  ? "bg-white text-slate-600 border-slate-200 hover:border-sky-300"
+                  : "bg-white text-rose-500 border-rose-200 hover:border-rose-400")}>
+            {inst.name.replace("DPAM B BONDS ", "").replace("DPAM L BONDS ", "").trim()}
+          </button>
+        );
+      })}
   </div>
 </div>
  
@@ -1245,22 +1250,27 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
     </div>
   </div>
   <div className="flex flex-wrap gap-2">
-    {(equityData.instruments ?? [])
+{(equityData.instruments ?? [])
   .filter((inst: any) => inst.name.toLowerCase().includes(equitySearch.toLowerCase()))
-  .map((inst: any) => (
-    <button key={inst.col_index}
-      onClick={() => setSelectedCol(inst.col_index)}
-      className={cn("px-3 py-1.5 rounded-xl text-xs font-medium transition-all border",
-        selectedCol === inst.col_index
-          ? "bg-sky-600 text-white border-sky-600 shadow-sm"
-          : "bg-white text-slate-600 border-slate-200 hover:border-sky-300")}>
+  .map((inst: any) => {
+    const isMapped = mappings.some((m: any) => m.col_index === inst.col_index && m.dpam_type === "equity");
+    return (
+      <button key={inst.col_index}
+        onClick={() => setSelectedCol(inst.col_index)}
+        className={cn("px-3 py-1.5 rounded-xl text-xs font-medium transition-all border",
+          selectedCol === inst.col_index
+            ? "bg-sky-600 text-white border-sky-600 shadow-sm"
+            : isMapped
+              ? "bg-white text-slate-600 border-slate-200 hover:border-sky-300"
+              : "bg-white text-rose-500 border-rose-200 hover:border-rose-400")}>
       {inst.name
         .replace("DPAM B EQUITIES ", "")
         .replace("DPAM L EQUITIES ", "")
         .replace("DPAM B REAL ESTATE ", "REAL ESTATE ")
         .replace("DPAM DBI RDT B EQUITIES ", "DBI RDT ")}
     </button>
-  ))}
+    );
+  })}
   </div>
 </div>
  
