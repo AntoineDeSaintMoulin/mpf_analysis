@@ -3718,7 +3718,7 @@ export default function App() {
   const [editingCreditBreakdown, setEditingCreditBreakdown] = useState<{ isin: string; name: string } | null>(null);
   const [creditBreakdownSaving, setCreditBreakdownSaving] = useState(false);
   const [durations, setDurations] = useState<DurationsMap>({});
-const [showCreditDetail, setShowCreditDetail] = useState(false);
+  const [showCreditDetail, setShowCreditDetail] = useState<string | null>(null);
   const [showDurationDetail, setShowDurationDetail] = useState(false);
   const [showCurrencyDetail, setShowCurrencyDetail] = useState<string | null>(null);
   const [p30Mode, setP30Mode] = useState(false);
@@ -5679,15 +5679,18 @@ currentPortfolioEffective.type === "Sicav" ? "bg-purple-100 text-purple-700" : "
                         ) : (
                           <div className="space-y-2.5 mt-1">
                             {creditData.map(({ name, value }) => (
-                              <div key={name} className="flex items-center gap-3">
-                                <span className="text-xs font-bold w-16 shrink-0" style={{ color: CREDIT_COLORS[name] ?? "#94a3b8" }}>{name}</span>
+                              <div key={name} onClick={() => setShowCreditDetail(name)}
+                                className="flex items-center gap-3 cursor-pointer group">
+                                <span className="text-xs font-bold w-16 shrink-0 group-hover:opacity-70 transition-opacity" style={{ color: CREDIT_COLORS[name] ?? "#94a3b8" }}>{name}</span>
                                 <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                                  <div className="h-full rounded-full transition-all"
+                                  <div className="h-full rounded-full transition-all group-hover:opacity-75"
                                     style={{ width: `${Math.min(100, value)}%`, backgroundColor: CREDIT_COLORS[name] ?? "#94a3b8" }} />
                                 </div>
                                 <span className="text-xs font-bold text-slate-700 w-12 text-right shrink-0">{value.toFixed(1)}%</span>
+                                <ArrowRight className="h-3 w-3 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
                               </div>
                             ))}
+                            <p className="text-[10px] text-slate-400 italic pt-1">Cliquez pour filtrer</p>
                           </div>
                         )}
                       </div>
@@ -6354,39 +6357,65 @@ currentPortfolioEffective.type === "Sicav" ? "bg-purple-100 text-purple-700" : "
       </Modal>
 
         {/* ── Duration detail modal ── */}
-<Modal isOpen={showCreditDetail} onClose={() => setShowCreditDetail(false)} title="Détail Credit Quality">
-  <div className="space-y-3">
-    {(currentPortfolio?.holdings ?? [])
-      .filter(h => h && ["Fixed Income", "Bonds"].includes(h.category ?? ""))
-      .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0))
-      .map((h, i) => {
-        const cbd = h.isin ? creditBreakdowns[h.isin] : null;
-        const dpamCredit = h.isin ? dpamLookup[h.isin]?.creditBreakdown : null;
-        const entries = cbd ?? dpamCredit ?? [];
-        return (
-          <div key={i} className="flex items-center justify-between py-2 border-b border-slate-50">
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-slate-900 truncate max-w-[260px]">{h.asset_name ?? "—"}</p>
-              <div className="flex flex-wrap gap-1 mt-0.5">
-                {entries.length === 0 ? (
-                  <span className="text-xs text-slate-300 italic">Pas de décomposition</span>
-                ) : (
-                  entries.map((e, j) => (
-                    <span key={j} className={cn("text-xs font-bold px-1.5 py-0.5 rounded-full",
-                      e.credit_type === "Govies" ? "bg-sky-50 text-sky-700" :
-                      e.credit_type === "IG" ? "bg-emerald-50 text-emerald-700" :
-                      e.credit_type === "HY" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"
-                    )}>{e.credit_type} {e.currency} {e.weight.toFixed(1)}%</span>
-                  ))
-                )}
-              </div>
-            </div>
-            <span className="text-sm font-bold text-slate-900 w-16 text-right shrink-0">
-              {(h.weight ?? 0).toFixed(2)}%
-            </span>
-          </div>
-        );
-      })}
+<Modal isOpen={!!showCreditDetail} onClose={() => setShowCreditDetail(null)} title={`Détail Credit Quality — ${showCreditDetail}`}>
+  <div className="space-y-4">
+    <p className="text-xs text-slate-500 italic">Détail du calcul pour la catégorie {showCreditDetail}.</p>
+    {(() => {
+      const SAMDP_DEBT_ISIN_MODAL = "LU1545753169";
+      const rows = (currentPortfolio?.holdings ?? [])
+        .filter(h => h && ["Fixed Income", "Bonds"].includes(h.category ?? ""))
+        .map(h => {
+          const cbd = h.isin ? creditBreakdowns[h.isin] : null;
+          const samdpDebt = h.isin === SAMDP_DEBT_ISIN_MODAL ? samdpDebtCreditBreakdown : null;
+          const dpamCredit = h.isin ? dpamLookup[h.isin]?.creditBreakdown : null;
+          const entries = cbd ?? samdpDebt ?? dpamCredit ?? [];
+          const filtered = entries.filter((e: any) => e.credit_type === showCreditDetail);
+          if (filtered.length === 0) return null;
+          const exposition = filtered.reduce((s: number, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
+          if (exposition < 0.001) return null;
+          return { h, entries, exposition };
+        })
+        .filter(Boolean)
+        .sort((a: any, b: any) => b.exposition - a.exposition);
+
+      const total = rows.reduce((s: number, r: any) => s + r.exposition, 0);
+
+      return (
+        <table className="w-full text-left border-collapse text-sm">
+          <thead>
+            <tr className="bg-slate-50 border-b border-slate-100">
+              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase">Instrument</th>
+              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">Poids PTF</th>
+              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">% {showCreditDetail}</th>
+              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">Exposition</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {rows.map((r: any, i: number) => {
+              const pct = r.entries.filter((e: any) => e.credit_type === showCreditDetail)
+                .reduce((s: number, e: any) => s + e.weight, 0);
+              return (
+                <tr key={i} className="hover:bg-slate-50/50">
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-slate-900 truncate max-w-[200px]">{r.h.asset_name ?? "—"}</p>
+                    <p className="text-xs font-mono text-slate-400">{r.h.isin ?? "—"}</p>
+                  </td>
+                  <td className="px-4 py-3 text-right text-slate-600">{(r.h.weight ?? 0).toFixed(2)}%</td>
+                  <td className="px-4 py-3 text-right text-slate-500">{pct.toFixed(1)}%</td>
+                  <td className="px-4 py-3 text-right font-bold text-violet-600">{r.exposition.toFixed(2)}%</td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr className="bg-slate-50 border-t border-slate-200">
+              <td colSpan={3} className="px-4 py-3 font-bold text-slate-700 text-right">Total {showCreditDetail}</td>
+              <td className="px-4 py-3 text-right font-bold text-slate-900">{total.toFixed(2)}%</td>
+            </tr>
+          </tfoot>
+        </table>
+      );
+    })()}
   </div>
 </Modal>
 
