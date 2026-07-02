@@ -3882,11 +3882,13 @@ useEffect(() => {
     if (res.ok) {
       const data = await res.json();
       if (data.rows) setSamdpEquityRows(data.rows);
+      if (data.importLog) setSamdpImportLog(data.importLog);
     }
   };
   window.addEventListener("samdp-equity-updated", handler);
   return () => window.removeEventListener("samdp-equity-updated", handler);
 }, []);
+  
   useEffect(() => {
     if (activeTab !== "Sicav" && activeTab !== "Mixed") return;
     const filtered = portfolios
