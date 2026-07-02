@@ -1839,6 +1839,11 @@ function SimulationTab({
           )}>
             <span className="text-xs font-normal opacity-70">Total simulé</span>
             <span>{totalSimulated.toFixed(2)}%</span>
+            {Math.abs(totalSimulated - 100) >= 0.05 && (
+              <span className="text-xs font-normal opacity-80">
+                ({(100 - totalSimulated) > 0 ? "+" : ""}{(100 - totalSimulated).toFixed(2)}% pour 100%)
+              </span>
+            )}
           </div>
         </div>
 
