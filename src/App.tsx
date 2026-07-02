@@ -3427,15 +3427,36 @@ debtLevel2Graph.forEach(inst => {
   const currencyMap = new Map<string, number>();
   const LEVEL1_NAMES_PDF = new Set(["CASH: PROVISION", "CURRENCY", "ETF BONDS", "FIXED RATE BOND", "FLOATING RATE BOND"]);
   const debtLevel2 = debtData.filter((i: any) => i.level === 2 && !LEVEL1_NAMES_PDF.has(i.name));
-  debtLevel2.forEach(inst => {
+  debtLevel2.forEach((inst: any) => {
     const w = Number(inst.wght_pct ?? 0) * 100;
     if (w === 0) return;
-    const sector = inst.bics_sector_1 ?? "";
-    let credit = inst.ig_hy ?? "NR";
-    if (sector.toLowerCase().includes("government") || sector.toLowerCase().includes("sovereign")) credit = "Govies";
-    creditMap.set(credit, (creditMap.get(credit) ?? 0) + w);
-    const currency = (inst.currency || "Other").toUpperCase();
+    // Devise
+    const override = manualOverrides.find((ov: any) =>
+      (ov.manual_isin && ov.manual_isin === inst.isin) ||
+      (ov.original_asset_name && ov.original_asset_name === inst.name)
+    );
+    const currency = (override?.manual_currency || inst.currency || "Other").toUpperCase();
     currencyMap.set(currency, (currencyMap.get(currency) ?? 0) + w);
+    // Credit — priorité 1 : creditBreakdowns manuel
+    const manualCbd = inst.isin ? creditBreakdowns[inst.isin] : null;
+    if (manualCbd && manualCbd.length > 0) {
+      manualCbd.forEach((e: any) => {
+        creditMap.set(e.credit_type, (creditMap.get(e.credit_type) ?? 0) + w * e.weight / 100);
+      });
+    } else {
+      const sector = inst.bics_sector_1 ?? "";
+      let credit = inst.ig_hy ?? "NR";
+      if (override?.manual_category && ["Govies", "IG", "HY", "NR", "EM Debt"].includes(override.manual_category)) {
+        credit = override.manual_category;
+      } else if (sector.toLowerCase().includes("government") || sector.toLowerCase().includes("sovereign")) {
+        credit = "Govies";
+      } else if (inst.ig_hy === "IG") {
+        credit = "IG";
+      } else if (inst.ig_hy === "HY") {
+        credit = "HY";
+      }
+      creditMap.set(credit, (creditMap.get(credit) ?? 0) + w);
+    }
   });
                     const creditData = Array.from(creditMap.entries()).map(([n, v]) => ({ name: n, value: +v.toFixed(1) })).sort((a, b) => b.value - a.value);
                     const currencyData = Array.from(currencyMap.entries()).map(([n, v]) => ({ name: n, value: +v.toFixed(1) })).sort((a, b) => b.value - a.value);
