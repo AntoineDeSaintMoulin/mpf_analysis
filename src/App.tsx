@@ -3468,7 +3468,12 @@ debtLevel2Graph.forEach(inst => {
                         <div style={{ background: "#f8fafc", borderRadius: "8px", padding: "10px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
                           <p style={{ fontSize: "9px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginBottom: "6px" }}>Duration</p>
                           <p style={{ fontSize: "28px", fontWeight: 800, color: "#0f172a", margin: 0, lineHeight: 1 }}>
-                            {(() => { const total = debtData.reduce((s, i) => s + Number(i.wght_pct ?? 0), 0); return total > 0 ? (debtData.reduce((s, i) => s + Number(i.modified_duration ?? 0) * Number(i.wght_pct ?? 0), 0) / total).toFixed(2) : "—"; })()}
+                            {(() => {
+                              const LEVEL1_NAMES_DUR = new Set(["CASH: PROVISION", "CURRENCY", "ETF BONDS", "FIXED RATE BOND", "FLOATING RATE BOND"]);
+                              const leafRows = debtData.filter((i: any) => i.level === 2 && !LEVEL1_NAMES_DUR.has(i.name) && i.isin);
+                              const total = leafRows.reduce((s: number, i: any) => s + Number(i.wght_pct ?? 0), 0);
+                              return total > 0 ? (leafRows.reduce((s: number, i: any) => s + Number(i.modified_duration ?? 0) * Number(i.wght_pct ?? 0), 0) / total).toFixed(2) : "—";
+                            })()}
                           </p>
                           <p style={{ fontSize: "8px", color: "#94a3b8", marginTop: "4px" }}>années</p>
                         </div>
