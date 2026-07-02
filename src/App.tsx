@@ -1582,6 +1582,8 @@ function SimulationTab({
   const [simulatedWeights, setSimulatedWeights] = React.useState<Record<number, number>>({});
   const [search, setSearch] = React.useState("");
   const [resetFlash, setResetFlash] = React.useState(false);
+  const [categoryFilter, setCategoryFilter] = React.useState<string | null>(null);
+const [regionFilter, setRegionFilter] = React.useState<string | null>(null);
 
   const CREDIT_COLORS_SIM: Record<string, string> = {
     Govies: "#0ea5e9", IG: "#10b981", HY: "#f59e0b", NR: "#94a3b8", "EM Debt": "#8b5cf6",
@@ -1630,14 +1632,17 @@ function SimulationTab({
   }, [currentPortfolio, simulatedWeights]);
 
   // Holdings filtrés pour la table
-  const filteredHoldings = React.useMemo(() => {
-    if (!search) return currentPortfolio?.holdings ?? [];
-    const q = search.toLowerCase();
-    return (currentPortfolio?.holdings ?? []).filter((h: any) =>
-      (h.asset_name ?? "").toLowerCase().includes(q) ||
-      (h.isin ?? "").toLowerCase().includes(q)
-    );
-  }, [currentPortfolio, search]);
+const filteredHoldings = React.useMemo(() => {
+    return (currentPortfolio?.holdings ?? []).filter((h: any) => {
+      if (search) {
+        const q = search.toLowerCase();
+        if (!(h.asset_name ?? "").toLowerCase().includes(q) && !(h.isin ?? "").toLowerCase().includes(q)) return false;
+      }
+      if (categoryFilter && (h.category ?? "") !== categoryFilter) return false;
+      if (regionFilter && (h.region ?? "") !== regionFilter) return false;
+      return true;
+    });
+  }, [currentPortfolio, search, categoryFilter, regionFilter]);
 
   function normalizeRegion(r: string) {
     if (["Europe", "Europe ex-Euroland", "Euroland"].includes(r)) return "Europe";
@@ -1822,15 +1827,64 @@ function SimulationTab({
       {/* Total + table positions */}
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
         {/* Header table */}
-        <div className="px-6 py-4 border-b border-slate-50 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 flex-1">
-            <Search className="h-4 w-4 text-slate-400 shrink-0" />
-            <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Rechercher un instrument…"
-              className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400" />
-            {search && <button onClick={() => setSearch("")} className="p-0.5 hover:bg-slate-100 rounded"><X className="h-3.5 w-3.5 text-slate-400" /></button>}
+        <div className="px-6 py-4 border-b border-slate-50 flex flex-col gap-3">
+          {/* Ligne 1 : search + total */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 flex-1">
+              <Search className="h-4 w-4 text-slate-400 shrink-0" />
+              <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="Rechercher un instrument…"
+                className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400" />
+              {search && <button onClick={() => setSearch("")} className="p-0.5 hover:bg-slate-100 rounded"><X className="h-3.5 w-3.5 text-slate-400" /></button>}
+            </div>
+            {/* Total */}
+            <div className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-colors shrink-0",
+              Math.abs(totalSimulated - 100) < 0.05
+                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                : "bg-rose-50 text-rose-700 border border-rose-200"
+            )}>
+              <span className="text-xs font-normal opacity-70">Total simulé</span>
+              <span>{totalSimulated.toFixed(2)}%</span>
+              {Math.abs(totalSimulated - 100) >= 0.05 && (
+                <span className="text-xs font-normal opacity-80">
+                  ({(100 - totalSimulated) > 0 ? "+" : ""}{(100 - totalSimulated).toFixed(2)}% pour 100%)
+                </span>
+              )}
+            </div>
           </div>
-          {/* Total */}
+          {/* Ligne 2 : filtres catégorie + région */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider shrink-0">Catégorie</span>
+            {Array.from(new Set((currentPortfolio?.holdings ?? []).map((h: any) => h.category).filter(Boolean))).sort().map((cat: any) => (
+              <button key={cat} onClick={() => setCategoryFilter(categoryFilter === cat ? null : cat)}
+                className={cn("px-3 py-1 rounded-lg text-xs font-bold transition-all border",
+                  categoryFilter === cat
+                    ? "bg-sky-600 text-white border-sky-600"
+                    : "bg-white text-slate-500 border-slate-200 hover:border-sky-300")}>
+                {cat}
+              </button>
+            ))}
+            <div className="w-px h-4 bg-slate-200 shrink-0 mx-1" />
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider shrink-0">Région</span>
+            {Array.from(new Set((currentPortfolio?.holdings ?? []).map((h: any) => h.region).filter(Boolean))).sort().map((reg: any) => (
+              <button key={reg} onClick={() => setRegionFilter(regionFilter === reg ? null : reg)}
+                className={cn("px-3 py-1 rounded-lg text-xs font-bold transition-all border",
+                  regionFilter === reg
+                    ? "bg-amber-500 text-white border-amber-500"
+                    : "bg-white text-slate-500 border-slate-200 hover:border-amber-300")}>
+                {reg}
+              </button>
+            ))}
+            {(categoryFilter || regionFilter) && (
+              <button onClick={() => { setCategoryFilter(null); setRegionFilter(null); }}
+                className="px-3 py-1 rounded-lg text-xs font-bold text-rose-500 border border-rose-200 hover:bg-rose-50 transition-all">
+                Réinitialiser filtres
+              </button>
+            )}
+          </div>
+        </div>
+        {/* Total */}
           <div className={cn(
             "flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-colors",
             Math.abs(totalSimulated - 100) < 0.05
