@@ -990,7 +990,7 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
                 ? "bg-sky-600 text-white border-sky-600 shadow-sm"
                 : isMapped
                   ? "bg-white text-slate-600 border-slate-200 hover:border-sky-300"
-                  : "bg-white text-rose-500 border-rose-200 hover:border-rose-400")}>
+                  : "bg-white text-slate-400 border-slate-200 hover:border-sky-300 italic")}>
             {inst.name.replace("DPAM B BONDS ", "").replace("DPAM L BONDS ", "").trim()}
           </button>
         );
@@ -1262,7 +1262,7 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
             ? "bg-sky-600 text-white border-sky-600 shadow-sm"
             : isMapped
               ? "bg-white text-slate-600 border-slate-200 hover:border-sky-300"
-              : "bg-white text-rose-500 border-rose-200 hover:border-rose-400")}>
+              : "bg-white text-slate-400 border-slate-200 hover:border-sky-300 italic")}>
       {inst.name
         .replace("DPAM B EQUITIES ", "")
         .replace("DPAM L EQUITIES ", "")
