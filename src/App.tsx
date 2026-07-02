@@ -1884,22 +1884,7 @@ const filteredHoldings = React.useMemo(() => {
             )}
           </div>
         </div>
-        {/* Total */}
-          <div className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-colors",
-            Math.abs(totalSimulated - 100) < 0.05
-              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-              : "bg-rose-50 text-rose-700 border border-rose-200"
-          )}>
-            <span className="text-xs font-normal opacity-70">Total simulé</span>
-            <span>{totalSimulated.toFixed(2)}%</span>
-            {Math.abs(totalSimulated - 100) >= 0.05 && (
-              <span className="text-xs font-normal opacity-80">
-                ({(100 - totalSimulated) > 0 ? "+" : ""}{(100 - totalSimulated).toFixed(2)}% pour 100%)
-              </span>
-            )}
-          </div>
-        </div>
+
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
