@@ -2054,7 +2054,7 @@ interface SamdpInstrument {
   wght_pct: number | null;
 }
  
-function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, debtData, debtImportLog, durations, equityRows, breakdowns }: {
+function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, debtData, debtImportLog, durations, equityRows, breakdowns, creditBreakdowns }: {
   equityData: any[];
   importLog: any | null;
   manualOverrides: any[];
@@ -2064,6 +2064,7 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
   durations: Record<string, { duration: number; updated_at: string }>;
   equityRows: any[];
   breakdowns: Record<string, any[]>;
+  creditBreakdowns: Record<string, any[]>;
 }) {
   
   const [view, setView] = React.useState<SamdpView>("Equities");
@@ -2887,25 +2888,35 @@ debtLevel2Graph.forEach(inst => {
   const currency = (override?.manual_currency || inst.currency || "Other").toUpperCase();
   currencyMap.set(currency, (currencyMap.get(currency) ?? 0) + w);
 
-  // Credit quality — priorité override via manual_category
+  // Credit quality — priorité 1 : creditBreakdowns manuel (fiche instrument)
+  const manualCreditBreakdown = inst.isin ? breakdowns[inst.isin] : null;
+  const creditBd = inst.isin ? (breakdowns as any)[inst.isin] : null;
+  // On cherche dans creditBreakdowns (prop passée au composant)
+  // Note : breakdowns ici est geo, pas credit — il faut utiliser la prop correcte
+  // Priorité 2 : manual_category override
+const manualCreditBreakdown = inst.isin ? creditBreakdowns[inst.isin] : null;
   const ighy = inst.ig_hy ?? "NR";
   const sector = inst.bics_sector_1 ?? "";
-  let credit = ighy;
-  if (override?.manual_category) {
-    // Si override dit "Govies", "IG", "HY", "NR", "EM Debt" → utiliser directement
-    const cat = override.manual_category;
-    if (["Govies", "IG", "HY", "NR", "EM Debt"].includes(cat)) credit = cat;
-  } else if (sector.toLowerCase().includes("government") || sector.toLowerCase().includes("sovereign")) {
-    credit = "Govies";
-  } else if (ighy === "IG") {
-    credit = "IG";
-  } else if (ighy === "HY") {
-    credit = "HY";
+
+  if (manualCreditBreakdown && manualCreditBreakdown.length > 0) {
+    manualCreditBreakdown.forEach((e: any) => {
+      creditMap.set(e.credit_type, (creditMap.get(e.credit_type) ?? 0) + w * e.weight / 100);
+    });
   } else {
-    credit = "NR";
+    let credit = ighy;
+    if (override?.manual_category && ["Govies", "IG", "HY", "NR", "EM Debt"].includes(override.manual_category)) {
+      credit = override.manual_category;
+    } else if (sector.toLowerCase().includes("government") || sector.toLowerCase().includes("sovereign")) {
+      credit = "Govies";
+    } else if (ighy === "IG") {
+      credit = "IG";
+    } else if (ighy === "HY") {
+      credit = "HY";
+    } else {
+      credit = "NR";
+    }
+    creditMap.set(credit, (creditMap.get(credit) ?? 0) + w);
   }
-  creditMap.set(credit, (creditMap.get(credit) ?? 0) + w);
-});
   
   const currencyData = Array.from(currencyMap.entries())
     .map(([label, value]) => ({ label, value: +value.toFixed(2) }))
@@ -3622,6 +3633,18 @@ debtLevel2Graph.forEach(inst => {
                   (ov.manual_isin && ov.manual_isin === inst.isin) ||
                   (ov.original_asset_name && ov.original_asset_name === inst.name)
                 );
+const manualCbd = inst.isin ? creditBreakdowns[inst.isin] : null;
+                const w = Number(inst.wght_pct ?? 0) * 100;
+                if (w === 0) return null;
+
+                if (manualCbd && manualCbd.length > 0) {
+                  const filtered = manualCbd.filter((e: any) => e.credit_type === creditDebtFilter);
+                  if (filtered.length === 0) return null;
+                  const exposition = filtered.reduce((s: number, e: any) => s + w * e.weight / 100, 0);
+                  if (exposition < 0.001) return null;
+                  return { inst, credit: creditDebtFilter, w: exposition };
+                }
+
                 let credit = inst.ig_hy ?? "NR";
                 if (override?.manual_category && ["Govies", "IG", "HY", "NR", "EM Debt"].includes(override.manual_category)) {
                   credit = override.manual_category;
@@ -3629,8 +3652,6 @@ debtLevel2Graph.forEach(inst => {
                   credit = "Govies";
                 }
                 if (credit !== creditDebtFilter) return null;
-                const w = Number(inst.wght_pct ?? 0) * 100;
-                if (w === 0) return null;
                 return { inst, credit, w };
               })
               .filter(Boolean)
@@ -5690,6 +5711,7 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
   durations={durations}
   equityRows={samdpEquityRows}
   breakdowns={breakdowns}
+  creditBreakdowns={creditBreakdowns}
 />
   </motion.div>
 )}
