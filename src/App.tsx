@@ -2693,6 +2693,7 @@ const etfRows = equityRows.filter((r: any) =>
           const currencyMap = new Map<string, number>();
           const totalWghtEtf = etfRows.reduce((s: number, r: any) => s + Number(r.wght_pct ?? 0), 0);
 
+const CASH_ISINS_REGION = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
 etfRows.forEach((inst: any) => {
   const w = Number(inst.expo_pct ?? 0) * 100;
   if (w === 0) return;
@@ -2701,20 +2702,29 @@ etfRows.forEach((inst: any) => {
     (ov.original_asset_name && ov.original_asset_name === inst.name)
   );
   const isin = override?.manual_isin || inst.isin;
-  const breakdown = breakdowns[isin];
-  
-  if (breakdown && breakdown.length > 0) {
-    breakdown.forEach((entry: any) => {
-      regionMap.set(entry.region, (regionMap.get(entry.region) ?? 0) + w * entry.weight / 100);
-    });
-  } else {
-    const region = override?.manual_region || COUNTRY_TO_REGION[inst.dom_country ?? ""] || "Others";
-    regionMap.set(region, (regionMap.get(region) ?? 0) + w);
+
+  // Exclure le cash du calcul régional
+  const isCash = CASH_ISINS_REGION.has((inst.isin ?? "").toUpperCase()) ||
+    (inst.instrument_type ?? "").toUpperCase().includes("DEPOSIT");
+
+  if (!isCash) {
+    const breakdown = breakdowns[isin];
+    if (breakdown && breakdown.length > 0) {
+      breakdown.forEach((entry: any) => {
+        regionMap.set(entry.region, (regionMap.get(entry.region) ?? 0) + w * entry.weight / 100);
+      });
+    } else {
+      const region = override?.manual_region || COUNTRY_TO_REGION[inst.dom_country ?? ""] || "Others";
+      regionMap.set(region, (regionMap.get(region) ?? 0) + w);
+    }
   }
-  
+
+  // La devise on la garde pour tous les instruments y compris cash
   const currency = (override?.manual_currency || inst.currency || "Other").toUpperCase();
   currencyMap.set(currency, (currencyMap.get(currency) ?? 0) + w);
 });
+
+        
 console.log("regionMap graphe:", Array.from(regionMap.entries()));
 console.log("etfRows utilisés:", etfRows.map((r: any) => `${r.name} expo=${r.expo_pct} region=${manualOverrides.find((ov: any) => ov.manual_isin === r.isin || ov.original_asset_name === r.name)?.manual_region ?? "no override"}`));
         
@@ -3275,17 +3285,22 @@ debtLevel2Graph.forEach(inst => {
                     const CUR_COLORS_EXP: Record<string, string> = { "EUR": "#0ea5e9", "USD": "#10b981", "JPY": "#f59e0b", "GBP": "#8b5cf6", "CHF": "#ec4899" };
                     const regionMap = new Map<string, number>();
                     const currencyMap = new Map<string, number>();
+                    const CASH_ISINS_EXPORT = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
                     etfRows.forEach((inst: any) => {
                       const w = Number(inst.expo_pct ?? 0) * 100;
                       if (w === 0) return;
                       const override = manualOverrides.find((ov: any) => (ov.manual_isin && ov.manual_isin === inst.isin) || (ov.original_asset_name && ov.original_asset_name === inst.name));
                       const isin = override?.manual_isin || inst.isin;
-                      const bd = breakdowns[isin];
-                      if (bd && bd.length > 0) {
-                        bd.forEach((e: any) => regionMap.set(e.region, (regionMap.get(e.region) ?? 0) + w * e.weight / 100));
-                      } else {
-                        const region = override?.manual_region || COUNTRY_TO_REGION[inst.dom_country ?? ""] || "Others";
-                        regionMap.set(region, (regionMap.get(region) ?? 0) + w);
+                      const isCash = CASH_ISINS_EXPORT.has((inst.isin ?? "").toUpperCase()) ||
+                        (inst.instrument_type ?? "").toUpperCase().includes("DEPOSIT");
+                      if (!isCash) {
+                        const bd = breakdowns[isin];
+                        if (bd && bd.length > 0) {
+                          bd.forEach((e: any) => regionMap.set(e.region, (regionMap.get(e.region) ?? 0) + w * e.weight / 100));
+                        } else {
+                          const region = override?.manual_region || COUNTRY_TO_REGION[inst.dom_country ?? ""] || "Others";
+                          regionMap.set(region, (regionMap.get(region) ?? 0) + w);
+                        }
                       }
                       const currency = (override?.manual_currency || inst.currency || "Other").toUpperCase();
                       currencyMap.set(currency, (currencyMap.get(currency) ?? 0) + w);
@@ -4720,9 +4735,14 @@ const samdpGeoBreakdown = useMemo(() => {
   const totalExpo = level5.reduce((s: number, r: any) => s + Number(r.expo_pct ?? 0), 0);
   if (totalExpo === 0) return null;
 
+const CASH_ISINS_GEO = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
   level5.forEach((inst: any) => {
     const w = Number(inst.expo_pct ?? 0);
     if (w === 0) return;
+    // Exclure le cash du calcul régional
+    const isCash = CASH_ISINS_GEO.has((inst.isin ?? "").toUpperCase()) ||
+      (inst.instrument_type ?? "").toUpperCase().includes("DEPOSIT");
+    if (isCash) return;
     const override = manualOverrides.find((ov: any) =>
       (ov.manual_isin && ov.manual_isin === inst.isin) ||
       (ov.original_asset_name && ov.original_asset_name === inst.name)
