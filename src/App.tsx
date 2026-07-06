@@ -1568,6 +1568,8 @@ function SimulationTab({
   currencyBreakdowns,
   targetGridData,
   dpamLookup,
+  samdpDebtCreditBreakdown,
+  samdpDebtInstruments,
 }: {
   allPortfolios: any[];
   breakdowns: Record<string, any[]>;
@@ -1577,6 +1579,8 @@ function SimulationTab({
   currencyBreakdowns: Record<string, any[]>;
   targetGridData: Record<string, any>;
   dpamLookup: Record<string, any>;
+  samdpDebtCreditBreakdown: { credit_type: string; currency: string; weight: number }[] | null;
+  samdpDebtInstruments: any[];
 }){
   const [selectedPortfolioId, setSelectedPortfolioId] = React.useState<number | null>(null);
   const [simulatedWeights, setSimulatedWeights] = React.useState<Record<number, number>>({});
@@ -1710,29 +1714,52 @@ const filteredHoldings = React.useMemo(() => {
     return result.sort((a, b) => (ord.indexOf(a.label) === -1 ? 99 : ord.indexOf(a.label)) - (ord.indexOf(b.label) === -1 ? 99 : ord.indexOf(b.label)));
   }
 
-  function computeCreditData(holdings: any[]) {
+function computeCreditData(holdings: any[]) {
     const FI = ["Fixed Income", "Bonds"];
+    const SAMDP_DEBT_ISIN_SIM = "LU1545753169";
     const m = new Map<string, number>();
     holdings.forEach(h => {
       if (!h || !FI.includes(h.category ?? "")) return;
       const cbd = h.isin ? creditBreakdowns[h.isin] : null;
-      if (cbd) cbd.forEach((e: any) => m.set(e.credit_type, (m.get(e.credit_type) ?? 0) + (h.weight ?? 0) * e.weight / 100));
+      if (cbd && cbd.length > 0) {
+        cbd.forEach((e: any) => m.set(e.credit_type, (m.get(e.credit_type) ?? 0) + (h.weight ?? 0) * e.weight / 100));
+      } else if (h.isin === SAMDP_DEBT_ISIN_SIM && samdpDebtCreditBreakdown) {
+        samdpDebtCreditBreakdown.forEach((e: any) => m.set(e.credit_type, (m.get(e.credit_type) ?? 0) + (h.weight ?? 0) * e.weight / 100));
+      } else {
+        const dpamCredit = h.isin ? dpamLookup[h.isin]?.creditBreakdown : null;
+        if (dpamCredit && dpamCredit.length > 0) {
+          dpamCredit.forEach((e: any) => m.set(e.credit_type, (m.get(e.credit_type) ?? 0) + (h.weight ?? 0) * e.weight / 100));
+        }
+      }
     });
     return ["Govies", "IG", "HY", "NR", "EM Debt"]
       .filter(ct => (m.get(ct) ?? 0) > 0.01)
       .map(ct => ({ name: ct, value: +((m.get(ct) ?? 0).toFixed(2)) }));
   }
 
-  function computeDuration(holdings: any[]) {
+function computeDuration(holdings: any[]) {
     const CATS = ["Fixed Income", "Bonds", "Liquidities"];
+    const SAMDP_DEBT_ISIN_DUR = "LU1545753169";
+    function getSimDuration(isin: string | null | undefined): number | null {
+      if (!isin) return null;
+      if (durations[isin]) return durations[isin].duration;
+      if (isin === SAMDP_DEBT_ISIN_DUR && samdpDebtInstruments.length > 0) {
+        const leafRows = samdpDebtInstruments.filter((i: any) => i.level === 2 && i.isin);
+        const totalW = leafRows.reduce((s: number, i: any) => s + Number(i.wght_pct ?? 0), 0);
+        if (totalW === 0) return null;
+        return +(leafRows.reduce((s: number, i: any) => s + Number(i.modified_duration ?? 0) * Number(i.wght_pct ?? 0), 0) / totalW).toFixed(2);
+      }
+      const dpamDur = dpamLookup[isin]?.duration;
+      if (dpamDur != null) return dpamDur;
+      return null;
+    }
     const fi = holdings.filter(h => h && CATS.includes(h.category ?? "") &&
-      (h.isin ? (durations[h.isin] || h.category === "Liquidities") : h.category === "Liquidities"));
+      (h.isin ? (getSimDuration(h.isin) != null || h.category === "Liquidities") : h.category === "Liquidities"));
     const total = fi.reduce((s, h) => s + (h.weight ?? 0), 0);
     if (total === 0) return null;
-    const weighted = fi.reduce((s, h) => s + (h.weight ?? 0) * (durations[h.isin!]?.duration ?? 0), 0);
+    const weighted = fi.reduce((s, h) => s + (h.weight ?? 0) * (getSimDuration(h.isin) ?? 0), 0);
     return +(weighted / total).toFixed(2);
   }
-
   const originalHoldings = currentPortfolio?.holdings ?? [];
   const beforeCat = React.useMemo(() => computeCategoryData(originalHoldings), [currentPortfolio]);
   const afterCat = React.useMemo(() => computeCategoryData(simulatedHoldings), [simulatedHoldings]);
@@ -5812,6 +5839,8 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
   currencyBreakdowns={currencyBreakdowns}
   targetGridData={targetGridData}
   dpamLookup={dpamLookup}
+  samdpDebtCreditBreakdown={samdpDebtCreditBreakdown}
+  samdpDebtInstruments={samdpDebtInstruments}
 />
   </div>
 </div>
