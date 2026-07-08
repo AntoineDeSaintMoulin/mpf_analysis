@@ -111,7 +111,7 @@ const PORTFOLIO_ORDER = [
   "Mixed - MIX_MH", "Mixed - MIX_HIGH", "Mixed - MIX_VH",
 ];
 
-type Tab = "SYNTHESE" | "Sicav" | "Mixed" | "INSTRUMENTS" | "MANUALS" | "TARGET_GRID" | "DPAM" | "SIMULATION" | "SAMDP";
+type Tab = "SYNTHESE" | "Sicav" | "Mixed" | "INSTRUMENTS" | "MANUALS" | "TARGET_GRID" | "DPAM" | "SIMULATION" | "SAMDP" | "MARKET";
 
 const RISK_PROFILES = ["LOW", "MEDLOW", "MEDIUM", "MEDHIGH", "HIGH"] as const;
 type RiskProfile = typeof RISK_PROFILES[number];
@@ -3909,6 +3909,184 @@ const total = cashLines.reduce((s: number, row: any) => s + Number(row.wght_ptf_
   );
 }
 
+function MarketTab() {
+  const [summaries, setSummaries] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [selected, setSelected] = React.useState<any | null>(null);
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/dpam-data?section=market_summary");
+        if (res.ok) {
+          const data = await res.json();
+          setSummaries(data.summaries ?? []);
+        }
+      } catch (e) {
+        console.error("Market summary load failed", e);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const SENTIMENT_COLORS: Record<string, { bg: string; text: string; border: string; dot: string }> = {
+    bullish: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200", dot: "bg-emerald-500" },
+    neutral: { bg: "bg-slate-50", text: "text-slate-600", border: "border-slate-200", dot: "bg-slate-400" },
+    bearish: { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200", dot: "bg-rose-500" },
+  };
+
+  const SENTIMENT_LABEL: Record<string, string> = {
+    bullish: "📈 Bullish",
+    neutral: "➡️ Neutral",
+    bearish: "📉 Bearish",
+  };
+
+  const getSentiment = (s: string) => SENTIMENT_COLORS[s] ?? SENTIMENT_COLORS.neutral;
+
+  const displaySummary = selected ?? summaries[0]?.summary ?? null;
+  const displayDate = selected
+    ? summaries.find(s => s.summary === selected)?.email_date
+    : summaries[0]?.email_date;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <Loader2 className="h-8 w-8 animate-spin text-sky-500" />
+      </div>
+    );
+  }
+
+  if (summaries.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 text-slate-400 gap-4">
+        <Globe className="h-12 w-12 opacity-20" />
+        <p className="text-lg">Aucune analyse de marché disponible.</p>
+        <p className="text-sm">Les analyses seront automatiquement importées depuis votre boîte mail.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Market View</h2>
+          <p className="text-slate-500">Analyses de sentiment de marché — alimentées automatiquement par email.</p>
+        </div>
+        {displayDate && (
+          <div className="bg-white px-4 py-2 rounded-xl border border-slate-100 shadow-sm text-xs text-slate-500">
+            Dernière analyse : <span className="font-bold text-slate-700">
+              {new Date(displayDate).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {displaySummary && (
+        <>
+          {/* Sentiment global */}
+          <div className={cn("p-6 rounded-3xl border", getSentiment(displaySummary.sentiment_global).bg, getSentiment(displaySummary.sentiment_global).border)}>
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className={cn("text-xl font-bold", getSentiment(displaySummary.sentiment_global).text)}>
+                  {displaySummary.title}
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">{displaySummary.source} · {displaySummary.date}</p>
+              </div>
+              <span className={cn("px-4 py-2 rounded-xl text-sm font-bold border", getSentiment(displaySummary.sentiment_global).bg, getSentiment(displaySummary.sentiment_global).text, getSentiment(displaySummary.sentiment_global).border)}>
+                {SENTIMENT_LABEL[displaySummary.sentiment_global] ?? displaySummary.sentiment_global}
+              </span>
+            </div>
+            <p className="text-sm text-slate-600 leading-relaxed">{displaySummary.conclusion}</p>
+          </div>
+
+          {/* Themes par région */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {(displaySummary.themes ?? []).map((theme: any, i: number) => {
+              const s = getSentiment(theme.sentiment);
+              return (
+                <div key={i} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className={cn("w-2 h-2 rounded-full", s.dot)} />
+                      <h4 className="font-bold text-slate-900">{theme.region}</h4>
+                    </div>
+                    <span className={cn("text-xs font-bold px-2.5 py-1 rounded-full border", s.bg, s.text, s.border)}>
+                      {SENTIMENT_LABEL[theme.sentiment] ?? theme.sentiment}
+                    </span>
+                  </div>
+                  <ul className="space-y-2">
+                    {(theme.key_points ?? []).map((point: string, j: number) => (
+                      <li key={j} className="flex items-start gap-2 text-sm text-slate-600">
+                        <span className="text-slate-300 shrink-0 mt-0.5">•</span>
+                        {point}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Triggers de la semaine */}
+          {(displaySummary.triggers_semaine ?? []).length > 0 && (
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+              <h4 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                Triggers de la semaine
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {displaySummary.triggers_semaine.map((trigger: string, i: number) => (
+                  <span key={i} className="bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-xl text-sm font-medium">
+                    {trigger}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Historique */}
+      {summaries.length > 1 && (
+        <div>
+          <h3 className="text-lg font-bold text-slate-900 mb-4">Historique</h3>
+          <div className="space-y-3">
+            {summaries.slice(1).map((s: any, i: number) => {
+              const sum = s.summary;
+              const sentiment = getSentiment(sum?.sentiment_global);
+              const isSelected = selected === sum;
+              return (
+                <button key={i} onClick={() => setSelected(isSelected ? null : sum)}
+                  className={cn("w-full text-left p-4 rounded-2xl border transition-all hover:shadow-md",
+                    isSelected ? "border-sky-300 bg-sky-50" : "bg-white border-slate-100 hover:border-slate-200")}>
+                  <div className="flex items-center justify-between">
+                    <div className="min-w-0">
+                      <p className="font-bold text-slate-900 truncate">{sum?.title ?? "—"}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {new Date(s.email_date).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}
+                        {" · "}{sum?.source}
+                      </p>
+                    </div>
+                    <span className={cn("text-xs font-bold px-2.5 py-1 rounded-full border shrink-0 ml-3", sentiment.bg, sentiment.text, sentiment.border)}>
+                      {SENTIMENT_LABEL[sum?.sentiment_global] ?? sum?.sentiment_global}
+                    </span>
+                  </div>
+                  {sum?.conclusion && (
+                    <p className="text-xs text-slate-500 mt-2 line-clamp-2">{sum.conclusion}</p>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   
   const [activeTab, setActiveTab] = useState<Tab>("SYNTHESE");
@@ -5284,8 +5462,8 @@ const filteredInstruments = useMemo(() => {
         </div>
         <div className="flex items-center bg-slate-100 p-1 rounded-xl">
           {(() => {
-            const labels: Record<Tab, string> = { SYNTHESE: "Breakdown Deviation", INSTRUMENTS: "Synthèse Instruments", TARGET_GRID: "Target Grid", Sicav: "Sicav", Mixed: "Mixed", MANUALS: "Manuals", DPAM: "DPAM", SIMULATION: "Simulation", SAMDP: "SAMDP" };
-            return (["SYNTHESE", "INSTRUMENTS", "TARGET_GRID", "Sicav", "Mixed", "MANUALS", "DPAM", "SIMULATION", "SAMDP"] as Tab[]).map((tab) => {
+            const labels: Record<Tab, string> = { MARKET: "🌍 Market", SYNTHESE: "Breakdown Deviation", INSTRUMENTS: "Synthèse Instruments", TARGET_GRID: "Target Grid", Sicav: "Sicav", Mixed: "Mixed", MANUALS: "Manuals", DPAM: "DPAM", SIMULATION: "Simulation", SAMDP: "SAMDP"};
+            return (["MARKET","SYNTHESE", "INSTRUMENTS", "TARGET_GRID", "Sicav", "Mixed", "MANUALS", "DPAM", "SIMULATION", "SAMDP"] as Tab[]).map((tab) => {
               const showDate = ["SYNTHESE", "Sicav", "Mixed", "TARGET_GRID"].includes(tab);
               const latestDate = (() => {
                 if (!showDate) return null;
@@ -5862,6 +6040,14 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
 />
   </motion.div>
 )}
+
+            {activeTab === "MARKET" && (
+  <motion.div key="market" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+    className="max-w-5xl mx-auto">
+    <MarketTab />
+  </motion.div>
+)}
+            
    {/* ── SICAV / MIXED ── */}
             {(activeTab === "Sicav" || activeTab === "Mixed") && (
               <motion.div key={`detail-${selectedId ?? "none"}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-6xl mx-auto space-y-8">
