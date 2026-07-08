@@ -43,15 +43,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           )
         `);
 
-        // Résumé via Claude
-        const Anthropic = (await import("@anthropic-ai/sdk")).default;
-        const client = new Anthropic();
-        const message = await client.messages.create({
-          model: "claude-sonnet-4-6",
-          max_tokens: 1500,
-          messages: [{
-            role: "user",
-            content: `Tu es un analyste financier senior. Résume cet email d'analyse de marché en JSON structuré.
+ // Résumé via Gemini
+        const { GoogleGenAI } = await import("@google/genai");
+        const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY ?? "" });
+        const prompt = `Tu es un analyste financier senior. Résume cet email d'analyse de marché en JSON structuré.
 
 Email:
 Sujet: ${subject}
@@ -73,12 +68,16 @@ Réponds UNIQUEMENT avec un JSON valide (sans markdown) de cette structure exact
   ],
   "triggers_semaine": ["trigger 1", "trigger 2"],
   "conclusion": "phrase de conclusion en 2-3 phrases max"
-}`
-          }]
+}`;
+
+        const geminiRes = await ai.models.generateContent({
+          model: "gemini-2.0-flash",
+          contents: prompt,
         });
 
-        const rawText = message.content[0].type === "text" ? message.content[0].text : "";
-        const summary = JSON.parse(rawText);
+        const rawText = geminiRes.text ?? "";
+        const cleanJson = rawText.replace(/```json|```/g, "").trim();
+        const summary = JSON.parse(cleanJson);
 
         await pool.query(
           `INSERT INTO market_summaries (subject, sender, email_date, summary)
