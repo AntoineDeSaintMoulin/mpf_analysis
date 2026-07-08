@@ -305,6 +305,15 @@ await pool.query(`CREATE TABLE IF NOT EXISTS samdp_debt_instruments (
   bondsegment TEXT
 )`);
 
+await pool.query(`CREATE TABLE IF NOT EXISTS market_summaries (
+      id SERIAL PRIMARY KEY,
+      subject TEXT,
+      sender TEXT,
+      email_date TIMESTAMP,
+      summary JSONB,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`);
+
     // Migrations
     await pool.query(`ALTER TABLE manual_overrides ADD COLUMN IF NOT EXISTS is_hedged BOOLEAN DEFAULT FALSE;`);
 
