@@ -71,7 +71,7 @@ Réponds UNIQUEMENT avec un JSON valide (sans markdown) de cette structure exact
 }`;
 
         const geminiRes = await ai.models.generateContent({
-          model: "gemini-1.5-flash",
+model: "gemini-1.5-flash-latest",
           contents: prompt,
         });
 
