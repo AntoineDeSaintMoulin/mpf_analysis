@@ -507,9 +507,9 @@ function BreakdownDeviationTable({
   const cn = (...classes: (string | undefined | false | null)[]) => classes.filter(Boolean).join(" ");
 
   // Portefeuilles filtrés par type, triés par profil
-  const portfoliosByProfile = React.useMemo(() => {
+const portfoliosByProfile = React.useMemo(() => {
     const map: Partial<Record<ProfileKey, any>> = {};
-const filtered = allPortfolios.filter(p => p?.type === portfolioType);
+    const filtered = allPortfolios.filter(p => p?.type === portfolioType);
     const filterFn = PORTFOLIO_FILTERS[portfolioFilter];
     const list = filtered.filter(p => filterFn(p.name ?? ""));
     (list.length > 0 ? list : filtered).forEach(p => {
@@ -517,7 +517,7 @@ const filtered = allPortfolios.filter(p => p?.type === portfolioType);
       if (profile) map[profile] = p;
     });
     return map;
-  }, [allPortfolios, portfolioType]);
+  }, [allPortfolios, portfolioType, portfolioFilter]);
 
   // Profils visibles selon les toggles
   const visibleProfiles = React.useMemo(() => {
