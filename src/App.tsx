@@ -512,7 +512,7 @@ const portfoliosByProfile = React.useMemo(() => {
     const filtered = allPortfolios.filter(p => p?.type === portfolioType);
     const filterFn = PORTFOLIO_FILTERS[portfolioFilter];
     const list = filtered.filter(p => filterFn(p.name ?? ""));
-    (list.length > 0 ? list : filtered).forEach(p => {
+list.forEach(p => {
       const profile = portfolioToProfile(p.name ?? "");
       if (profile) map[profile] = p;
     });
