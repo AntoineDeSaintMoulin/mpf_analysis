@@ -4410,7 +4410,7 @@ const handleDpamUpload = async (file: File) => {
         const instruments = [];
         for (let col = 2; col <= 100; col++) {
           const name = r(4, col);
-          if (!name) continue;
+          if (!name) break;
           const cat5 = r(5, col);
           const isHedged = cat5 === "HEDGED PARTS" || (col >= 26 && !r(5, col));
           instruments.push({
@@ -4497,7 +4497,7 @@ if (isEquity) {
         const instruments = [];
         for (let col = 2; col <= 100; col++) {
           const name = r(4, col);
-          if (!name) continue;
+          if (!name) break;
           instruments.push({
             colIndex: col,
             name: String(name),
