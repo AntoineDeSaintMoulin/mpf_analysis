@@ -47,5 +47,6 @@ export interface ManualOverride {
   manual_category: string | null;
   manual_instrument: string | null;
   is_hedged: boolean;
+  management_style: 'active' | 'passive' | null;
   updated_at: string;
 }
