@@ -4051,6 +4051,7 @@ export default function App() {
   const [holdingsSortConfig, setHoldingsSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>({ key: "weight", direction: "desc" });
   const [holdingsSearch, setHoldingsSearch] = useState("");
   const [instrumentsSearch, setInstrumentsSearch] = useState("");
+  const [styleSearch, setStyleSearch] = useState("");
   const [manualOverrides, setManualOverrides] = useState<ManualOverride[]>([]);
 const [editingOverride, setEditingOverride] = useState<{
     original_asset_name: string; manual_asset_name: string; manual_isin: string;
@@ -4685,6 +4686,14 @@ const uniqueInstrumentsByIsin = useMemo(() => {
     const classified = uniqueInstrumentsByIsin.filter(i => isStyleClassified(i.isin));
     return { classified: classified.length, total: uniqueInstrumentsByIsin.length };
   }, [uniqueInstrumentsByIsin, manualOverrides]);
+
+  const filteredInstrumentsByIsin = useMemo(() => {
+    if (!styleSearch) return uniqueInstrumentsByIsin;
+    const q = styleSearch.toLowerCase();
+    return uniqueInstrumentsByIsin.filter(i =>
+      i.name.toLowerCase().includes(q) || i.isin.toLowerCase().includes(q)
+    );
+  }, [uniqueInstrumentsByIsin, styleSearch]);
 
   async function setManagementStyle(isin: string, name: string, style: "active" | "passive") {
     const existing = manualOverrides.find(o => o.manual_isin === isin);
@@ -5913,7 +5922,15 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
                   </div>
                 </div>
 
-                <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+<div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                  <div className="px-6 py-4 border-b border-slate-50 flex items-center gap-3">
+                    <Search className="h-4 w-4 text-slate-400 shrink-0" />
+                    <input type="text" value={styleSearch} onChange={e => setStyleSearch(e.target.value)}
+                      placeholder="Rechercher un fonds ou un ISIN…"
+                      className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400" />
+                    {styleSearch && <button onClick={() => setStyleSearch("")} className="p-0.5 hover:bg-slate-100 rounded"><X className="h-3.5 w-3.5 text-slate-400" /></button>}
+                    <span className="text-xs text-slate-400 shrink-0">{filteredInstrumentsByIsin.length} résultat{filteredInstrumentsByIsin.length !== 1 ? "s" : ""}</span>
+                  </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                       <thead>
@@ -5925,7 +5942,9 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50">
-                        {uniqueInstrumentsByIsin.map(inst => {
+                        {filteredInstrumentsByIsin.length === 0 ? (
+                          <tr><td colSpan={4} className="px-6 py-10 text-center text-slate-400 italic">Aucun résultat pour "{styleSearch}"</td></tr>
+                        ) : filteredInstrumentsByIsin.map(inst => {
                           const current = getManagementStyle(inst.isin);
                           const classified = isStyleClassified(inst.isin);
                           return (
