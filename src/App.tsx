@@ -4695,16 +4695,16 @@ const uniqueInstrumentsByIsin = useMemo(() => {
     );
   }, [uniqueInstrumentsByIsin, styleSearch]);
 
-  async function setManagementStyle(isin: string, name: string, style: "active" | "passive") {
+async function setManagementStyle(isin: string, name: string, style: "active" | "passive") {
     const existing = manualOverrides.find(o => o.manual_isin === isin);
     await saveManualOverride({
       original_asset_name: existing?.original_asset_name ?? name,
-      manual_asset_name: existing?.manual_asset_name ?? "",
+      manual_asset_name: existing?.manual_asset_name ?? null,
       manual_isin: isin,
-      manual_region: existing?.manual_region ?? "",
-      manual_currency: existing?.manual_currency ?? "",
-      manual_category: existing?.manual_category ?? "",
-      manual_instrument: existing?.manual_instrument ?? "",
+      manual_region: existing?.manual_region ?? null,
+      manual_currency: existing?.manual_currency ?? null,
+      manual_category: existing?.manual_category ?? null,
+      manual_instrument: existing?.manual_instrument ?? null,
       is_hedged: existing?.is_hedged ?? false,
       management_style: style,
     });
