@@ -111,7 +111,7 @@ const PORTFOLIO_ORDER = [
   "Mixed - MIX_MH", "Mixed - MIX_HIGH", "Mixed - MIX_VH",
 ];
 
-type Tab = "SYNTHESE" | "Sicav" | "Mixed" | "INSTRUMENTS" | "MANUALS" | "TARGET_GRID" | "DPAM" | "SIMULATION" | "SAMDP" | "MARKET";
+type Tab = "SYNTHESE" | "Sicav" | "Mixed" | "INSTRUMENTS" | "MANUALS" | "TARGET_GRID" | "DPAM" | "SIMULATION" | "SAMDP" | "RISK_ANALYSIS";
 
 const RISK_PROFILES = ["LOW", "MEDLOW", "MEDIUM", "MEDHIGH", "HIGH"] as const;
 type RiskProfile = typeof RISK_PROFILES[number];
@@ -3909,179 +3909,114 @@ const total = cashLines.reduce((s: number, row: any) => s + Number(row.wght_ptf_
   );
 }
 
-function MarketTab() {
-  const [summaries, setSummaries] = React.useState<any[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [selected, setSelected] = React.useState<any | null>(null);
+function RiskAnalysisTab({
+  allPortfolios,
+  computePassiveActiveGlobal,
+  computePassiveActiveByRegion,
+}: {
+  allPortfolios: Portfolio[];
+  computePassiveActiveGlobal: (holdings: Holding[]) => { passive: number; active: number; passivePct: number; activePct: number };
+  computePassiveActiveByRegion: (holdings: Holding[]) => { region: string; passive: number; active: number }[];
+}) {
+  const [selectedId, setSelectedId] = React.useState<number | null>(allPortfolios[0]?.id ?? null);
+  const current = allPortfolios.find(p => p.id === selectedId) ?? null;
 
-  React.useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/dpam-data?section=market_summary");
-        if (res.ok) {
-          const data = await res.json();
-          setSummaries(data.summaries ?? []);
-        }
-      } catch (e) {
-        console.error("Market summary load failed", e);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  const sortedPortfolios = React.useMemo(() =>
+    [...allPortfolios].filter(p => p?.name).sort((a, b) => (a.name ?? "").localeCompare(b.name ?? "")),
+    [allPortfolios]);
 
-  const SENTIMENT_COLORS: Record<string, { bg: string; text: string; border: string; dot: string }> = {
-    bullish: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200", dot: "bg-emerald-500" },
-    neutral: { bg: "bg-slate-50", text: "text-slate-600", border: "border-slate-200", dot: "bg-slate-400" },
-    bearish: { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200", dot: "bg-rose-500" },
-  };
+  const global = current ? computePassiveActiveGlobal(current.holdings ?? []) : null;
+  const byRegion = current ? computePassiveActiveByRegion(current.holdings ?? []) : [];
 
-  const SENTIMENT_LABEL: Record<string, string> = {
-    bullish: "📈 Bullish",
-    neutral: "➡️ Neutral",
-    bearish: "📉 Bearish",
-  };
-
-  const getSentiment = (s: string) => SENTIMENT_COLORS[s] ?? SENTIMENT_COLORS.neutral;
-
-  const displaySummary = selected ?? summaries[0]?.summary ?? null;
-  const displayDate = selected
-    ? summaries.find(s => s.summary === selected)?.email_date
-    : summaries[0]?.email_date;
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-32">
-        <Loader2 className="h-8 w-8 animate-spin text-sky-500" />
-      </div>
-    );
-  }
-
-  if (summaries.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-32 text-slate-400 gap-4">
-        <Globe className="h-12 w-12 opacity-20" />
-        <p className="text-lg">Aucune analyse de marché disponible.</p>
-        <p className="text-sm">Les analyses seront automatiquement importées depuis votre boîte mail.</p>
-      </div>
-    );
-  }
+  const COLORS = { active: "#0ea5e9", passive: "#f59e0b" };
 
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Market View</h2>
-          <p className="text-slate-500">Analyses de sentiment de marché — alimentées automatiquement par email.</p>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Risk Analysis</h2>
+          <p className="text-slate-500">Exposition gestion active vs passive, par portefeuille et par région.</p>
         </div>
-        {displayDate && (
-          <div className="bg-white px-4 py-2 rounded-xl border border-slate-100 shadow-sm text-xs text-slate-500">
-            Dernière analyse : <span className="font-bold text-slate-700">
-              {new Date(displayDate).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}
-            </span>
-          </div>
-        )}
+        <select
+          value={selectedId ?? ""}
+          onChange={e => setSelectedId(Number(e.target.value))}
+          className="px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500 outline-none text-slate-700 bg-white text-sm font-medium shadow-sm">
+          {sortedPortfolios.map(p => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
       </div>
 
-      {displaySummary && (
-        <>
-          {/* Sentiment global */}
-          <div className={cn("p-6 rounded-3xl border", getSentiment(displaySummary.sentiment_global).bg, getSentiment(displaySummary.sentiment_global).border)}>
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h3 className={cn("text-xl font-bold", getSentiment(displaySummary.sentiment_global).text)}>
-                  {displaySummary.title}
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">{displaySummary.source} · {displaySummary.date}</p>
-              </div>
-              <span className={cn("px-4 py-2 rounded-xl text-sm font-bold border", getSentiment(displaySummary.sentiment_global).bg, getSentiment(displaySummary.sentiment_global).text, getSentiment(displaySummary.sentiment_global).border)}>
-                {SENTIMENT_LABEL[displaySummary.sentiment_global] ?? displaySummary.sentiment_global}
-              </span>
-            </div>
-            <p className="text-sm text-slate-600 leading-relaxed">{displaySummary.conclusion}</p>
-          </div>
-
-          {/* Themes par région */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {(displaySummary.themes ?? []).map((theme: any, i: number) => {
-              const s = getSentiment(theme.sentiment);
-              return (
-                <div key={i} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <div className={cn("w-2 h-2 rounded-full", s.dot)} />
-                      <h4 className="font-bold text-slate-900">{theme.region}</h4>
-                    </div>
-                    <span className={cn("text-xs font-bold px-2.5 py-1 rounded-full border", s.bg, s.text, s.border)}>
-                      {SENTIMENT_LABEL[theme.sentiment] ?? theme.sentiment}
-                    </span>
-                  </div>
-                  <ul className="space-y-2">
-                    {(theme.key_points ?? []).map((point: string, j: number) => (
-                      <li key={j} className="flex items-start gap-2 text-sm text-slate-600">
-                        <span className="text-slate-300 shrink-0 mt-0.5">•</span>
-                        {point}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Triggers de la semaine */}
-          {(displaySummary.triggers_semaine ?? []).length > 0 && (
-            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-              <h4 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-500" />
-                Triggers de la semaine
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {displaySummary.triggers_semaine.map((trigger: string, i: number) => (
-                  <span key={i} className="bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-xl text-sm font-medium">
-                    {trigger}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Historique */}
-      {summaries.length > 1 && (
-        <div>
-          <h3 className="text-lg font-bold text-slate-900 mb-4">Historique</h3>
-          <div className="space-y-3">
-            {summaries.slice(1).map((s: any, i: number) => {
-              const sum = s.summary;
-              const sentiment = getSentiment(sum?.sentiment_global);
-              const isSelected = selected === sum;
-              return (
-                <button key={i} onClick={() => setSelected(isSelected ? null : sum)}
-                  className={cn("w-full text-left p-4 rounded-2xl border transition-all hover:shadow-md",
-                    isSelected ? "border-sky-300 bg-sky-50" : "bg-white border-slate-100 hover:border-slate-200")}>
-                  <div className="flex items-center justify-between">
-                    <div className="min-w-0">
-                      <p className="font-bold text-slate-900 truncate">{sum?.title ?? "—"}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        {new Date(s.email_date).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}
-                        {" · "}{sum?.source}
-                      </p>
-                    </div>
-                    <span className={cn("text-xs font-bold px-2.5 py-1 rounded-full border shrink-0 ml-3", sentiment.bg, sentiment.text, sentiment.border)}>
-                      {SENTIMENT_LABEL[sum?.sentiment_global] ?? sum?.sentiment_global}
-                    </span>
-                  </div>
-                  {sum?.conclusion && (
-                    <p className="text-xs text-slate-500 mt-2 line-clamp-2">{sum.conclusion}</p>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+      {!current ? (
+        <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">
+          Sélectionnez un portefeuille.
         </div>
+      ) : (
+        <>
+          {/* Résumé global */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-4">Exposition Globale</p>
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-bold w-16 shrink-0" style={{ color: COLORS.active }}>Actif</span>
+              <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${global?.activePct ?? 0}%`, backgroundColor: COLORS.active }} />
+              </div>
+              <span className="text-xs font-bold text-slate-700 w-14 text-right">{global?.activePct.toFixed(1)}%</span>
+            </div>
+            <div className="flex items-center gap-3 mt-3">
+              <span className="text-xs font-bold w-16 shrink-0" style={{ color: COLORS.passive }}>Passif</span>
+              <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${global?.passivePct ?? 0}%`, backgroundColor: COLORS.passive }} />
+              </div>
+              <span className="text-xs font-bold text-slate-700 w-14 text-right">{global?.passivePct.toFixed(1)}%</span>
+            </div>
+          </div>
+
+          {/* Par région */}
+          <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+            <h3 className="text-lg font-bold mb-6">Actif / Passif par Région</h3>
+            {byRegion.length === 0 ? (
+              <p className="text-slate-400 text-sm italic">Aucune donnée régionale.</p>
+            ) : (
+              <div className="h-[320px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={byRegion} margin={{ top: 20, right: 10, left: 0, bottom: 0 }}>
+                    <XAxis dataKey="region" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
+                    <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "16px", border: "none" }}
+                      formatter={(v: number, name: string) => [v.toFixed(1) + "%", name === "active" ? "Actif" : "Passif"]} />
+                    <Bar dataKey="active" stackId="a" fill={COLORS.active} radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="passive" stackId="a" fill={COLORS.passive} radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+
+          {/* Table détail par région */}
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+            <table className="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr className="bg-slate-50/50">
+                  <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Région</th>
+                  <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actif</th>
+                  <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Passif</th>
+                  <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {byRegion.map(r => (
+                  <tr key={r.region} className="hover:bg-slate-50/50">
+                    <td className="px-6 py-3 font-medium text-slate-900">{r.region}</td>
+                    <td className="px-6 py-3 text-right" style={{ color: COLORS.active }}>{r.active.toFixed(1)}%</td>
+                    <td className="px-6 py-3 text-right" style={{ color: COLORS.passive }}>{r.passive.toFixed(1)}%</td>
+                    <td className="px-6 py-3 text-right font-bold text-slate-700">{(r.active + r.passive).toFixed(1)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );
@@ -4117,9 +4052,10 @@ export default function App() {
   const [holdingsSearch, setHoldingsSearch] = useState("");
   const [instrumentsSearch, setInstrumentsSearch] = useState("");
   const [manualOverrides, setManualOverrides] = useState<ManualOverride[]>([]);
-  const [editingOverride, setEditingOverride] = useState<{
+const [editingOverride, setEditingOverride] = useState<{
     original_asset_name: string; manual_asset_name: string; manual_isin: string;
     manual_region: string; manual_currency: string; manual_category: string; manual_instrument: string;
+    is_hedged?: boolean; management_style?: "active" | "passive" | null;
   } | null>(null);
   const [breakdowns, setBreakdowns] = useState<BreakdownMap>({});
   const [editingBreakdown, setEditingBreakdown] = useState<{ isin: string; name: string; rows: BreakdownEntry[] } | null>(null);
@@ -4724,6 +4660,104 @@ const res = await fetch("/api/upload-data", { method: "POST", headers: { "Conten
     "Short Term": "short_term", "Cash": "short_term", "Liquidities": "short_term",
   };
 
+const uniqueInstrumentsByIsin = useMemo(() => {
+    const m = new Map<string, { isin: string; name: string; totalWeight: number }>();
+    allPortfolios.forEach(p => (p.holdings ?? []).forEach(h => {
+      if (!h?.isin) return;
+      if (!m.has(h.isin)) m.set(h.isin, { isin: h.isin, name: h.asset_name ?? h.isin, totalWeight: 0 });
+      m.get(h.isin)!.totalWeight += h.weight ?? 0;
+    }));
+    return Array.from(m.values()).sort((a, b) => b.totalWeight - a.totalWeight);
+  }, [allPortfolios]);
+
+  function getManagementStyle(isin: string | null | undefined): "active" | "passive" {
+    if (!isin) return "active";
+    const ov = manualOverrides.find(o => o.manual_isin === isin);
+    return ov?.management_style === "passive" ? "passive" : "active";
+  }
+
+  function isStyleClassified(isin: string): boolean {
+    const ov = manualOverrides.find(o => o.manual_isin === isin);
+    return ov?.management_style === "active" || ov?.management_style === "passive";
+  }
+
+  const classificationProgress = useMemo(() => {
+    const classified = uniqueInstrumentsByIsin.filter(i => isStyleClassified(i.isin));
+    return { classified: classified.length, total: uniqueInstrumentsByIsin.length };
+  }, [uniqueInstrumentsByIsin, manualOverrides]);
+
+  async function setManagementStyle(isin: string, name: string, style: "active" | "passive") {
+    const existing = manualOverrides.find(o => o.manual_isin === isin);
+    await saveManualOverride({
+      original_asset_name: existing?.original_asset_name ?? name,
+      manual_asset_name: existing?.manual_asset_name ?? "",
+      manual_isin: isin,
+      manual_region: existing?.manual_region ?? "",
+      manual_currency: existing?.manual_currency ?? "",
+      manual_category: existing?.manual_category ?? "",
+      manual_instrument: existing?.manual_instrument ?? "",
+      is_hedged: existing?.is_hedged ?? false,
+      management_style: style,
+    });
+    await refreshData();
+  }
+
+  function applyLookThroughWithStyle(holdings: Holding[]): { region: string; weight: number; style: "active" | "passive" }[] {
+    const result: { region: string; weight: number; style: "active" | "passive" }[] = [];
+    const SAMDP_ISINS = ["LU1795355053"];
+    for (const h of holdings) {
+      if (!h) continue;
+      const style = getManagementStyle(h.isin);
+      if (h.isin && SAMDP_ISINS.includes(h.isin) && samdpGeoBreakdown) {
+        samdpGeoBreakdown.forEach(entry => {
+          result.push({ region: normalizeRegion(entry.region), weight: (h.weight ?? 0) * entry.weight / 100, style });
+        });
+        continue;
+      }
+      const bd = h.isin ? breakdownsWithP30[h.isin] : null;
+      if (bd && bd.length > 0) {
+        bd.forEach(entry => result.push({ region: normalizeRegion(entry.region), weight: (h.weight ?? 0) * entry.weight / 100, style }));
+      } else {
+        const dpamGeo = h.isin && (h.asset_name ?? "").startsWith("DPAM") ? dpamLookup[h.isin]?.geoBreakdown : null;
+        if (dpamGeo && dpamGeo.length > 0) {
+          dpamGeo.forEach((entry: any) => result.push({ region: normalizeRegion(entry.region), weight: (h.weight ?? 0) * entry.weight / 100, style }));
+        } else {
+          result.push({ region: normalizeRegion(h.region ?? "Other"), weight: h.weight ?? 0, style });
+        }
+      }
+    }
+    return result;
+  }
+
+  function computePassiveActiveGlobal(holdings: Holding[]) {
+    let passive = 0, active = 0;
+    holdings.forEach(h => {
+      if (!h) return;
+      if (getManagementStyle(h.isin) === "passive") passive += h.weight ?? 0;
+      else active += h.weight ?? 0;
+    });
+    const total = passive + active;
+    return {
+      passive: +passive.toFixed(1), active: +active.toFixed(1),
+      passivePct: total > 0 ? +(passive / total * 100).toFixed(1) : 0,
+      activePct: total > 0 ? +(active / total * 100).toFixed(1) : 0,
+    };
+  }
+
+  function computePassiveActiveByRegion(holdings: Holding[]) {
+    const rows = applyLookThroughWithStyle(holdings);
+    const m = new Map<string, { passive: number; active: number }>();
+    rows.forEach(({ region, weight, style }) => {
+      if (region === "Cash") return;
+      if (!m.has(region)) m.set(region, { passive: 0, active: 0 });
+      const e = m.get(region)!;
+      if (style === "passive") e.passive += weight; else e.active += weight;
+    });
+    return Array.from(m.entries()).map(([region, { passive, active }]) => ({
+      region, passive: +passive.toFixed(1), active: +active.toFixed(1),
+    })).sort((a, b) => (b.passive + b.active) - (a.passive + a.active));
+  }
+  
 function applyLookThrough(holdings: Holding[]): { region: string; weight: number }[] {
   const result: { region: string; weight: number }[] = [];
   const SAMDP_ISINS = ["LU1795355053"];
@@ -5462,8 +5496,8 @@ const filteredInstruments = useMemo(() => {
         </div>
         <div className="flex items-center bg-slate-100 p-1 rounded-xl">
           {(() => {
-            const labels: Record<Tab, string> = { MARKET: "🌍 Market", SYNTHESE: "Breakdown Deviation", INSTRUMENTS: "Synthèse Instruments", TARGET_GRID: "Target Grid", Sicav: "Sicav", Mixed: "Mixed", MANUALS: "Manuals", DPAM: "DPAM", SIMULATION: "Simulation", SAMDP: "SAMDP"};
-            return (["MARKET","SYNTHESE", "INSTRUMENTS", "TARGET_GRID", "Sicav", "Mixed", "MANUALS", "DPAM", "SIMULATION", "SAMDP"] as Tab[]).map((tab) => {
+const labels: Record<Tab, string> = { RISK_ANALYSIS: "⚠️ Risk Analysis", SYNTHESE: "Breakdown Deviation", INSTRUMENTS: "Synthèse Instruments", TARGET_GRID: "Target Grid", Sicav: "Sicav", Mixed: "Mixed", MANUALS: "Manuals", DPAM: "DPAM", SIMULATION: "Simulation", SAMDP: "SAMDP"};            
+return (["RISK_ANALYSIS","SYNTHESE", "INSTRUMENTS", "TARGET_GRID", "Sicav", "Mixed", "MANUALS", "DPAM", "SIMULATION", "SAMDP"] as Tab[]).map((tab) => {
               const showDate = ["SYNTHESE", "Sicav", "Mixed", "TARGET_GRID"].includes(tab);
               const latestDate = (() => {
                 if (!showDate) return null;
@@ -5861,6 +5895,67 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
                     </div>
                   )}
                 </div>
+
+                {/* ── Gestion Active / Passive ── */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-900">Gestion Active / Passive</h3>
+                    <p className="text-slate-500 text-sm mt-1">Classifiez chaque instrument par ISIN. Non classifié = actif par défaut.</p>
+                  </div>
+                  <div className="bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
+                    <div className="bg-sky-50 p-2 rounded-lg"><Tag className="h-5 w-5 text-sky-600" /></div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Progression</p>
+                      <p className="text-xl font-bold text-slate-900 leading-none">
+                        {classificationProgress.classified} / {classificationProgress.total}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50/50">
+                          <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Instrument</th>
+                          <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">ISIN</th>
+                          <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Poids total</th>
+                          <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Style</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {uniqueInstrumentsByIsin.map(inst => {
+                          const current = getManagementStyle(inst.isin);
+                          const classified = isStyleClassified(inst.isin);
+                          return (
+                            <tr key={inst.isin} className="hover:bg-slate-50/50 transition-colors">
+                              <td className="px-6 py-3 font-medium text-slate-900 truncate max-w-[280px]">{inst.name}</td>
+                              <td className="px-6 py-3 text-xs font-mono text-sky-600">{inst.isin}</td>
+                              <td className="px-6 py-3 text-right text-slate-600">{inst.totalWeight.toFixed(2)}%</td>
+                              <td className="px-6 py-3 text-right">
+                                <div className="inline-flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                                  <button onClick={() => setManagementStyle(inst.isin, inst.name, "active")}
+                                    className={cn("px-3 py-1 rounded-lg text-xs font-bold transition-all",
+                                      classified && current === "active" ? "bg-sky-600 text-white" : "text-slate-500 hover:bg-slate-200")}>
+                                    Actif
+                                  </button>
+                                  <button onClick={() => setManagementStyle(inst.isin, inst.name, "passive")}
+                                    className={cn("px-3 py-1 rounded-lg text-xs font-bold transition-all",
+                                      classified && current === "passive" ? "bg-amber-500 text-white" : "text-slate-500 hover:bg-slate-200")}>
+                                    Passif
+                                  </button>
+                                  {!classified && <span className="text-[10px] text-slate-300 italic px-2">non classifié</span>}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                
               </motion.div>
             )}
 
@@ -6041,10 +6136,14 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
   </motion.div>
 )}
 
-            {activeTab === "MARKET" && (
-  <motion.div key="market" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-    className="max-w-5xl mx-auto">
-    <MarketTab />
+{activeTab === "RISK_ANALYSIS" && (
+  <motion.div key="risk_analysis" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+    className="max-w-6xl mx-auto">
+    <RiskAnalysisTab
+      allPortfolios={allPortfolios}
+      computePassiveActiveGlobal={computePassiveActiveGlobal}
+      computePassiveActiveByRegion={computePassiveActiveByRegion}
+    />
   </motion.div>
 )}
             
