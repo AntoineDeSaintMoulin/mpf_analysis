@@ -14,6 +14,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       importLogRes,
       targetGridRes,
       durationRes,
+      managementStyleRes,
     ] = await Promise.all([
       pool.query(`
         SELECT p.id, p.name, p.type, p.description,
@@ -43,6 +44,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       pool.query(`SELECT filename, imported_at FROM import_log ORDER BY imported_at DESC LIMIT 20`),
       pool.query(`SELECT grid_id, profile, bench, target, active FROM target_grid`),
       pool.query(`SELECT isin, duration, updated_at FROM instrument_duration ORDER BY isin`),
+      pool.query(`SELECT isin, management_style, updated_at FROM instrument_management_style ORDER BY isin`),
     ]);
 
     // Group geo breakdowns by isin
@@ -77,6 +79,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       durations[row.isin] = { duration: row.duration, updated_at: row.updated_at };
     }
 
+    // Management style map
+    const managementStyles: Record<string, { management_style: string; updated_at: string }> = {};
+    for (const row of managementStyleRes.rows) {
+      managementStyles[row.isin] = { management_style: row.management_style, updated_at: row.updated_at };
+    }
+
     // Import log
     const importLog = { quick_valuation: null as any, samdp: [] as any[], target_grid: null as any, other: null as any };
     for (const row of importLogRes.rows) {
@@ -100,13 +108,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     res.setHeader("Cache-Control", "no-store");
-    return res.json({
+return res.json({
       portfolios: portfoliosRes.rows,
       overrides: overridesRes.rows,
       breakdowns,
       currencyBreakdowns,
       creditBreakdowns,
       durations,
+      managementStyles,
       importLog,
       targetGrid,
     });
