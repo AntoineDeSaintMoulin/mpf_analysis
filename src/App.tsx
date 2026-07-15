@@ -4722,6 +4722,14 @@ function getManagementStyle(isin: string | null | undefined): "active" | "passiv
     return { classified: classified.length, total: uniqueInstrumentsByIsin.length };
   }, [uniqueInstrumentsByIsin, managementStyles]);
 
+  const filteredInstrumentsByIsin = useMemo(() => {
+    if (!styleSearch) return uniqueInstrumentsByIsin;
+    const q = styleSearch.toLowerCase();
+    return uniqueInstrumentsByIsin.filter(i =>
+      i.name.toLowerCase().includes(q) || i.isin.toLowerCase().includes(q)
+    );
+  }, [uniqueInstrumentsByIsin, styleSearch]);
+
   async function setManagementStyle(isin: string, name: string, style: "active" | "passive") {
     await saveManagementStyle(isin, style);
     setManagementStyles(prev => ({ ...prev, [isin]: { management_style: style, updated_at: new Date().toISOString() } }));
