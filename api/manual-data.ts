@@ -4,8 +4,8 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const resource = req.query.resource as string;
 
-  if (!["breakdown", "currency", "ratings", "credit", "duration"].includes(resource)) {
-    return res.status(400).json({ error: "resource doit être breakdown, currency, ratings, credit ou duration" });
+if (!["breakdown", "currency", "ratings", "credit", "duration", "management_style"].includes(resource)) {
+    return res.status(400).json({ error: "resource doit être breakdown, currency, ratings, credit, duration ou management_style" });
   }
 
   // ── GET ────────────────────────────────────────────────────────────────────
@@ -77,9 +77,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           FROM instrument_duration
           ORDER BY isin
         `);
-        const map: Record<string, { duration: number; updated_at: string }> = {};
+        if (resource === "management_style") {
+        const result = await pool.query(`
+          SELECT isin, management_style, updated_at
+          FROM instrument_management_style
+          ORDER BY isin
+        `);
+        const map: Record<string, { management_style: string; updated_at: string }> = {};
         for (const row of result.rows) {
-          map[row.isin] = { duration: row.duration, updated_at: row.updated_at };
+          map[row.isin] = { management_style: row.management_style, updated_at: row.updated_at };
         }
         return res.json(map);
       }
@@ -147,14 +153,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.json({ success: true });
       }
 
-      if (resource === "duration") {
-        const { duration } = req.body as { duration: number };
-        if (duration == null) return res.status(400).json({ error: "duration requis" });
+    if (resource === "management_style") {
+        const { management_style } = req.body as { management_style: string };
+        if (!["active", "passive"].includes(management_style)) {
+          return res.status(400).json({ error: "management_style doit être active ou passive" });
+        }
         await pool.query(`
-          INSERT INTO instrument_duration (isin, duration)
+          INSERT INTO instrument_management_style (isin, management_style)
           VALUES ($1, $2)
-          ON CONFLICT (isin) DO UPDATE SET duration = $2, updated_at = NOW()
-        `, [isin, duration]);
+          ON CONFLICT (isin) DO UPDATE SET management_style = $2, updated_at = NOW()
+        `, [isin, management_style]);
         return res.json({ success: true });
       }
     } catch (e) {
@@ -163,8 +171,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  // ── DELETE ─────────────────────────────────────────────────────────────────
-  if (req.method === "DELETE") {
+  // ── DELETE ─────────────────────────────────────────────────────────────────  if (req.method === "DELETE") {
     try {
       const { isin } = req.body as { isin: string };
       if (!isin) return res.status(400).json({ error: "isin requis" });
@@ -189,14 +196,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.json({ success: true });
       }
 
-      if (resource === "duration") {
+if (resource === "duration") {
         await pool.query("DELETE FROM instrument_duration WHERE isin = $1", [isin]);
+        return res.json({ success: true });
+      }
+
+      if (resource === "management_style") {
+        await pool.query("DELETE FROM instrument_management_style WHERE isin = $1", [isin]);
         return res.json({ success: true });
       }
     } catch (e) {
       console.error(e);
       return res.status(500).json({ error: String(e) });
     }
+  }
+
+  return res.status(405).json({ error: "Method not allowed" });
+}
   }
 
   return res.status(405).json({ error: "Method not allowed" });
