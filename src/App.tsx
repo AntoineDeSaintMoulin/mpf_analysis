@@ -5780,7 +5780,7 @@ return (["RISK_ANALYSIS","SYNTHESE", "INSTRUMENTS", "TARGET_GRID", "Sicav", "Mix
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-slate-50/50">
-                          {["Nom Original", "Nouveau Nom", "ISIN", "Région", "Devise", "Catégorie", "Type", "Date", "Actions"].map((h) => (
+                          {["Nom Original", "ISIN", "Région", "Devise", "Catégorie", "Type", "Date", "Actions"].map((h) => (
                             <th key={h} className={cn("px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider", h === "Actions" && "text-right")}>{h}</th>
                           ))}
                         </tr>
@@ -5791,7 +5791,6 @@ return (["RISK_ANALYSIS","SYNTHESE", "INSTRUMENTS", "TARGET_GRID", "Sicav", "Mix
                           : manualOverrides.map((ov) => (
                             <tr key={ov.id} className="hover:bg-slate-50/50 transition-colors">
                               <td className="px-6 py-4 text-slate-500 font-medium">{ov.original_asset_name ?? "—"}</td>
-                              <td className="px-6 py-4 font-bold text-slate-900">{ov.manual_asset_name || "—"}</td>
                               <td className="px-6 py-4 text-xs font-mono text-sky-600 font-bold">{ov.manual_isin || "—"}</td>
                               <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_region || "—"}</td>
                               <td className="px-6 py-4 text-xs text-slate-600">{ov.manual_currency || "—"}</td>
