@@ -4864,11 +4864,12 @@ function getManagementStyle(isin: string | null | undefined): "active" | "passiv
     setManagementStyles(prev => ({ ...prev, [isin]: { management_style: style, updated_at: new Date().toISOString() } }));
   }
 
-  function applyLookThroughWithStyle(holdings: Holding[]): { region: string; weight: number; style: "active" | "passive" }[] {
+function applyLookThroughWithStyle(holdings: Holding[]): { region: string; weight: number; style: "active" | "passive" }[] {
     const result: { region: string; weight: number; style: "active" | "passive" }[] = [];
     const SAMDP_ISINS = ["LU1795355053"];
     for (const h of holdings) {
       if (!h) continue;
+      if (h.category !== "Equities") continue;
       const style = getManagementStyle(h.isin);
       if (h.isin && SAMDP_ISINS.includes(h.isin) && samdpGeoBreakdown) {
         samdpGeoBreakdown.forEach(entry => {
