@@ -3916,12 +3916,25 @@ function RiskAnalysisTab({
   allPortfolios,
   computePassiveActiveGlobal,
   computePassiveActiveByRegion,
+  getManagementStyle,
+  applyLookThroughWithStyle,
 }: {
   allPortfolios: Portfolio[];
   computePassiveActiveGlobal: (holdings: Holding[]) => { passive: number; active: number; passivePct: number; activePct: number };
   computePassiveActiveByRegion: (holdings: Holding[]) => { region: string; passive: number; active: number }[];
+  getManagementStyle: (isin: string | null | undefined) => "active" | "passive";
+  applyLookThroughWithStyle: (holdings: Holding[]) => { region: string; weight: number; style: "active" | "passive" }[];
 }) {
-  const [selectedId, setSelectedId] = React.useState<number | null>(allPortfolios[0]?.id ?? null);
+  const [selectedId, setSelectedId] = React.useState<number | null>(null);
+  const [drillDown, setDrillDown] = React.useState<{ style: "active" | "passive"; region?: string } | null>(null);
+
+  React.useEffect(() => {
+    if (selectedId != null || allPortfolios.length === 0) return;
+    const sicavs = allPortfolios.filter(p => p?.type === "Sicav");
+    const defaultP = sicavs.find(p => p.name?.includes("_MED")) ?? sicavs[0] ?? allPortfolios[0];
+    if (defaultP?.id != null) setSelectedId(defaultP.id);
+  }, [allPortfolios]);
+
   const current = allPortfolios.find(p => p.id === selectedId) ?? null;
 
   const sortedPortfolios = React.useMemo(() =>
@@ -3933,6 +3946,46 @@ function RiskAnalysisTab({
 
   const COLORS = { active: "#0ea5e9", passive: "#f59e0b" };
 
+  // Détail des holdings pour le drill-down (global, sans distinction de région)
+  const drillDownHoldingsGlobal = React.useMemo(() => {
+    if (!current || !drillDown || drillDown.region) return [];
+    return (current.holdings ?? [])
+      .filter(h => h && getManagementStyle(h.isin) === drillDown.style)
+      .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0));
+  }, [current, drillDown]);
+
+  // Détail des holdings pour le drill-down par région (avec look-through)
+  const drillDownHoldingsByRegion = React.useMemo(() => {
+    if (!current || !drillDown || !drillDown.region) return [];
+    const SAMDP_ISINS = ["LU1795355053"];
+    const rows: { name: string; isin: string; exposition: number }[] = [];
+    (current.holdings ?? []).forEach(h => {
+      if (!h) return;
+      const style = getManagementStyle(h.isin);
+      if (style !== drillDown.style) return;
+      const holdingBreakdown = applyLookThroughWithStyle([h]).filter(e => e.region === drillDown.region);
+      const exposition = holdingBreakdown.reduce((s, e) => s + e.weight, 0);
+      if (exposition > 0.001) {
+        rows.push({ name: h.asset_name ?? "—", isin: h.isin ?? "—", exposition });
+      }
+    });
+    return rows.sort((a, b) => b.exposition - a.exposition);
+  }, [current, drillDown]);
+
+  if (!current) {
+    return (
+      <div className="space-y-8">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Risk Analysis</h2>
+          <p className="text-slate-500">Exposition gestion active vs passive, par portefeuille et par région.</p>
+        </div>
+        <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">
+          Chargement…
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -3942,7 +3995,7 @@ function RiskAnalysisTab({
         </div>
         <select
           value={selectedId ?? ""}
-          onChange={e => setSelectedId(Number(e.target.value))}
+          onChange={e => { setSelectedId(Number(e.target.value)); setDrillDown(null); }}
           className="px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500 outline-none text-slate-700 bg-white text-sm font-medium shadow-sm">
           {sortedPortfolios.map(p => (
             <option key={p.id} value={p.id}>{p.name}</option>
@@ -3950,77 +4003,153 @@ function RiskAnalysisTab({
         </select>
       </div>
 
-      {!current ? (
-        <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">
-          Sélectionnez un portefeuille.
+      {/* Résumé global */}
+      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-4">Exposition Globale</p>
+        <div onClick={() => setDrillDown({ style: "active" })} className="flex items-center gap-3 cursor-pointer group">
+          <span className="text-xs font-bold w-16 shrink-0 group-hover:opacity-70 transition-opacity" style={{ color: COLORS.active }}>Actif</span>
+          <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all group-hover:opacity-75" style={{ width: `${global?.activePct ?? 0}%`, backgroundColor: COLORS.active }} />
+          </div>
+          <span className="text-xs font-bold text-slate-700 w-14 text-right">{global?.activePct.toFixed(1)}%</span>
+          <ArrowRight className="h-3 w-3 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
         </div>
-      ) : (
-        <>
-          {/* Résumé global */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-4">Exposition Globale</p>
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-bold w-16 shrink-0" style={{ color: COLORS.active }}>Actif</span>
-              <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
-                <div className="h-full rounded-full" style={{ width: `${global?.activePct ?? 0}%`, backgroundColor: COLORS.active }} />
-              </div>
-              <span className="text-xs font-bold text-slate-700 w-14 text-right">{global?.activePct.toFixed(1)}%</span>
-            </div>
-            <div className="flex items-center gap-3 mt-3">
-              <span className="text-xs font-bold w-16 shrink-0" style={{ color: COLORS.passive }}>Passif</span>
-              <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
-                <div className="h-full rounded-full" style={{ width: `${global?.passivePct ?? 0}%`, backgroundColor: COLORS.passive }} />
-              </div>
-              <span className="text-xs font-bold text-slate-700 w-14 text-right">{global?.passivePct.toFixed(1)}%</span>
-            </div>
+        <div onClick={() => setDrillDown({ style: "passive" })} className="flex items-center gap-3 mt-3 cursor-pointer group">
+          <span className="text-xs font-bold w-16 shrink-0 group-hover:opacity-70 transition-opacity" style={{ color: COLORS.passive }}>Passif</span>
+          <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all group-hover:opacity-75" style={{ width: `${global?.passivePct ?? 0}%`, backgroundColor: COLORS.passive }} />
           </div>
+          <span className="text-xs font-bold text-slate-700 w-14 text-right">{global?.passivePct.toFixed(1)}%</span>
+          <ArrowRight className="h-3 w-3 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
+        </div>
+        <p className="text-[10px] text-slate-400 italic pt-3">Cliquez pour voir le détail</p>
+      </div>
 
-          {/* Par région */}
-          <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
-            <h3 className="text-lg font-bold mb-6">Actif / Passif par Région</h3>
-            {byRegion.length === 0 ? (
-              <p className="text-slate-400 text-sm italic">Aucune donnée régionale.</p>
+      {/* Par région */}
+      <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+        <h3 className="text-lg font-bold mb-6">Actif / Passif par Région</h3>
+        {byRegion.length === 0 ? (
+          <p className="text-slate-400 text-sm italic">Aucune donnée régionale.</p>
+        ) : (
+          <div className="h-[320px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={byRegion} margin={{ top: 20, right: 10, left: 0, bottom: 0 }}>
+                <XAxis dataKey="region" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
+                <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "16px", border: "none" }}
+                  formatter={(v: number, name: string) => [v.toFixed(1) + "%", name === "active" ? "Actif" : "Passif"]} />
+                <Bar dataKey="active" stackId="a" fill={COLORS.active} radius={[0, 0, 0, 0]} className="cursor-pointer"
+                  onClick={(d: any) => d?.region && setDrillDown({ style: "active", region: d.region })} />
+                <Bar dataKey="passive" stackId="a" fill={COLORS.passive} radius={[6, 6, 0, 0]} className="cursor-pointer"
+                  onClick={(d: any) => d?.region && setDrillDown({ style: "passive", region: d.region })} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+        <p className="text-center text-xs text-slate-400 mt-2 italic">Cliquez sur une barre pour voir le détail</p>
+      </div>
+
+      {/* Table détail par région */}
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+        <table className="w-full text-left border-collapse text-sm">
+          <thead>
+            <tr className="bg-slate-50/50">
+              <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Région</th>
+              <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actif</th>
+              <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Passif</th>
+              <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {byRegion.map(r => (
+              <tr key={r.region} className="hover:bg-slate-50/50">
+                <td className="px-6 py-3 font-medium text-slate-900">{r.region}</td>
+                <td className="px-6 py-3 text-right cursor-pointer hover:underline" style={{ color: COLORS.active }}
+                  onClick={() => setDrillDown({ style: "active", region: r.region })}>{r.active.toFixed(1)}%</td>
+                <td className="px-6 py-3 text-right cursor-pointer hover:underline" style={{ color: COLORS.passive }}
+                  onClick={() => setDrillDown({ style: "passive", region: r.region })}>{r.passive.toFixed(1)}%</td>
+                <td className="px-6 py-3 text-right font-bold text-slate-700">{(r.active + r.passive).toFixed(1)}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* ── Modale drill-down ── */}
+      <Modal isOpen={!!drillDown} onClose={() => setDrillDown(null)}
+        title={`${drillDown?.style === "passive" ? "Passif" : "Actif"}${drillDown?.region ? ` — ${drillDown.region}` : " — Global"}`}>
+        <div className="space-y-4">
+          {drillDown?.region ? (
+            drillDownHoldingsByRegion.length === 0 ? (
+              <p className="text-slate-400 text-sm italic text-center py-8">Aucun instrument.</p>
             ) : (
-              <div className="h-[320px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={byRegion} margin={{ top: 20, right: 10, left: 0, bottom: 0 }}>
-                    <XAxis dataKey="region" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
-                    <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "16px", border: "none" }}
-                      formatter={(v: number, name: string) => [v.toFixed(1) + "%", name === "active" ? "Actif" : "Passif"]} />
-                    <Bar dataKey="active" stackId="a" fill={COLORS.active} radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="passive" stackId="a" fill={COLORS.passive} radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </div>
-
-          {/* Table détail par région */}
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-            <table className="w-full text-left border-collapse text-sm">
-              <thead>
-                <tr className="bg-slate-50/50">
-                  <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Région</th>
-                  <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actif</th>
-                  <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Passif</th>
-                  <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {byRegion.map(r => (
-                  <tr key={r.region} className="hover:bg-slate-50/50">
-                    <td className="px-6 py-3 font-medium text-slate-900">{r.region}</td>
-                    <td className="px-6 py-3 text-right" style={{ color: COLORS.active }}>{r.active.toFixed(1)}%</td>
-                    <td className="px-6 py-3 text-right" style={{ color: COLORS.passive }}>{r.passive.toFixed(1)}%</td>
-                    <td className="px-6 py-3 text-right font-bold text-slate-700">{(r.active + r.passive).toFixed(1)}%</td>
+              <table className="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100">
+                    <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase">Instrument</th>
+                    <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">Exposition</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {drillDownHoldingsByRegion.map((r, i) => (
+                    <tr key={i} className="hover:bg-slate-50/50">
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-slate-900 truncate max-w-[280px]">{r.name}</p>
+                        <p className="text-xs font-mono text-slate-400">{r.isin}</p>
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold" style={{ color: drillDown.style === "passive" ? COLORS.passive : COLORS.active }}>
+                        {r.exposition.toFixed(2)}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-slate-50 border-t border-slate-200">
+                    <td className="px-4 py-3 font-bold text-slate-700 text-right">Total</td>
+                    <td className="px-4 py-3 text-right font-bold text-slate-900">
+                      {drillDownHoldingsByRegion.reduce((s, r) => s + r.exposition, 0).toFixed(2)}%
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            )
+          ) : (
+            drillDownHoldingsGlobal.length === 0 ? (
+              <p className="text-slate-400 text-sm italic text-center py-8">Aucun instrument.</p>
+            ) : (
+              <table className="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100">
+                    <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase">Instrument</th>
+                    <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">Poids</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {drillDownHoldingsGlobal.map((h, i) => (
+                    <tr key={i} className="hover:bg-slate-50/50">
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-slate-900 truncate max-w-[280px]">{h.asset_name ?? "—"}</p>
+                        <p className="text-xs font-mono text-slate-400">{h.isin ?? "—"}</p>
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold" style={{ color: drillDown?.style === "passive" ? COLORS.passive : COLORS.active }}>
+                        {(h.weight ?? 0).toFixed(2)}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-slate-50 border-t border-slate-200">
+                    <td className="px-4 py-3 font-bold text-slate-700 text-right">Total</td>
+                    <td className="px-4 py-3 text-right font-bold text-slate-900">
+                      {drillDownHoldingsGlobal.reduce((s, h) => s + (h.weight ?? 0), 0).toFixed(2)}%
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            )
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -6189,10 +6318,12 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
 {activeTab === "RISK_ANALYSIS" && (
   <motion.div key="risk_analysis" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
     className="max-w-6xl mx-auto">
-    <RiskAnalysisTab
+<RiskAnalysisTab
       allPortfolios={allPortfolios}
       computePassiveActiveGlobal={computePassiveActiveGlobal}
       computePassiveActiveByRegion={computePassiveActiveByRegion}
+      getManagementStyle={getManagementStyle}
+      applyLookThroughWithStyle={applyLookThroughWithStyle}
     />
   </motion.div>
 )}
