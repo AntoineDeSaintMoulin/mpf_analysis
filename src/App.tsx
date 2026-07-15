@@ -4049,7 +4049,7 @@ React.useEffect(() => {
         <p className="text-center text-xs text-slate-400 mt-2 italic">Cliquez sur une barre pour voir le détail</p>
       </div>
 
-      {/* Table détail par région */}
+{/* Table détail par région */}
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
         <table className="w-full text-left border-collapse text-sm">
           <thead>
@@ -4072,6 +4072,20 @@ React.useEffect(() => {
               </tr>
             ))}
           </tbody>
+          <tfoot>
+            <tr className="bg-slate-50 border-t border-slate-200">
+              <td className="px-6 py-3 font-bold text-slate-700">Total Equity</td>
+              <td className="px-6 py-3 text-right font-bold" style={{ color: COLORS.active }}>
+                {byRegion.reduce((s, r) => s + r.active, 0).toFixed(1)}%
+              </td>
+              <td className="px-6 py-3 text-right font-bold" style={{ color: COLORS.passive }}>
+                {byRegion.reduce((s, r) => s + r.passive, 0).toFixed(1)}%
+              </td>
+              <td className="px-6 py-3 text-right font-bold text-slate-900">
+                {byRegion.reduce((s, r) => s + r.active + r.passive, 0).toFixed(1)}%
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
 
