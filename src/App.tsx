@@ -4052,6 +4052,37 @@ export default function App() {
   const [holdingsSearch, setHoldingsSearch] = useState("");
   const [instrumentsSearch, setInstrumentsSearch] = useState("");
   const [styleSearch, setStyleSearch] = useState("");
+  const [repairing, setRepairing] = useState(false);
+  const [repairDone, setRepairDone] = useState(false);
+
+  async function repairEmptyOverrides() {
+    setRepairing(true);
+    try {
+      const broken = manualOverrides.filter(ov =>
+        ov.manual_asset_name === "" || ov.manual_region === "" ||
+        ov.manual_currency === "" || ov.manual_category === "" ||
+        ov.manual_instrument === ""
+      );
+      for (const ov of broken) {
+        await saveManualOverride({
+          original_asset_name: ov.original_asset_name,
+          manual_asset_name: ov.manual_asset_name || null,
+          manual_isin: ov.manual_isin || null,
+          manual_region: ov.manual_region || null,
+          manual_currency: ov.manual_currency || null,
+          manual_category: ov.manual_category || null,
+          manual_instrument: ov.manual_instrument || null,
+          is_hedged: ov.is_hedged ?? false,
+          management_style: ov.management_style ?? null,
+        });
+      }
+      await refreshData();
+      setRepairDone(true);
+      setTimeout(() => setRepairDone(false), 3000);
+    } finally {
+      setRepairing(false);
+    }
+  }
   const [manualOverrides, setManualOverrides] = useState<ManualOverride[]>([]);
 const [editingOverride, setEditingOverride] = useState<{
     original_asset_name: string; manual_asset_name: string; manual_isin: string;
@@ -5727,11 +5758,19 @@ return (["RISK_ANALYSIS","SYNTHESE", "INSTRUMENTS", "TARGET_GRID", "Sicav", "Mix
                     <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Changements Manuels</h2>
                     <p className="text-slate-500">Ces données sont prioritaires sur les imports CSV.</p>
                   </div>
-                  <div className="bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
-                    <div className="bg-amber-50 p-2 rounded-lg"><Edit2 className="h-5 w-5 text-amber-600" /></div>
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Modifications</p>
-                      <p className="text-xl font-bold text-slate-900 leading-none">{manualOverrides.length}</p>
+                  <div className="flex items-center gap-3">
+                    {manualOverrides.some(ov => ov.manual_asset_name === "" || ov.manual_region === "" || ov.manual_currency === "" || ov.manual_category === "" || ov.manual_instrument === "") && (
+                      <button onClick={repairEmptyOverrides} disabled={repairing}
+                        className="flex items-center gap-2 bg-rose-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-rose-700 transition-all disabled:opacity-50">
+                        {repairing ? <Loader2 className="h-4 w-4 animate-spin" /> : repairDone ? "✓ Réparé" : "Réparer les noms manquants"}
+                      </button>
+                    )}
+                    <div className="bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
+                      <div className="bg-amber-50 p-2 rounded-lg"><Edit2 className="h-5 w-5 text-amber-600" /></div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Modifications</p>
+                        <p className="text-xl font-bold text-slate-900 leading-none">{manualOverrides.length}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
