@@ -4921,7 +4921,7 @@ function applyLookThroughWithStyle(holdings: Holding[]): { region: string; weigh
     };
   }
 
-  function computePassiveActiveByRegion(holdings: Holding[]) {
+function computePassiveActiveByRegion(holdings: Holding[]) {
     const rows = applyLookThroughWithStyle(holdings);
     const m = new Map<string, { passive: number; active: number }>();
     rows.forEach(({ region, weight, style }) => {
@@ -4931,7 +4931,7 @@ function applyLookThroughWithStyle(holdings: Holding[]): { region: string; weigh
       if (style === "passive") e.passive += weight; else e.active += weight;
     });
     return Array.from(m.entries()).map(([region, { passive, active }]) => ({
-      region, passive: +passive.toFixed(1), active: +active.toFixed(1),
+      region, passive, active,
     })).sort((a, b) => (b.passive + b.active) - (a.passive + a.active));
   }
   
