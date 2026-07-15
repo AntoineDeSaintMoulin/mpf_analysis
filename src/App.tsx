@@ -4090,7 +4090,7 @@ export default function App() {
 const [editingOverride, setEditingOverride] = useState<{
     original_asset_name: string; manual_asset_name: string; manual_isin: string;
     manual_region: string; manual_currency: string; manual_category: string; manual_instrument: string;
-    is_hedged?: boolean; management_style?: "active" | "passive" | null;
+is_hedged?: boolean;
   } | null>(null);
   const [breakdowns, setBreakdowns] = useState<BreakdownMap>({});
   const [editingBreakdown, setEditingBreakdown] = useState<{ isin: string; name: string; rows: BreakdownEntry[] } | null>(null);
