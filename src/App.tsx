@@ -60,6 +60,9 @@ import {
   deleteCreditBreakdown,
   saveDuration,
   deleteDuration,
+  saveManagementStyle,
+  deleteManagementStyle,
+  type ManagementStyleMap,
   type DurationsMap,
   type BreakdownMap,
   type BreakdownEntry,
@@ -4099,6 +4102,7 @@ const [editingOverride, setEditingOverride] = useState<{
   const [editingCreditBreakdown, setEditingCreditBreakdown] = useState<{ isin: string; name: string } | null>(null);
   const [creditBreakdownSaving, setCreditBreakdownSaving] = useState(false);
   const [durations, setDurations] = useState<DurationsMap>({});
+  const [managementStyles, setManagementStyles] = useState<ManagementStyleMap>({});
   const [showCreditDetail, setShowCreditDetail] = useState<string | null>(null);
   const [showDurationDetail, setShowDurationDetail] = useState(false);
   const [showCurrencyDetail, setShowCurrencyDetail] = useState<string | null>(null);
@@ -4165,6 +4169,7 @@ useEffect(() => {
       setCurrencyBreakdowns(data.currencyBreakdowns ?? {});
       setCreditBreakdowns(data.creditBreakdowns ?? {});
       setDurations(data.durations ?? {});
+            setManagementStyles(data.managementStyles ?? {});
             try {
         const dpamRes = await fetch("/api/dpam-data");
         if (dpamRes.ok) {
@@ -4293,6 +4298,7 @@ const refreshData = async () => {
     setCurrencyBreakdowns(data.currencyBreakdowns ?? {});
     setCreditBreakdowns(data.creditBreakdowns ?? {});
     setDurations(data.durations ?? {});
+          setManagementStyles(data.managementStyles ?? {});
     try {
       const dpamRes = await fetch("/api/dpam-data");
       if (dpamRes.ok) {
@@ -4702,44 +4708,23 @@ const uniqueInstrumentsByIsin = useMemo(() => {
     return Array.from(m.values()).sort((a, b) => b.totalWeight - a.totalWeight);
   }, [allPortfolios]);
 
-  function getManagementStyle(isin: string | null | undefined): "active" | "passive" {
+function getManagementStyle(isin: string | null | undefined): "active" | "passive" {
     if (!isin) return "active";
-    const ov = manualOverrides.find(o => o.manual_isin === isin);
-    return ov?.management_style === "passive" ? "passive" : "active";
+    return managementStyles[isin]?.management_style === "passive" ? "passive" : "active";
   }
 
   function isStyleClassified(isin: string): boolean {
-    const ov = manualOverrides.find(o => o.manual_isin === isin);
-    return ov?.management_style === "active" || ov?.management_style === "passive";
+    return managementStyles[isin]?.management_style === "active" || managementStyles[isin]?.management_style === "passive";
   }
 
   const classificationProgress = useMemo(() => {
     const classified = uniqueInstrumentsByIsin.filter(i => isStyleClassified(i.isin));
     return { classified: classified.length, total: uniqueInstrumentsByIsin.length };
-  }, [uniqueInstrumentsByIsin, manualOverrides]);
+  }, [uniqueInstrumentsByIsin, managementStyles]);
 
-  const filteredInstrumentsByIsin = useMemo(() => {
-    if (!styleSearch) return uniqueInstrumentsByIsin;
-    const q = styleSearch.toLowerCase();
-    return uniqueInstrumentsByIsin.filter(i =>
-      i.name.toLowerCase().includes(q) || i.isin.toLowerCase().includes(q)
-    );
-  }, [uniqueInstrumentsByIsin, styleSearch]);
-
-async function setManagementStyle(isin: string, name: string, style: "active" | "passive") {
-    const existing = manualOverrides.find(o => o.manual_isin === isin);
-    await saveManualOverride({
-      original_asset_name: existing?.original_asset_name ?? name,
-      manual_asset_name: existing?.manual_asset_name ?? null,
-      manual_isin: isin,
-      manual_region: existing?.manual_region ?? null,
-      manual_currency: existing?.manual_currency ?? null,
-      manual_category: existing?.manual_category ?? null,
-      manual_instrument: existing?.manual_instrument ?? null,
-      is_hedged: existing?.is_hedged ?? false,
-      management_style: style,
-    });
-    await refreshData();
+  async function setManagementStyle(isin: string, name: string, style: "active" | "passive") {
+    await saveManagementStyle(isin, style);
+    setManagementStyles(prev => ({ ...prev, [isin]: { management_style: style, updated_at: new Date().toISOString() } }));
   }
 
   function applyLookThroughWithStyle(holdings: Holding[]): { region: string; weight: number; style: "active" | "passive" }[] {
