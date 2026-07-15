@@ -4003,52 +4003,6 @@ React.useEffect(() => {
         </select>
       </div>
 
-      {/* Résumé global */}
-      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-4">Exposition Globale</p>
-        <div onClick={() => setDrillDown({ style: "active" })} className="flex items-center gap-3 cursor-pointer group">
-          <span className="text-xs font-bold w-16 shrink-0 group-hover:opacity-70 transition-opacity" style={{ color: COLORS.active }}>Actif</span>
-          <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
-            <div className="h-full rounded-full transition-all group-hover:opacity-75" style={{ width: `${global?.activePct ?? 0}%`, backgroundColor: COLORS.active }} />
-          </div>
-          <span className="text-xs font-bold text-slate-700 w-14 text-right">{global?.activePct.toFixed(1)}%</span>
-          <ArrowRight className="h-3 w-3 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
-        </div>
-        <div onClick={() => setDrillDown({ style: "passive" })} className="flex items-center gap-3 mt-3 cursor-pointer group">
-          <span className="text-xs font-bold w-16 shrink-0 group-hover:opacity-70 transition-opacity" style={{ color: COLORS.passive }}>Passif</span>
-          <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
-            <div className="h-full rounded-full transition-all group-hover:opacity-75" style={{ width: `${global?.passivePct ?? 0}%`, backgroundColor: COLORS.passive }} />
-          </div>
-          <span className="text-xs font-bold text-slate-700 w-14 text-right">{global?.passivePct.toFixed(1)}%</span>
-          <ArrowRight className="h-3 w-3 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
-        </div>
-        <p className="text-[10px] text-slate-400 italic pt-3">Cliquez pour voir le détail</p>
-      </div>
-
-      {/* Par région */}
-      <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
-        <h3 className="text-lg font-bold mb-6">Actif / Passif par Région</h3>
-        {byRegion.length === 0 ? (
-          <p className="text-slate-400 text-sm italic">Aucune donnée régionale.</p>
-        ) : (
-          <div className="h-[320px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={byRegion} margin={{ top: 20, right: 10, left: 0, bottom: 0 }}>
-                <XAxis dataKey="region" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
-                <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "16px", border: "none" }}
-                  formatter={(v: number, name: string) => [v.toFixed(1) + "%", name === "active" ? "Actif" : "Passif"]} />
-                <Bar dataKey="active" stackId="a" fill={COLORS.active} radius={[0, 0, 0, 0]} className="cursor-pointer"
-                  onClick={(d: any) => d?.region && setDrillDown({ style: "active", region: d.region })} />
-                <Bar dataKey="passive" stackId="a" fill={COLORS.passive} radius={[6, 6, 0, 0]} className="cursor-pointer"
-                  onClick={(d: any) => d?.region && setDrillDown({ style: "passive", region: d.region })} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-        <p className="text-center text-xs text-slate-400 mt-2 italic">Cliquez sur une barre pour voir le détail</p>
-      </div>
-
 {/* Table détail par région */}
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
         <table className="w-full text-left border-collapse text-sm">
@@ -4087,6 +4041,52 @@ React.useEffect(() => {
             </tr>
           </tfoot>
         </table>
+      </div>
+
+      {/* Par région */}
+      <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+        <h3 className="text-lg font-bold mb-6">Actif / Passif par Région</h3>
+        {byRegion.length === 0 ? (
+          <p className="text-slate-400 text-sm italic">Aucune donnée régionale.</p>
+        ) : (
+          <div className="h-[320px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={byRegion} margin={{ top: 20, right: 10, left: 0, bottom: 0 }}>
+                <XAxis dataKey="region" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#64748b" }} />
+                <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "16px", border: "none" }}
+                  formatter={(v: number, name: string) => [v.toFixed(1) + "%", name === "active" ? "Actif" : "Passif"]} />
+                <Bar dataKey="active" stackId="a" fill={COLORS.active} radius={[0, 0, 0, 0]} className="cursor-pointer"
+                  onClick={(d: any) => d?.region && setDrillDown({ style: "active", region: d.region })} />
+                <Bar dataKey="passive" stackId="a" fill={COLORS.passive} radius={[6, 6, 0, 0]} className="cursor-pointer"
+                  onClick={(d: any) => d?.region && setDrillDown({ style: "passive", region: d.region })} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+        <p className="text-center text-xs text-slate-400 mt-2 italic">Cliquez sur une barre pour voir le détail</p>
+      </div>
+
+      {/* Résumé global */}
+      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-4">Exposition Globale</p>
+        <div onClick={() => setDrillDown({ style: "active" })} className="flex items-center gap-3 cursor-pointer group">
+          <span className="text-xs font-bold w-16 shrink-0 group-hover:opacity-70 transition-opacity" style={{ color: COLORS.active }}>Actif</span>
+          <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all group-hover:opacity-75" style={{ width: `${global?.activePct ?? 0}%`, backgroundColor: COLORS.active }} />
+          </div>
+          <span className="text-xs font-bold text-slate-700 w-14 text-right">{global?.activePct.toFixed(1)}%</span>
+          <ArrowRight className="h-3 w-3 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
+        </div>
+        <div onClick={() => setDrillDown({ style: "passive" })} className="flex items-center gap-3 mt-3 cursor-pointer group">
+          <span className="text-xs font-bold w-16 shrink-0 group-hover:opacity-70 transition-opacity" style={{ color: COLORS.passive }}>Passif</span>
+          <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all group-hover:opacity-75" style={{ width: `${global?.passivePct ?? 0}%`, backgroundColor: COLORS.passive }} />
+          </div>
+          <span className="text-xs font-bold text-slate-700 w-14 text-right">{global?.passivePct.toFixed(1)}%</span>
+          <ArrowRight className="h-3 w-3 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
+        </div>
+        <p className="text-[10px] text-slate-400 italic pt-3">Cliquez pour voir le détail</p>
       </div>
 
       {/* ── Modale drill-down ── */}
