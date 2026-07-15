@@ -3928,10 +3928,10 @@ function RiskAnalysisTab({
   const [selectedId, setSelectedId] = React.useState<number | null>(null);
   const [drillDown, setDrillDown] = React.useState<{ style: "active" | "passive"; region?: string } | null>(null);
 
-  React.useEffect(() => {
+React.useEffect(() => {
     if (selectedId != null || allPortfolios.length === 0) return;
     const sicavs = allPortfolios.filter(p => p?.type === "Sicav");
-    const defaultP = sicavs.find(p => p.name?.includes("_MED")) ?? sicavs[0] ?? allPortfolios[0];
+    const defaultP = sicavs.find(p => p.name === "Sicav - SCV_MED") ?? sicavs.find(p => p.name?.includes("_MED")) ?? sicavs[0] ?? allPortfolios[0];
     if (defaultP?.id != null) setSelectedId(defaultP.id);
   }, [allPortfolios]);
 
