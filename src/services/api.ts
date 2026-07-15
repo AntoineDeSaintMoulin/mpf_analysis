@@ -157,6 +157,29 @@ export async function deleteDuration(isin: string): Promise<{ success: boolean }
   return data ?? { success: false };
 }
 
+// ── Management style ─────────────────────────────────────────────────────────
+export type ManagementStyleMap = Record<string, { management_style: "active" | "passive"; updated_at: string }>;
+
+export async function saveManagementStyle(isin: string, management_style: "active" | "passive"): Promise<{ success: boolean }> {
+  const data = await safeFetch<{ success: boolean }>("/api/manual-data?resource=management_style", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isin, management_style }),
+  });
+  return data ?? { success: false };
+}
+
+export async function deleteManagementStyle(isin: string): Promise<{ success: boolean }> {
+  const data = await safeFetch<{ success: boolean }>("/api/manual-data?resource=management_style", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isin }),
+  });
+  return data ?? { success: false };
+}
+
+// ── Upload ────────────────────────────────────────────────────────────────────
+
 // ── Upload ────────────────────────────────────────────────────────────────────
 export async function uploadPortfolios(portfolios: any[]): Promise<{ success: boolean }> {
   const data = await safeFetch<{ success: boolean }>("/api/upload-data", {
