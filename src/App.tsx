@@ -484,6 +484,36 @@ case "short_term":
   }
 }
 
+
+function computePtfDuration(
+  holdings: any[],
+  durations: Record<string, { duration: number; updated_at: string }>,
+  dpamLookup: Record<string, any>,
+  samdpDebtInstruments: any[]
+): number | null {
+  const FI_CATS = ["Fixed Income", "Bonds", "Liquidities"];
+  const SAMDP_DEBT_ISIN = "LU1545753169";
+  function getDur(isin: string | null | undefined): number | null {
+    if (!isin) return null;
+    if (durations[isin]) return durations[isin].duration;
+    if (isin === SAMDP_DEBT_ISIN && samdpDebtInstruments.length > 0) {
+      const leafRows = samdpDebtInstruments.filter((i: any) => i.level === 2 && i.isin);
+      const totalW = leafRows.reduce((s: number, i: any) => s + Number(i.wght_pct ?? 0), 0);
+      if (totalW === 0) return null;
+      return +(leafRows.reduce((s: number, i: any) => s + Number(i.modified_duration ?? 0) * Number(i.wght_pct ?? 0), 0) / totalW).toFixed(2);
+    }
+    const dpamDur = dpamLookup[isin]?.duration;
+    if (dpamDur != null) return dpamDur;
+    return null;
+  }
+  const fi = holdings.filter(h => h && FI_CATS.includes(h.category ?? "") &&
+    (h.isin ? (getDur(h.isin) != null || h.category === "Liquidities") : h.category === "Liquidities"));
+  const total = fi.reduce((s, h) => s + (h.weight ?? 0), 0);
+  if (total === 0) return null;
+  const weighted = fi.reduce((s, h) => s + (h.weight ?? 0) * (getDur(h.isin) ?? 0), 0);
+  return +(weighted / total).toFixed(2);
+}
+
 function BreakdownDeviationTable({
   allPortfolios,
   targetGridData,
@@ -5437,35 +5467,6 @@ function getEffectiveDuration(isin: string | null | undefined): number | null {
   const dpamDur = dpamLookup[isin]?.duration;
   if (dpamDur != null) return dpamDur;
   return null;
-}
-
-function computePtfDuration(
-  holdings: any[],
-  durations: Record<string, { duration: number; updated_at: string }>,
-  dpamLookup: Record<string, any>,
-  samdpDebtInstruments: any[]
-): number | null {
-  const FI_CATS = ["Fixed Income", "Bonds", "Liquidities"];
-  const SAMDP_DEBT_ISIN = "LU1545753169";
-  function getDur(isin: string | null | undefined): number | null {
-    if (!isin) return null;
-    if (durations[isin]) return durations[isin].duration;
-    if (isin === SAMDP_DEBT_ISIN && samdpDebtInstruments.length > 0) {
-      const leafRows = samdpDebtInstruments.filter((i: any) => i.level === 2 && i.isin);
-      const totalW = leafRows.reduce((s: number, i: any) => s + Number(i.wght_pct ?? 0), 0);
-      if (totalW === 0) return null;
-      return +(leafRows.reduce((s: number, i: any) => s + Number(i.modified_duration ?? 0) * Number(i.wght_pct ?? 0), 0) / totalW).toFixed(2);
-    }
-    const dpamDur = dpamLookup[isin]?.duration;
-    if (dpamDur != null) return dpamDur;
-    return null;
-  }
-  const fi = holdings.filter(h => h && FI_CATS.includes(h.category ?? "") &&
-    (h.isin ? (getDur(h.isin) != null || h.category === "Liquidities") : h.category === "Liquidities"));
-  const total = fi.reduce((s, h) => s + (h.weight ?? 0), 0);
-  if (total === 0) return null;
-  const weighted = fi.reduce((s, h) => s + (h.weight ?? 0) * (getDur(h.isin) ?? 0), 0);
-  return +(weighted / total).toFixed(2);
 }
   
 const portfolioDuration = useMemo(() => {
