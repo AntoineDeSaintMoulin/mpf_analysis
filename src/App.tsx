@@ -1698,6 +1698,7 @@ function SimulationTab({
   dpamLookup,
   samdpDebtCreditBreakdown,
   samdpDebtInstruments,
+  samdpGeoBreakdown,
 }: {
   allPortfolios: any[];
   breakdowns: Record<string, any[]>;
@@ -1709,7 +1710,9 @@ function SimulationTab({
   dpamLookup: Record<string, any>;
   samdpDebtCreditBreakdown: { credit_type: string; currency: string; weight: number }[] | null;
   samdpDebtInstruments: any[];
+  samdpGeoBreakdown: { region: string; weight: number }[] | null;
 }){
+
   const [selectedPortfolioId, setSelectedPortfolioId] = React.useState<number | null>(null);
   const [simulatedWeights, setSimulatedWeights] = React.useState<Record<number, number>>({});
   const [search, setSearch] = React.useState("");
@@ -1802,16 +1805,39 @@ const filteredHoldings = React.useMemo(() => {
     return Array.from(m.entries()).map(([name, value]) => ({ name, value: +value.toFixed(2) }));
   }
 
+const SAMDP_ISINS_SIM = ["LU1795355053"];
+
   function computeRegionData(holdings: any[]) {
     const m = new Map<string, number>();
     holdings.filter(h => h?.category === "Equities").forEach(h => {
+      if (h.isin === "LU1795355053" && samdpGeoBreakdown) {
+        samdpGeoBreakdown.forEach((e: any) => {
+          const r = normalizeRegion(e.region);
+          if (r === "Cash") return;
+          m.set(r, (m.get(r) ?? 0) + (h.weight ?? 0) * e.weight / 100);
+        });
+        return;
+      }
       const bd = h.isin ? breakdowns[h.isin] : null;
       if (bd && bd.length > 0) {
-        bd.forEach((e: any) => m.set(normalizeRegion(e.region), (m.get(normalizeRegion(e.region)) ?? 0) + (h.weight ?? 0) * e.weight / 100));
-      } else {
-        const r = normalizeRegion(h.region ?? "Other");
-        m.set(r, (m.get(r) ?? 0) + (h.weight ?? 0));
+        bd.forEach((e: any) => {
+          const r = normalizeRegion(e.region);
+          if (r === "Cash") return;
+          m.set(r, (m.get(r) ?? 0) + (h.weight ?? 0) * e.weight / 100);
+        });
+        return;
       }
+      const dpamGeo = h.isin && (h.asset_name ?? "").startsWith("DPAM") ? dpamLookup[h.isin]?.geoBreakdown : null;
+      if (dpamGeo && dpamGeo.length > 0) {
+        dpamGeo.forEach((e: any) => {
+          const r = normalizeRegion(e.region);
+          if (r === "Cash") return;
+          m.set(r, (m.get(r) ?? 0) + (h.weight ?? 0) * e.weight / 100);
+        });
+        return;
+      }
+      const r = normalizeRegion(h.region ?? "Other");
+      m.set(r, (m.get(r) ?? 0) + (h.weight ?? 0));
     });
     return Array.from(m.entries()).map(([name, value]) => ({ name, value: +value.toFixed(2) }));
   }
@@ -6430,15 +6456,16 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
   <div className="max-w-7xl mx-auto">
 <SimulationTab
   allPortfolios={allPortfolios}
-  breakdowns={breakdowns}
+  breakdowns={breakdownsWithP30}
   creditBreakdowns={creditBreakdowns}
   durations={durations}
   manualOverrides={manualOverrides}
-  currencyBreakdowns={currencyBreakdowns}
+  currencyBreakdowns={currencyBreakdownsWithP30}
   targetGridData={targetGridData}
   dpamLookup={dpamLookup}
   samdpDebtCreditBreakdown={samdpDebtCreditBreakdown}
   samdpDebtInstruments={samdpDebtInstruments}
+  samdpGeoBreakdown={samdpGeoBreakdown}
 />
   </div>
 </div>
