@@ -4752,8 +4752,9 @@ const ROW_MAP: Record<number, string> = {
           18: "fixed_income", 19: "fi_eur", 20: "fi_eur_gov", 21: "fi_eur_gov_infl", 22: "fi_eur_ig", 23: "fi_eur_hy",
           24: "fi_usd", 25: "fi_usd_gov", 26: "fi_usd_gov_infl", 27: "fi_usd_ig", 28: "fi_usd_hy",
           29: "fi_em_local", 30: "fi_em_hard", 31: "fi_global",
-          32: "short_term", 33: "st_eur", 34: "st_usd", 35: "st_other",
-          46: "modified_duration",
+          32: "short_term", 33: "st_eur", 34: "st_usd",
+          35: "st_other",
+          45: "modified_duration",
         };
         const rows: { grid_id: string; profile: string; bench: number | null; target: number | null; active: number | null }[] = [];
         for (const [rowIdx, gridId] of Object.entries(ROW_MAP)) {
