@@ -841,8 +841,6 @@ return ["Target", "Ptf", "Active"].map(col => {
   const holdings = ptf.holdings ?? [];
 
 const rows = holdings.map((h: any) => {
-      
-const rows = holdings.map((h: any) => {
     const cbd = h.isin ? creditBreakdowns[h.isin] : null;
     const SAMDP_DEBT_ISIN = "LU1545753169";
     const samdpDebt = h.isin === SAMDP_DEBT_ISIN ? samdpDebtCreditBreakdown : null;
