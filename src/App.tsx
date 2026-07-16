@@ -148,6 +148,7 @@ const TARGET_GRID_STRUCTURE: { id: string; label: string; level: 0 | 1 | 2; pare
     { id: "st_eur", label: "EUR", level: 1, parent: "short_term" },
     { id: "st_usd", label: "USD", level: 1, parent: "short_term" },
     { id: "st_other", label: "Other FX", level: 1, parent: "short_term" },
+  { id: "modified_duration", label: "Modified Duration", level: 0 },
 ];
 
 function Modal({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
@@ -491,6 +492,8 @@ function BreakdownDeviationTable({
   dpamLookup,
   samdpGeoBreakdown,
   samdpDebtCreditBreakdown,
+  durations,
+  samdpDebtInstruments,
 }: {
   allPortfolios: any[];
   targetGridData: Record<string, any>;
@@ -499,6 +502,8 @@ function BreakdownDeviationTable({
   dpamLookup: Record<string, any>;
   samdpGeoBreakdown: { region: string; weight: number }[] | null;
   samdpDebtCreditBreakdown: { credit_type: string; currency: string; weight: number }[] | null;
+  durations: Record<string, { duration: number; updated_at: string }>;
+  samdpDebtInstruments: any[];
 }) {
   
   const [portfolioType, setPortfolioType] = React.useState<PortfolioType>("Sicav");
@@ -663,7 +668,9 @@ const fmt = (v: number | null) => v == null ? "—" : v.toFixed(1) + "%";
 
                       // Ptf calculé
 const ptfVal = ptf
-                          ? computePtfWeight(row.id, ptf.holdings ?? [], breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown, samdpDebtCreditBreakdown)
+                          ? (row.id === "modified_duration"
+                              ? computePtfDuration(ptf.holdings ?? [], durations, dpamLookup, samdpDebtInstruments)
+                              : computePtfWeight(row.id, ptf.holdings ?? [], breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown, samdpDebtCreditBreakdown))
                           : null;
 
                       // Active = Ptf - Target
@@ -692,12 +699,12 @@ return ["Target", "Ptf", "Active"].map(col => {
                                     ? "text-sky-700 font-medium"
                                     : "text-slate-600"
                             )}>
-                            {col === "Ptf" && ptfVal != null && ptf ? (
+                              {col === "Ptf" && ptfVal != null && ptf ? (
                               <button onClick={() => setDrillDown({ rowId: row.id, rowLabel: row.label, profile, ptf })}
                                 className="hover:underline font-medium text-sky-700">
-                                {ptfVal.toFixed(1)}%
+                                {row.id === "modified_duration" ? ptfVal.toFixed(2) : ptfVal.toFixed(1) + "%"}
                               </button>
-                            ) : displayVal != null ? displayVal.toFixed(1) + "%" : "—"}
+                            ) : displayVal != null ? (row.id === "modified_duration" ? displayVal.toFixed(2) : displayVal.toFixed(1) + "%") : "—"}
                           </td>
                         );
                       });
@@ -4739,13 +4746,14 @@ console.log("Total rows read:", raw.length);
         const PROFILE_COLS: Record<string, [number, number, number]> = {
           LOW: [2, 4, 6], MEDLOW: [9, 11, 13], MEDIUM: [17, 19, 21], MEDHIGH: [24, 26, 28], HIGH: [31, 33, 35],
         };
-        const ROW_MAP: Record<number, string> = {
+const ROW_MAP: Record<number, string> = {
           8: "equities", 9: "eq_europe", 10: "eq_us", 11: "eq_em", 12: "eq_japan", 13: "eq_other",
           14: "alternatives", 15: "alt_conv", 16: "alt_gold", 17: "alt_other",
           18: "fixed_income", 19: "fi_eur", 20: "fi_eur_gov", 21: "fi_eur_gov_infl", 22: "fi_eur_ig", 23: "fi_eur_hy",
           24: "fi_usd", 25: "fi_usd_gov", 26: "fi_usd_gov_infl", 27: "fi_usd_ig", 28: "fi_usd_hy",
           29: "fi_em_local", 30: "fi_em_hard", 31: "fi_global",
           32: "short_term", 33: "st_eur", 34: "st_usd", 35: "st_other",
+          46: "modified_duration",
         };
         const rows: { grid_id: string; profile: string; bench: number | null; target: number | null; active: number | null }[] = [];
         for (const [rowIdx, gridId] of Object.entries(ROW_MAP)) {
@@ -5428,6 +5436,35 @@ function getEffectiveDuration(isin: string | null | undefined): number | null {
   return null;
 }
 
+function computePtfDuration(
+  holdings: any[],
+  durations: Record<string, { duration: number; updated_at: string }>,
+  dpamLookup: Record<string, any>,
+  samdpDebtInstruments: any[]
+): number | null {
+  const FI_CATS = ["Fixed Income", "Bonds", "Liquidities"];
+  const SAMDP_DEBT_ISIN = "LU1545753169";
+  function getDur(isin: string | null | undefined): number | null {
+    if (!isin) return null;
+    if (durations[isin]) return durations[isin].duration;
+    if (isin === SAMDP_DEBT_ISIN && samdpDebtInstruments.length > 0) {
+      const leafRows = samdpDebtInstruments.filter((i: any) => i.level === 2 && i.isin);
+      const totalW = leafRows.reduce((s: number, i: any) => s + Number(i.wght_pct ?? 0), 0);
+      if (totalW === 0) return null;
+      return +(leafRows.reduce((s: number, i: any) => s + Number(i.modified_duration ?? 0) * Number(i.wght_pct ?? 0), 0) / totalW).toFixed(2);
+    }
+    const dpamDur = dpamLookup[isin]?.duration;
+    if (dpamDur != null) return dpamDur;
+    return null;
+  }
+  const fi = holdings.filter(h => h && FI_CATS.includes(h.category ?? "") &&
+    (h.isin ? (getDur(h.isin) != null || h.category === "Liquidities") : h.category === "Liquidities"));
+  const total = fi.reduce((s, h) => s + (h.weight ?? 0), 0);
+  if (total === 0) return null;
+  const weighted = fi.reduce((s, h) => s + (h.weight ?? 0) * (getDur(h.isin) ?? 0), 0);
+  return +(weighted / total).toFixed(2);
+}
+  
 const portfolioDuration = useMemo(() => {
   const FIXED_INCOME_CATS = ["Fixed Income", "Bonds", "Liquidities"];
   const fiHoldings = (currentPortfolio?.holdings ?? []).filter(h =>
@@ -5759,6 +5796,8 @@ return (["RISK_ANALYSIS","SYNTHESE", "INSTRUMENTS", "TARGET_GRID", "Sicav", "Mix
                     dpamLookup={dpamLookup}
                     samdpGeoBreakdown={samdpGeoBreakdown}
                     samdpDebtCreditBreakdown={samdpDebtCreditBreakdown}
+                    durations={durations}
+                    samdpDebtInstruments={samdpDebtInstruments}
                   />
                 )}
               </motion.div>
@@ -6245,8 +6284,8 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
                                           col === "bench" && "border-l border-slate-100",
                                           col === "target" && "bg-emerald-50/40",
                                           row.level === 0 ? "text-white/80" : isActive ? (isPos ? "text-emerald-600 font-bold" : isNeg ? "text-rose-600 font-bold" : "text-slate-400") : "text-slate-600"
-                                        )}>
-                                          {val != null ? `${val.toFixed(1)}%` : "—"}
+                                          )}>
+                                          {val != null ? (row.id === "modified_duration" ? val.toFixed(2) : `${val.toFixed(1)}%`) : "—"}
                                         </td>
                                       );
                                     })
