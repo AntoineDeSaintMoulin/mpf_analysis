@@ -4762,7 +4762,9 @@ const ROW_MAP: Record<number, string> = {
           if (!r) continue;
           for (const [profile, [b, t, a]] of Object.entries(PROFILE_COLS)) {
             const round2 = (v: any) => v != null && typeof v === "number" ? Math.round(v * 10000) / 100 : null;
-            rows.push({ grid_id: gridId, profile, bench: round2(r[b]), target: round2(r[t]), active: round2(r[a]) });
+            const roundRaw = (v: any) => v != null && typeof v === "number" ? Math.round(v * 100) / 100 : null;
+            const fmt = gridId === "modified_duration" ? roundRaw : round2;
+            rows.push({ grid_id: gridId, profile, bench: fmt(r[b]), target: fmt(r[t]), active: fmt(r[a]) });
           }
         }
         const res = await fetch("/api/target-grid", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rows }) });
