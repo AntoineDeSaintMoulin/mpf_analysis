@@ -486,6 +486,26 @@ case "short_term":
 }
 
 
+function getInstrumentDuration(
+  isin: string | null | undefined,
+  durations: Record<string, { duration: number; updated_at: string }>,
+  dpamLookup: Record<string, any>,
+  samdpDebtInstruments: any[]
+): number | null {
+  if (!isin) return null;
+  if (durations[isin]) return durations[isin].duration;
+  const SAMDP_DEBT_ISIN = "LU1545753169";
+  if (isin === SAMDP_DEBT_ISIN && samdpDebtInstruments.length > 0) {
+    const leafRows = samdpDebtInstruments.filter((i: any) => i.level === 2 && i.isin);
+    const totalW = leafRows.reduce((s: number, i: any) => s + Number(i.wght_pct ?? 0), 0);
+    if (totalW === 0) return null;
+    return +(leafRows.reduce((s: number, i: any) => s + Number(i.modified_duration ?? 0) * Number(i.wght_pct ?? 0), 0) / totalW).toFixed(2);
+  }
+  const dpamDur = dpamLookup[isin]?.duration;
+  if (dpamDur != null) return dpamDur;
+  return null;
+}
+
 function computePtfDuration(
   holdings: any[],
   durations: Record<string, { duration: number; updated_at: string }>,
@@ -493,25 +513,11 @@ function computePtfDuration(
   samdpDebtInstruments: any[]
 ): number | null {
   const FI_CATS = ["Fixed Income", "Bonds", "Liquidities"];
-  const SAMDP_DEBT_ISIN = "LU1545753169";
-  function getDur(isin: string | null | undefined): number | null {
-    if (!isin) return null;
-    if (durations[isin]) return durations[isin].duration;
-    if (isin === SAMDP_DEBT_ISIN && samdpDebtInstruments.length > 0) {
-      const leafRows = samdpDebtInstruments.filter((i: any) => i.level === 2 && i.isin);
-      const totalW = leafRows.reduce((s: number, i: any) => s + Number(i.wght_pct ?? 0), 0);
-      if (totalW === 0) return null;
-      return +(leafRows.reduce((s: number, i: any) => s + Number(i.modified_duration ?? 0) * Number(i.wght_pct ?? 0), 0) / totalW).toFixed(2);
-    }
-    const dpamDur = dpamLookup[isin]?.duration;
-    if (dpamDur != null) return dpamDur;
-    return null;
-  }
   const fi = holdings.filter(h => h && FI_CATS.includes(h.category ?? "") &&
-    (h.isin ? (getDur(h.isin) != null || h.category === "Liquidities") : h.category === "Liquidities"));
+    (h.isin ? (getInstrumentDuration(h.isin, durations, dpamLookup, samdpDebtInstruments) != null || h.category === "Liquidities") : h.category === "Liquidities"));
   const total = fi.reduce((s, h) => s + (h.weight ?? 0), 0);
   if (total === 0) return null;
-  const weighted = fi.reduce((s, h) => s + (h.weight ?? 0) * (getDur(h.isin) ?? 0), 0);
+  const weighted = fi.reduce((s, h) => s + (h.weight ?? 0) * (getInstrumentDuration(h.isin, durations, dpamLookup, samdpDebtInstruments) ?? 0), 0);
   return +(weighted / total).toFixed(2);
 }
 
@@ -748,11 +754,94 @@ return ["Target", "Ptf", "Active"].map(col => {
         </div>
         </div>
       </div>
-    {drillDown && (() => {
+
+{drillDown && drillDown.rowId === "modified_duration" && (() => {
+  const { rowLabel, profile, ptf } = drillDown;
+  const FIXED_INCOME_CATS = ["Fixed Income", "Bonds", "Liquidities"];
+  const allFiHoldings = (ptf.holdings ?? [])
+    .filter((h: any) => h && FIXED_INCOME_CATS.includes(h.category ?? ""))
+    .sort((a: any, b: any) => (b.weight ?? 0) - (a.weight ?? 0));
+  const fiHoldings = allFiHoldings.filter((h: any) =>
+    h.isin ? (getInstrumentDuration(h.isin, durations, dpamLookup, samdpDebtInstruments) != null || h.category === "Liquidities") : h.category === "Liquidities"
+  );
+  const totalWeight = fiHoldings.reduce((s: number, h: any) => s + (h.weight ?? 0), 0);
+  const ptfDuration = computePtfDuration(ptf.holdings ?? [], durations, dpamLookup, samdpDebtInstruments);
+
+  return (
+    <Modal isOpen={true} onClose={() => setDrillDown(null)} title={`${rowLabel} — ${profile}`}>
+      <div className="space-y-4">
+        <p className="text-xs text-slate-500 italic">Duration moyenne pondérée pour le portefeuille {ptf.name}.</p>
+        <div className="border border-slate-100 rounded-2xl overflow-hidden">
+          <div className="px-4 py-2 bg-slate-50 border-b border-slate-100">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Instruments utilisés ({fiHoldings.length} / {allFiHoldings.length})</p>
+          </div>
+          <div className="divide-y divide-slate-50 max-h-32 overflow-y-auto">
+            {allFiHoldings.map((h: any, i: number) => {
+              const hasDur = h.category === "Liquidities" || (h.isin && getInstrumentDuration(h.isin, durations, dpamLookup, samdpDebtInstruments) != null);
+              return (
+                <div key={i} className="flex items-center justify-between px-4 py-2">
+                  <span className={cn("text-xs truncate max-w-[220px]", hasDur ? "text-slate-700 font-medium" : "text-slate-300 italic")}>
+                    {h.asset_name ?? "—"}
+                  </span>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className={cn("text-xs", hasDur ? "text-slate-600" : "text-slate-300")}>{(h.weight ?? 0).toFixed(2)}%</span>
+                    {hasDur
+                      ? <span className="text-[10px] bg-emerald-50 text-emerald-600 font-bold px-1.5 py-0.5 rounded-full">✓</span>
+                      : <span className="text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-full">—</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <table className="w-full text-left border-collapse text-sm">
+          <thead>
+            <tr className="bg-slate-50 border-b border-slate-100">
+              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase">Instrument</th>
+              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">Poids</th>
+              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">Duration</th>
+              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">Contribution</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {fiHoldings.map((h: any, i: number) => {
+              const dur = Number(getInstrumentDuration(h.isin, durations, dpamLookup, samdpDebtInstruments) ?? 0);
+              const contribution = totalWeight > 0 ? (h.weight ?? 0) * dur / totalWeight : 0;
+              return (
+                <tr key={i} className="hover:bg-slate-50/50">
+                  <td className="px-4 py-3 truncate max-w-[200px]">
+                    <p className="font-medium text-slate-900">{h.asset_name ?? "—"}</p>
+                    <p className="text-xs font-mono text-slate-400">{h.isin ?? "—"}</p>
+                  </td>
+                  <td className="px-4 py-3 text-right text-slate-600">{(h.weight ?? 0).toFixed(2)}%</td>
+                  <td className="px-4 py-3 text-right text-slate-600">{dur.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-right font-bold text-sky-600">{contribution.toFixed(2)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr className="bg-slate-50 border-t border-slate-200">
+              <td className="px-4 py-3 font-bold text-slate-700">Total ({totalWeight.toFixed(1)}%)</td>
+              <td colSpan={2} className="px-4 py-3 text-right font-bold text-slate-500 text-xs italic">Σ(poids × duration) / {totalWeight.toFixed(1)}</td>
+              <td className="px-4 py-3 text-right font-bold text-slate-900">{ptfDuration != null ? ptfDuration.toFixed(2) : "—"}</td>
+            </tr>
+          </tfoot>
+        </table>
+        <p className="text-[10px] text-slate-400 italic text-center">
+          Les instruments en grisé n'ont pas de duration configurée et ne sont pas inclus dans le calcul.
+        </p>
+      </div>
+    </Modal>
+  );
+})()}
+    {drillDown && drillDown.rowId !== "modified_duration" && (() => {
   const { rowId, rowLabel, profile, ptf } = drillDown;
   const FI_CATS = ["Fixed Income", "Bonds"];
   const holdings = ptf.holdings ?? [];
 
+const rows = holdings.map((h: any) => {
+      
 const rows = holdings.map((h: any) => {
     const cbd = h.isin ? creditBreakdowns[h.isin] : null;
     const SAMDP_DEBT_ISIN = "LU1545753169";
