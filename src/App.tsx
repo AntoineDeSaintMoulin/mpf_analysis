@@ -228,6 +228,7 @@ const TG_STRUCTURE: { id: string; label: string; level: 0 | 1 | 2; parent?: stri
     { id: "st_eur", label: "EUR", level: 1, parent: "short_term" },
     { id: "st_usd", label: "USD", level: 1, parent: "short_term" },
     { id: "st_other", label: "Other FX", level: 1, parent: "short_term" },
+  { id: "modified_duration", label: "Modified Duration", level: 0 },
 ];
 
 type PortfolioFilter = "main" | "sust" | "cv" | "rdt";
