@@ -4070,6 +4070,7 @@ function RiskAnalysisTab({
   getManagementStyle,
   applyLookThroughWithStyle,
   computeFundOrigins,
+  getFundOrigin,
 }: {
   allPortfolios: Portfolio[];
   computePassiveActiveGlobal: (holdings: Holding[]) => { passive: number; active: number; passivePct: number; activePct: number };
@@ -4080,10 +4081,12 @@ function RiskAnalysisTab({
     dpam: number; select_equities: number; etf_amundi: number; samdp: number; other: number;
     internal: number; internalPct: number; otherPct: number;
   };
+  getFundOrigin: (h: Holding) => "dpam" | "select_equities" | "etf_amundi" | "samdp" | "other";
 }) {
   
   const [selectedId, setSelectedId] = React.useState<number | null>(null);
   const [drillDown, setDrillDown] = React.useState<{ style: "active" | "passive"; region?: string } | null>(null);
+  const [originDrillDown, setOriginDrillDown] = React.useState<"dpam" | "select_equities" | "etf_amundi" | "samdp" | "other" | "internal" | null>(null);
 
 React.useEffect(() => {
     if (selectedId != null || allPortfolios.length === 0) return;
@@ -4102,6 +4105,18 @@ React.useEffect(() => {
   const byRegion = current ? computePassiveActiveByRegion(current.holdings ?? []) : [];
   const fundOrigins = current ? computeFundOrigins(current.holdings ?? []) : null;
 
+    const originDrillDownHoldings = React.useMemo(() => {
+    if (!current || !originDrillDown) return [];
+    return (current.holdings ?? [])
+      .filter(h => {
+        if (!h) return false;
+        const origin = getFundOrigin(h);
+        if (originDrillDown === "internal") return origin !== "other";
+        return origin === originDrillDown;
+      })
+      .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0));
+  }, [current, originDrillDown]);
+  
   const COLORS = { active: "#0ea5e9", passive: "#f59e0b" };
 
   // Détail des holdings pour le drill-down (global, sans distinction de région)
@@ -4247,43 +4262,45 @@ React.useEffect(() => {
         <p className="text-[10px] text-slate-400 italic pt-3">Cliquez pour voir le détail</p>
       </div>
 
-      {/* Fonds Maison */}
+{/* Fonds Maison */}
       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-4">Fonds Maison</p>
-        <div className="flex items-center gap-3 mb-4">
-          <span className="text-xs font-bold w-24 shrink-0 text-emerald-600">Internal</span>
+        <div onClick={() => setOriginDrillDown("internal")} className="flex items-center gap-3 mb-4 cursor-pointer group">
+          <span className="text-xs font-bold w-24 shrink-0 text-emerald-600 group-hover:opacity-70 transition-opacity">Internal</span>
           <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
-            <div className="h-full rounded-full transition-all" style={{ width: `${fundOrigins?.internalPct ?? 0}%`, backgroundColor: "#10b981" }} />
+            <div className="h-full rounded-full transition-all group-hover:opacity-75" style={{ width: `${fundOrigins?.internalPct ?? 0}%`, backgroundColor: "#10b981" }} />
           </div>
           <span className="text-xs font-bold text-slate-700 w-14 text-right">{fundOrigins?.internalPct.toFixed(1)}%</span>
+          <ArrowRight className="h-3 w-3 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
         </div>
-        <div className="flex items-center gap-3 mb-6">
-          <span className="text-xs font-bold w-24 shrink-0 text-slate-400">Autres</span>
+        <div onClick={() => setOriginDrillDown("other")} className="flex items-center gap-3 mb-6 cursor-pointer group">
+          <span className="text-xs font-bold w-24 shrink-0 text-slate-400 group-hover:opacity-70 transition-opacity">Autres</span>
           <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
-            <div className="h-full rounded-full transition-all" style={{ width: `${fundOrigins?.otherPct ?? 0}%`, backgroundColor: "#94a3b8" }} />
+            <div className="h-full rounded-full transition-all group-hover:opacity-75" style={{ width: `${fundOrigins?.otherPct ?? 0}%`, backgroundColor: "#94a3b8" }} />
           </div>
           <span className="text-xs font-bold text-slate-700 w-14 text-right">{fundOrigins?.otherPct.toFixed(1)}%</span>
+          <ArrowRight className="h-3 w-3 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
         </div>
         <div className="space-y-2 pt-4 border-t border-slate-100">
-          {[
-            { label: "DPAM", value: fundOrigins?.dpam ?? 0, color: "#0ea5e9" },
-            { label: "Select Equities", value: fundOrigins?.select_equities ?? 0, color: "#8b5cf6" },
-            { label: "ETF Amundi", value: fundOrigins?.etf_amundi ?? 0, color: "#f59e0b" },
-            { label: "SAMDP", value: fundOrigins?.samdp ?? 0, color: "#ec4899" },
-            { label: "Autres", value: fundOrigins?.other ?? 0, color: "#94a3b8" },
-          ].map(({ label, value, color }) => (
-            <div key={label} className="flex items-center gap-3">
-              <span className="text-xs font-bold w-28 shrink-0" style={{ color }}>{label}</span>
+          {([
+            { key: "dpam" as const, label: "DPAM", value: fundOrigins?.dpam ?? 0, color: "#0ea5e9" },
+            { key: "select_equities" as const, label: "Select Equities", value: fundOrigins?.select_equities ?? 0, color: "#8b5cf6" },
+            { key: "etf_amundi" as const, label: "ETF Amundi", value: fundOrigins?.etf_amundi ?? 0, color: "#f59e0b" },
+            { key: "samdp" as const, label: "SAMDP", value: fundOrigins?.samdp ?? 0, color: "#ec4899" },
+            { key: "other" as const, label: "Autres", value: fundOrigins?.other ?? 0, color: "#94a3b8" },
+          ]).map(({ key, label, value, color }) => (
+            <div key={label} onClick={() => setOriginDrillDown(key)} className="flex items-center gap-3 cursor-pointer group">
+              <span className="text-xs font-bold w-28 shrink-0 group-hover:opacity-70 transition-opacity" style={{ color }}>{label}</span>
               <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, value)}%`, backgroundColor: color }} />
+                <div className="h-full rounded-full transition-all group-hover:opacity-75" style={{ width: `${Math.min(100, value)}%`, backgroundColor: color }} />
               </div>
               <span className="text-xs font-bold text-slate-700 w-14 text-right">{value.toFixed(1)}%</span>
+              <ArrowRight className="h-3 w-3 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
             </div>
           ))}
         </div>
+        <p className="text-[10px] text-slate-400 italic pt-3">Cliquez pour voir le détail</p>
       </div>
-
-      {/* ── Modale drill-down ── */}
       
       {/* ── Modale drill-down ── */}
       <Modal isOpen={!!drillDown} onClose={() => setDrillDown(null)}
@@ -6576,6 +6593,7 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
       getManagementStyle={getManagementStyle}
       applyLookThroughWithStyle={applyLookThroughWithStyle}
       computeFundOrigins={computeFundOrigins}
+      getFundOrigin={getFundOrigin}
     />
   </motion.div>
 )}
