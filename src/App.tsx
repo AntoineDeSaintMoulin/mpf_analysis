@@ -4069,13 +4069,19 @@ function RiskAnalysisTab({
   computePassiveActiveByRegion,
   getManagementStyle,
   applyLookThroughWithStyle,
+  computeFundOrigins,
 }: {
   allPortfolios: Portfolio[];
   computePassiveActiveGlobal: (holdings: Holding[]) => { passive: number; active: number; passivePct: number; activePct: number };
   computePassiveActiveByRegion: (holdings: Holding[]) => { region: string; passive: number; active: number }[];
   getManagementStyle: (isin: string | null | undefined) => "active" | "passive";
   applyLookThroughWithStyle: (holdings: Holding[]) => { region: string; weight: number; style: "active" | "passive" }[];
+  computeFundOrigins: (holdings: Holding[]) => {
+    dpam: number; select_equities: number; etf_amundi: number; samdp: number; other: number;
+    internal: number; internalPct: number; otherPct: number;
+  };
 }) {
+  
   const [selectedId, setSelectedId] = React.useState<number | null>(null);
   const [drillDown, setDrillDown] = React.useState<{ style: "active" | "passive"; region?: string } | null>(null);
 
@@ -4094,6 +4100,7 @@ React.useEffect(() => {
 
   const global = current ? computePassiveActiveGlobal(current.holdings ?? []) : null;
   const byRegion = current ? computePassiveActiveByRegion(current.holdings ?? []) : [];
+  const fundOrigins = current ? computeFundOrigins(current.holdings ?? []) : null;
 
   const COLORS = { active: "#0ea5e9", passive: "#f59e0b" };
 
@@ -4240,6 +4247,44 @@ React.useEffect(() => {
         <p className="text-[10px] text-slate-400 italic pt-3">Cliquez pour voir le détail</p>
       </div>
 
+      {/* Fonds Maison */}
+      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-4">Fonds Maison</p>
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-xs font-bold w-24 shrink-0 text-emerald-600">Internal</span>
+          <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all" style={{ width: `${fundOrigins?.internalPct ?? 0}%`, backgroundColor: "#10b981" }} />
+          </div>
+          <span className="text-xs font-bold text-slate-700 w-14 text-right">{fundOrigins?.internalPct.toFixed(1)}%</span>
+        </div>
+        <div className="flex items-center gap-3 mb-6">
+          <span className="text-xs font-bold w-24 shrink-0 text-slate-400">Autres</span>
+          <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all" style={{ width: `${fundOrigins?.otherPct ?? 0}%`, backgroundColor: "#94a3b8" }} />
+          </div>
+          <span className="text-xs font-bold text-slate-700 w-14 text-right">{fundOrigins?.otherPct.toFixed(1)}%</span>
+        </div>
+        <div className="space-y-2 pt-4 border-t border-slate-100">
+          {[
+            { label: "DPAM", value: fundOrigins?.dpam ?? 0, color: "#0ea5e9" },
+            { label: "Select Equities", value: fundOrigins?.select_equities ?? 0, color: "#8b5cf6" },
+            { label: "ETF Amundi", value: fundOrigins?.etf_amundi ?? 0, color: "#f59e0b" },
+            { label: "SAMDP", value: fundOrigins?.samdp ?? 0, color: "#ec4899" },
+            { label: "Autres", value: fundOrigins?.other ?? 0, color: "#94a3b8" },
+          ].map(({ label, value, color }) => (
+            <div key={label} className="flex items-center gap-3">
+              <span className="text-xs font-bold w-28 shrink-0" style={{ color }}>{label}</span>
+              <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, value)}%`, backgroundColor: color }} />
+              </div>
+              <span className="text-xs font-bold text-slate-700 w-14 text-right">{value.toFixed(1)}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Modale drill-down ── */}
+      
       {/* ── Modale drill-down ── */}
       <Modal isOpen={!!drillDown} onClose={() => setDrillDown(null)}
         title={`${drillDown?.style === "passive" ? "Passif" : "Actif"}${drillDown?.region ? ` — ${drillDown.region}` : " — Global"}`}>
@@ -5061,6 +5106,38 @@ function applyLookThroughWithStyle(holdings: Holding[]): { region: string; weigh
     return result;
   }
 
+function getFundOrigin(h: Holding): "dpam" | "select_equities" | "etf_amundi" | "samdp" | "other" {
+    const name = (h.asset_name ?? "").toUpperCase();
+    const SAMDP_ISINS = ["LU1795355053", "LU1545753169"];
+    if (h.isin && SAMDP_ISINS.includes(h.isin)) return "samdp";
+    if (name.startsWith("SELECT EQUITIES")) return "select_equities";
+    if (name.includes("AMUNDI") && name.includes("ETF")) return "etf_amundi";
+    if (h.isin && dpamMappings.some(m => m.isin === h.isin)) return "dpam";
+    return "other";
+  }
+
+  function computeFundOrigins(holdings: Holding[]) {
+    const m = new Map<string, number>();
+    holdings.forEach(h => {
+      if (!h) return;
+      const origin = getFundOrigin(h);
+      m.set(origin, (m.get(origin) ?? 0) + (h.weight ?? 0));
+    });
+    const total = holdings.reduce((s, h) => s + (h?.weight ?? 0), 0);
+    const get = (k: string) => m.get(k) ?? 0;
+    const internal = get("dpam") + get("select_equities") + get("etf_amundi") + get("samdp");
+    return {
+      dpam: +get("dpam").toFixed(1),
+      select_equities: +get("select_equities").toFixed(1),
+      etf_amundi: +get("etf_amundi").toFixed(1),
+      samdp: +get("samdp").toFixed(1),
+      other: +get("other").toFixed(1),
+      internal: +internal.toFixed(1),
+      internalPct: total > 0 ? +(internal / total * 100).toFixed(1) : 0,
+      otherPct: total > 0 ? +(get("other") / total * 100).toFixed(1) : 0,
+    };
+  }
+  
   function computePassiveActiveGlobal(holdings: Holding[]) {
     let passive = 0, active = 0;
     holdings.forEach(h => {
@@ -6491,12 +6568,14 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
 {activeTab === "RISK_ANALYSIS" && (
   <motion.div key="risk_analysis" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
     className="max-w-6xl mx-auto">
+    
 <RiskAnalysisTab
       allPortfolios={allPortfolios}
       computePassiveActiveGlobal={computePassiveActiveGlobal}
       computePassiveActiveByRegion={computePassiveActiveByRegion}
       getManagementStyle={getManagementStyle}
       applyLookThroughWithStyle={applyLookThroughWithStyle}
+      computeFundOrigins={computeFundOrigins}
     />
   </motion.div>
 )}
