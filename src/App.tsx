@@ -4377,6 +4377,52 @@ React.useEffect(() => {
           )}
         </div>
       </Modal>
+
+{/* ── Modale drill-down origine des fonds ── */}
+      <Modal isOpen={!!originDrillDown} onClose={() => setOriginDrillDown(null)}
+        title={
+          originDrillDown === "internal" ? "Fonds Internal" :
+          originDrillDown === "other" ? "Autres fonds" :
+          originDrillDown === "dpam" ? "Fonds DPAM" :
+          originDrillDown === "select_equities" ? "Select Equities" :
+          originDrillDown === "etf_amundi" ? "ETF Amundi" :
+          originDrillDown === "samdp" ? "SAMDP" : ""
+        }>
+        <div className="space-y-4">
+          {originDrillDownHoldings.length === 0 ? (
+            <p className="text-slate-400 text-sm italic text-center py-8">Aucun instrument.</p>
+          ) : (
+            <table className="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-100">
+                  <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase">Instrument</th>
+                  <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">Poids</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {originDrillDownHoldings.map((h, i) => (
+                  <tr key={i} className="hover:bg-slate-50/50">
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-slate-900 truncate max-w-[280px]">{h.asset_name ?? "—"}</p>
+                      <p className="text-xs font-mono text-slate-400">{h.isin ?? "—"}</p>
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-slate-900">{(h.weight ?? 0).toFixed(2)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-slate-50 border-t border-slate-200">
+                  <td className="px-4 py-3 font-bold text-slate-700 text-right">Total</td>
+                  <td className="px-4 py-3 text-right font-bold text-slate-900">
+                    {originDrillDownHoldings.reduce((s, h) => s + (h.weight ?? 0), 0).toFixed(2)}%
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          )}
+        </div>
+      </Modal>
+      
     </div>
   );
 }
