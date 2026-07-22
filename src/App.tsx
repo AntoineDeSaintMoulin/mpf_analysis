@@ -6101,8 +6101,8 @@ return (["RISK_ANALYSIS","SYNTHESE", "INSTRUMENTS", "TARGET_GRID", "Sicav", "Mix
 
 {([
                     { key: "quick_valuation", label: "Quick Valuation", color: "sky", entries: importLog.quick_valuation ? [importLog.quick_valuation] : [] },
-                    { key: "target_grid", label: "Target Grid", color: "emerald", entries: importLog.target_grid ? [importLog.target_grid] : [] },
                   ] as const).map(({ key, label, color, entries }) => (
+  
 <div key={key} className={cn("flex-1 bg-white px-4 py-2 rounded-2xl border shadow-sm flex flex-col justify-center gap-1", entries.length > 0 ? "border-slate-100" : "border-slate-100 opacity-70")}>                      <div className="flex items-center gap-2">
                         <div className={cn("w-2 h-2 rounded-full shrink-0", { "bg-sky-400": color === "sky", "bg-violet-400": color === "violet", "bg-emerald-400": color === "emerald", "bg-amber-400": color === "amber" })} />
                         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{label}</p>
@@ -6456,7 +6456,7 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
             )}
 
             {/* ── TARGET GRID ── */}
-            {activeTab === "TARGET_GRID" && (
+{activeTab === "TARGET_GRID" && (
               <motion.div key="target_grid" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-7xl mx-auto space-y-8">
                 <div className="flex items-center justify-between mb-8">
                   <div>
@@ -6464,6 +6464,17 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
                     <p className="text-slate-500">Allocation cible vs benchmark par profil de risque.</p>
                   </div>
                   <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 bg-white border border-dashed border-slate-200 rounded-xl px-4 py-2.5 hover:border-emerald-400 transition-all group cursor-pointer shrink-0">
+                      <input type="file" accept=".xlsx" onChange={handleFileUpload} className="hidden" />
+                      <Upload className="h-4 w-4 text-slate-400 group-hover:text-emerald-600" />
+                      <span className="text-sm font-bold text-slate-700">Importer</span>
+                      {uploading
+                        ? <Loader2 className="h-3.5 w-3.5 text-emerald-600 animate-spin" />
+                        : uploadSuccess
+                          ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                          : null
+                      }
+                    </label>
                     {importLog.target_grid && (
                       <div className="bg-white px-4 py-2 rounded-xl border border-slate-100 shadow-sm text-xs text-slate-500">
                         <span className="font-bold text-slate-700 block truncate max-w-[220px]">{importLog.target_grid.filename}</span>
