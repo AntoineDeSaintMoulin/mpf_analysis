@@ -4077,16 +4077,16 @@ function RiskAnalysisTab({
   computePassiveActiveByRegion: (holdings: Holding[]) => { region: string; passive: number; active: number }[];
   getManagementStyle: (isin: string | null | undefined) => "active" | "passive";
   applyLookThroughWithStyle: (holdings: Holding[]) => { region: string; weight: number; style: "active" | "passive" }[];
-  computeFundOrigins: (holdings: Holding[]) => {
-    dpam: number; select_equities: number; etf_amundi: number; samdp: number; other: number;
+computeFundOrigins: (holdings: Holding[]) => {
+    dpam: number; select_equities: number; etf_amundi: number; samdp: number; indosuez: number; other: number;
     internal: number; internalPct: number; otherPct: number;
   };
-  getFundOrigin: (h: Holding) => "dpam" | "select_equities" | "etf_amundi" | "samdp" | "other";
+  getFundOrigin: (h: Holding) => "dpam" | "select_equities" | "etf_amundi" | "samdp" | "indosuez" | "other";
 }) {
   
   const [selectedId, setSelectedId] = React.useState<number | null>(null);
   const [drillDown, setDrillDown] = React.useState<{ style: "active" | "passive"; region?: string } | null>(null);
-  const [originDrillDown, setOriginDrillDown] = React.useState<"dpam" | "select_equities" | "etf_amundi" | "samdp" | "other" | "internal" | null>(null);
+const [originDrillDown, setOriginDrillDown] = React.useState<"dpam" | "select_equities" | "etf_amundi" | "samdp" | "indosuez" | "other" | "internal" | null>(null);
 
 React.useEffect(() => {
     if (selectedId != null || allPortfolios.length === 0) return;
@@ -4282,13 +4282,15 @@ React.useEffect(() => {
           <ArrowRight className="h-3 w-3 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
         </div>
         <div className="space-y-2 pt-4 border-t border-slate-100">
-          {([
+        {([
             { key: "dpam" as const, label: "DPAM", value: fundOrigins?.dpam ?? 0, color: "#0ea5e9" },
             { key: "select_equities" as const, label: "Select Equities", value: fundOrigins?.select_equities ?? 0, color: "#8b5cf6" },
             { key: "etf_amundi" as const, label: "ETF Amundi", value: fundOrigins?.etf_amundi ?? 0, color: "#f59e0b" },
             { key: "samdp" as const, label: "SAMDP", value: fundOrigins?.samdp ?? 0, color: "#ec4899" },
+            { key: "indosuez" as const, label: "Indosuez", value: fundOrigins?.indosuez ?? 0, color: "#14b8a6" },
             { key: "other" as const, label: "Autres", value: fundOrigins?.other ?? 0, color: "#94a3b8" },
           ]).map(({ key, label, value, color }) => (
+  
             <div key={label} onClick={() => setOriginDrillDown(key)} className="flex items-center gap-3 cursor-pointer group">
               <span className="text-xs font-bold w-28 shrink-0 group-hover:opacity-70 transition-opacity" style={{ color }}>{label}</span>
               <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -4386,7 +4388,8 @@ React.useEffect(() => {
           originDrillDown === "dpam" ? "Fonds DPAM" :
           originDrillDown === "select_equities" ? "Select Equities" :
           originDrillDown === "etf_amundi" ? "ETF Amundi" :
-          originDrillDown === "samdp" ? "SAMDP" : ""
+          originDrillDown === "samdp" ? "SAMDP" :
+          originDrillDown === "indosuez" ? "Fonds Indosuez" : ""
         }>
         <div className="space-y-4">
           {originDrillDownHoldings.length === 0 ? (
@@ -5169,13 +5172,14 @@ function applyLookThroughWithStyle(holdings: Holding[]): { region: string; weigh
     return result;
   }
 
-function getFundOrigin(h: Holding): "dpam" | "select_equities" | "etf_amundi" | "samdp" | "other" {
+function getFundOrigin(h: Holding): "dpam" | "select_equities" | "etf_amundi" | "samdp" | "indosuez" | "other" {
     const name = (h.asset_name ?? "").toUpperCase();
     const SAMDP_ISINS = ["LU1795355053", "LU1545753169"];
     if (h.isin && SAMDP_ISINS.includes(h.isin)) return "samdp";
     if (name.startsWith("SELECT EQUITIES")) return "select_equities";
     if (name.includes("AMUNDI") && name.includes("ETF")) return "etf_amundi";
     if (h.isin && dpamMappings.some(m => m.isin === h.isin)) return "dpam";
+    if (name.includes("INDOSUEZ")) return "indosuez";
     return "other";
   }
 
@@ -5188,12 +5192,13 @@ function getFundOrigin(h: Holding): "dpam" | "select_equities" | "etf_amundi" | 
     });
     const total = holdings.reduce((s, h) => s + (h?.weight ?? 0), 0);
     const get = (k: string) => m.get(k) ?? 0;
-    const internal = get("dpam") + get("select_equities") + get("etf_amundi") + get("samdp");
+    const internal = get("dpam") + get("select_equities") + get("etf_amundi") + get("samdp") + get("indosuez");
     return {
       dpam: +get("dpam").toFixed(1),
       select_equities: +get("select_equities").toFixed(1),
       etf_amundi: +get("etf_amundi").toFixed(1),
       samdp: +get("samdp").toFixed(1),
+      indosuez: +get("indosuez").toFixed(1),
       other: +get("other").toFixed(1),
       internal: +internal.toFixed(1),
       internalPct: total > 0 ? +(internal / total * 100).toFixed(1) : 0,
