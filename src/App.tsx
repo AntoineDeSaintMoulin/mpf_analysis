@@ -4988,9 +4988,10 @@ if (isEquity) {
       if (isTargetGridFile(file.name)) {
         const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs" as any);
         const buffer = await file.arrayBuffer();
-        const wb = XLSX.read(buffer, { type: "array" });
-const ws = wb.Sheets[wb.SheetNames[0]];
-console.log("Original range:", ws['!ref']);
+const wb = XLSX.read(buffer, { type: "array" });
+const targetSheetName = wb.SheetNames.find((n: string) => n.toLowerCase().includes("target grid")) ?? wb.SheetNames[0];
+const ws = wb.Sheets[targetSheetName];
+console.log("Using sheet:", targetSheetName, "range:", ws['!ref']);
 const raw: any[][] = XLSX.utils.sheet_to_json(ws, { 
   header: 1, 
   defval: null, 
