@@ -1109,7 +1109,7 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
 {mainInstruments
       .filter((inst: any) => inst.name.toLowerCase().includes(bondsSearch.toLowerCase()))
       .map((inst: any) => {
-        const isMapped = mappings.some((m: any) => m.col_index === inst.col_index && m.dpam_type === "bonds");
+        const isMapped = mappings.some((m: any) => m.instrument_name === inst.name && m.dpam_type === "bonds");
         return (
           <button key={inst.col_index}
             onClick={() => setSelectedCol(inst.col_index)}
@@ -1381,7 +1381,7 @@ const fmtPct = (v: any) => v != null ? Number(v).toFixed(1) + "%" : "—";
 {(equityData.instruments ?? [])
   .filter((inst: any) => inst.name.toLowerCase().includes(equitySearch.toLowerCase()))
   .map((inst: any) => {
-    const isMapped = mappings.some((m: any) => m.col_index === inst.col_index && m.dpam_type === "equity");
+    const isMapped = mappings.some((m: any) => m.instrument_name === inst.name && m.dpam_type === "equity");
     return (
       <button key={inst.col_index}
         onClick={() => setSelectedCol(inst.col_index)}
@@ -5310,8 +5310,13 @@ const dpamLookup = useMemo(() => {
     duration: number | null;
   }> = {};
  
-  for (const mapping of dpamMappings) {
-    const { isin, dpam_type, col_index } = mapping;
+for (const mapping of dpamMappings) {
+    const { isin, dpam_type, instrument_name } = mapping;
+    const currentInst = dpam_type === "bonds"
+      ? (dpamBondsData?.instruments ?? []).find((i: any) => i.name === instrument_name)
+      : (dpamEquityData?.instruments ?? []).find((i: any) => i.name === instrument_name);
+    const col_index = currentInst?.col_index;
+    if (col_index == null) continue;
  
   if (dpam_type === "bonds" && dpamBondsData) {
       // Geo : pas de geo bonds directs, on skip
