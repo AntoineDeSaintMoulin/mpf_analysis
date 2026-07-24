@@ -7,6 +7,7 @@ import {
   ChevronRight,
   TrendingUp,
   Info,
+  Download,
   Sparkles,
   Loader2,
   Table as TableIcon,
