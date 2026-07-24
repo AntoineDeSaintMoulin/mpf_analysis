@@ -4755,6 +4755,25 @@ if (debt.instruments) setSamdpDebtInstruments(assignDebtLevels(debt.instruments)
     finally { setAnalyzing(false); }
   };
 
+const handleExportExcel = async () => {
+    if (!currentPortfolioEffective || sortedFilteredHoldings.length === 0) return;
+    const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs" as any);
+    const data = sortedFilteredHoldings.map(h => ({
+      "Instrument": h?.asset_name ?? "",
+      "ISIN": h?.isin ?? "",
+      "Catégorie": h?.category ?? "",
+      "Région": h?.region ?? "",
+      "Devise": h?.currency ?? "",
+      "Poids (%)": Number(h?.weight ?? 0),
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws["!cols"] = [{ wch: 45 }, { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 10 }, { wch: 12 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Positions");
+    const safeName = (currentPortfolioEffective.name ?? "Portfolio").replace(/[\\/:*?"<>|]/g, "_");
+    XLSX.writeFile(wb, `${safeName}_Positions_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+  
   const handleSaveOverride = async () => {
     if (!editingOverride) return;
     try {
@@ -6689,10 +6708,10 @@ currentPortfolioEffective.type === "Sicav" ? "bg-purple-100 text-purple-700" : "
                         </div>
 <p className="text-slate-500 max-w-2xl">{currentPortfolioEffective.description ?? ""}</p>
                       </div>
-                      <button onClick={handleAnalyze} disabled={analyzing}
-                        className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-2xl font-medium hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 disabled:opacity-50">
-                        {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                        Analyse IA
+                        <button onClick={handleExportExcel}
+                        className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-2xl font-medium hover:bg-slate-800 transition-all shadow-lg shadow-slate-200">
+                        <Download className="h-4 w-4" />
+                        Export Excel
                       </button>
                     </div>
 
@@ -6877,36 +6896,6 @@ currentPortfolioEffective.type === "Sicav" ? "bg-purple-100 text-purple-700" : "
                                   </div>
                                 </button>
                               ))}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-
-                    <AnimatePresence>
-                      {analysis && (
-                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="bg-slate-900 text-white p-8 rounded-3xl shadow-2xl relative overflow-hidden">
-                          <div className="absolute top-0 right-0 p-10 opacity-10 pointer-events-none"><Sparkles className="h-32 w-32" /></div>
-                          <div className="relative z-10">
-                            <div className="flex items-center gap-3 mb-6">
-                              <div className="bg-white/10 p-2 rounded-xl"><Sparkles className="h-5 w-5 text-sky-400" /></div>
-                              <h3 className="text-xl font-bold">Analyse IA Insight</h3>
-                            </div>
-                            <p className="text-slate-300 leading-relaxed text-lg mb-8">{analysis.commentary}</p>
-                            {(analysis.differences?.length ?? 0) > 0 && (
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {analysis.differences.map((diff, i) => (
-                                  <div key={i} className="bg-white/5 border border-white/10 p-4 rounded-2xl">
-                                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">{diff.category} • {diff.region}</div>
-                                    <div className="flex items-end justify-between">
-                                      <div className="text-xl font-bold">{diff.current}% <span className="text-xs font-normal text-slate-400">vs {diff.target}%</span></div>
-                                      <div className={cn("text-sm font-medium px-2 py-0.5 rounded-lg", diff.diff > 0 ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400")}>
-                                        {diff.diff > 0 ? "+" : ""}{diff.diff}%
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
                           </div>
                         </motion.div>
                       )}
