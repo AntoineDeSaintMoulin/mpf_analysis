@@ -6712,7 +6712,7 @@ currentPortfolioEffective.type === "Sicav" ? "bg-purple-100 text-purple-700" : "
                         <button onClick={handleExportExcel}
                         className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-2xl font-medium hover:bg-slate-800 transition-all shadow-lg shadow-slate-200">
                         <Download className="h-4 w-4" />
-                        Export Excel
+                        Export Positions
                       </button>
                     </div>
 
