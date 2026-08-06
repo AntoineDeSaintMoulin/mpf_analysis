@@ -5560,12 +5560,13 @@ const samdpDebtCreditBreakdown = useMemo(() => {
     if (sector.toLowerCase().includes("government") || sector.toLowerCase().includes("sovereign")) credit = "Govies";
     m.set(credit, (m.get(credit) ?? 0) + w * 100 / totalAll);
   });
-  return Array.from(m.entries()).map(([credit_type, weight]) => ({
+return Array.from(m.entries()).map(([credit_type, weight]) => ({
     credit_type,
     currency: "EUR",
     weight: +weight.toFixed(2),
   }));
-  
+}, [samdpDebtInstruments, creditBreakdowns]);
+
 const samdpGeoBreakdown = useMemo(() => {
   if (samdpEquityRows.length === 0) return null;
   const level5 = samdpEquityRows.filter((r: any) => r.level === 5 && r.isin);
