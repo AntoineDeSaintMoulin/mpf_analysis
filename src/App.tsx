@@ -6954,6 +6954,16 @@ currentPortfolioEffective.type === "Sicav" ? "bg-purple-100 text-purple-700" : "
                                 ))
                               )}
                             </tbody>
+                            {sortedFilteredHoldings.length > 0 && (
+                              <tfoot>
+                                <tr className="bg-slate-50 border-t border-slate-200">
+                                  <td colSpan={5} className="px-8 py-4 font-bold text-slate-700 text-right">Total</td>
+                                  <td className="px-8 py-4 text-right font-bold text-slate-900">
+                                    {sortedFilteredHoldings.reduce((s, h) => s + Number(h?.weight ?? 0), 0).toFixed(2)}%
+                                  </td>
+                                </tr>
+                              </tfoot>
+                            )}
                           </table>
                         </div>
                       </div>
