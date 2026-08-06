@@ -291,7 +291,7 @@ case "equities": {
           } else {
             const dpamGeo = h.isin ? dpamLookup[h.isin]?.geoBreakdown : null;
             if (dpamGeo && dpamGeo.length > 0) {
-              dpamGeo.filter((e: any) => e.region !== "Cash").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+              dpamGeo.forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
             } else {
               total += h.weight ?? 0;
             }
@@ -455,9 +455,16 @@ case "fi_global": {
         const dpamCredit = h.isin ? dpamLookup[h.isin]?.creditBreakdown : null;
         const entries = cbd ?? samdpDebt ?? dpamCredit ?? [];
         if (entries.length > 0) {
-          entries.filter((e: any) => !KNOWN_TYPES.includes(e.credit_type)).forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+          entries.forEach((e: any) => {
+            const currency = (e.currency ?? "").toUpperCase();
+            const isEurKnown = currency === "EUR" && ["Govies", "IG", "HY", "NR"].includes(e.credit_type);
+            const isUsdCovered = currency === "USD";
+            const isEmDebt = e.credit_type === "EM Debt";
+            if (!isEurKnown && !isUsdCovered && !isEmDebt) {
+              total += (h.weight ?? 0) * e.weight / 100;
+            }
+          });
         } else {
-          // Pas de credit breakdown — fallback : tout le poids va dans fi_global
           total += h.weight ?? 0;
         }
       });
