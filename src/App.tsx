@@ -270,7 +270,7 @@ function computePtfWeight(
 
   const FI_CATS = ["Fixed Income", "Bonds"];
 
-  const normalizeRegion = (r: string) => {
+const normalizeRegion = (r: string) => {
     if (["Europe", "Europe ex-Euroland", "Euroland"].includes(r)) return "Europe";
     if (["US", "North America"].includes(r)) return "US";
     if (["Emerging and Frontier Markets", "Emerging Markets"].includes(r)) return "EM";
@@ -278,20 +278,36 @@ function computePtfWeight(
     return r;
   };
 
+  const getEquityCashWeight = (h: any): number => {
+    if (h?.category !== "Equities") return 0;
+    if (h.isin === "LU1795355053" && samdpGeoBreakdown) {
+      return samdpGeoBreakdown.filter((e: any) => e.region === "Cash").reduce((s: number, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
+    }
+    const bd = h.isin ? breakdowns[h.isin] : null;
+    if (bd && bd.length > 0) {
+      return bd.filter((e: any) => e.region === "Cash").reduce((s: number, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
+    }
+    const dpamGeo = h.isin ? dpamLookup[h.isin]?.geoBreakdown : null;
+    if (dpamGeo && dpamGeo.length > 0) {
+      return dpamGeo.filter((e: any) => e.region === "Cash").reduce((s: number, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
+    }
+    return 0;
+  };
+
   switch (gridId) {
 case "equities": {
       let total = 0;
       holdings.filter(h => h?.category === "Equities").forEach(h => {
         if (h.isin === "LU1795355053" && samdpGeoBreakdown) {
-          samdpGeoBreakdown.forEach(e => { total += (h.weight ?? 0) * e.weight / 100; });
+          samdpGeoBreakdown.filter((e: any) => e.region !== "Cash").forEach(e => { total += (h.weight ?? 0) * e.weight / 100; });
         } else {
           const bd = h.isin ? breakdowns[h.isin] : null;
           if (bd && bd.length > 0) {
-            bd.forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+            bd.filter((e: any) => e.region !== "Cash").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
           } else {
             const dpamGeo = h.isin ? dpamLookup[h.isin]?.geoBreakdown : null;
             if (dpamGeo && dpamGeo.length > 0) {
-              dpamGeo.forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
+              dpamGeo.filter((e: any) => e.region !== "Cash").forEach((e: any) => { total += (h.weight ?? 0) * e.weight / 100; });
             } else {
               total += h.weight ?? 0;
             }
@@ -471,8 +487,11 @@ case "fi_global": {
       return total;
     }
 
-case "short_term":
-      return holdings.filter(h => ["Short Term", "Cash", "Liquidities"].includes(h?.category ?? "")).reduce((s, h) => s + (h.weight ?? 0), 0);
+case "short_term": {
+      const base = holdings.filter(h => ["Short Term", "Cash", "Liquidities"].includes(h?.category ?? "")).reduce((s, h) => s + (h.weight ?? 0), 0);
+      const equityCash = holdings.reduce((s, h) => s + getEquityCashWeight(h), 0);
+      return base + equityCash;
+    }
 
     case "st_eur":
       return holdings
@@ -484,10 +503,13 @@ case "short_term":
         .filter(h => ["Short Term", "Cash", "Liquidities"].includes(h?.category ?? ""))
         .reduce((s, h) => (h.currency ?? "").toUpperCase() === "USD" ? s + (h.weight ?? 0) : s, 0);
 
-    case "st_other":
-      return holdings
+    case "st_other": {
+      const base = holdings
         .filter(h => ["Short Term", "Cash", "Liquidities"].includes(h?.category ?? ""))
         .reduce((s, h) => !["EUR", "USD"].includes((h.currency ?? "").toUpperCase()) ? s + (h.weight ?? 0) : s, 0);
+      const equityCash = holdings.reduce((s, h) => s + getEquityCashWeight(h), 0);
+      return base + equityCash;
+    }
     default:
       return null;
   }
@@ -848,6 +870,22 @@ return ["Target", "Ptf", "Active"].map(col => {
   const FI_CATS = ["Fixed Income", "Bonds"];
   const holdings = ptf.holdings ?? [];
 
+const getEquityCashWeightModal = (h: any): number => {
+    if (h?.category !== "Equities") return 0;
+    const bd0 = h.isin ? breakdowns[h.isin] : null;
+    if (h.isin === "LU1795355053" && samdpGeoBreakdown) {
+      return samdpGeoBreakdown.filter((e: any) => e.region === "Cash").reduce((s: number, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
+    }
+    if (bd0 && bd0.length > 0) {
+      return bd0.filter((e: any) => e.region === "Cash").reduce((s: number, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
+    }
+    const dpamGeo0 = h.isin ? dpamLookup[h.isin]?.geoBreakdown : null;
+    if (dpamGeo0 && dpamGeo0.length > 0) {
+      return dpamGeo0.filter((e: any) => e.region === "Cash").reduce((s: number, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
+    }
+    return 0;
+  };
+
 const rows = holdings.map((h: any) => {
     const cbd = h.isin ? creditBreakdowns[h.isin] : null;
     const SAMDP_DEBT_ISIN = "LU1545753169";
@@ -858,12 +896,12 @@ const rows = holdings.map((h: any) => {
 
     let exposition: number | null = null;
 
-    if (rowId === "equities") {
+if (rowId === "equities") {
       if (h.category !== "Equities") return null;
       if (h.isin === "LU1795355053" && samdpGeoBreakdown) {
-        exposition = (h.weight ?? 0) * samdpGeoBreakdown.reduce((s: number, e: any) => s + e.weight / 100, 0);
+        exposition = samdpGeoBreakdown.filter((e: any) => e.region !== "Cash").reduce((s: number, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
       } else if (bd && bd.length > 0) {
-        exposition = bd.reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
+        exposition = bd.filter((e: any) => e.region !== "Cash").reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
       } else if (dpamGeo && dpamGeo.length > 0) {
         exposition = dpamGeo.filter((e: any) => e.region !== "Cash").reduce((s: any, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
       } else {
@@ -898,16 +936,30 @@ const rows = holdings.map((h: any) => {
       const holdingOnly = [h];
       const val = computePtfWeight(rowId, holdingOnly, breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown, samdpDebtCreditBreakdown);
       exposition = val ?? 0;
-    } else if (rowId === "short_term") {
-      if (!["Short Term","Cash","Liquidities"].includes(h.category ?? "")) return null;
-      exposition = h.weight ?? 0;
-    } else if (["st_eur", "st_usd", "st_other"].includes(rowId)) {
+} else if (rowId === "short_term") {
+      if (["Short Term","Cash","Liquidities"].includes(h.category ?? "")) {
+        exposition = h.weight ?? 0;
+      } else if (h.category === "Equities") {
+        const cashW = getEquityCashWeightModal(h);
+        if (cashW <= 0.001) return null;
+        exposition = cashW;
+      } else return null;
+    } else if (["st_eur", "st_usd"].includes(rowId)) {
       if (!["Short Term","Cash","Liquidities"].includes(h.category ?? "")) return null;
       const cur = (h.currency ?? "").toUpperCase();
       if (rowId === "st_eur" && cur !== "EUR") return null;
       if (rowId === "st_usd" && cur !== "USD") return null;
-      if (rowId === "st_other" && ["EUR", "USD"].includes(cur)) return null;
       exposition = h.weight ?? 0;
+    } else if (rowId === "st_other") {
+      if (["Short Term","Cash","Liquidities"].includes(h.category ?? "")) {
+        const cur = (h.currency ?? "").toUpperCase();
+        if (["EUR", "USD"].includes(cur)) return null;
+        exposition = h.weight ?? 0;
+      } else if (h.category === "Equities") {
+        const cashW = getEquityCashWeightModal(h);
+        if (cashW <= 0.001) return null;
+        exposition = cashW;
+      } else return null;
     } else if (rowId === "alternatives") {
       if (!["Alternatives","Gold"].includes(h.category ?? "")) return null;
       exposition = h.weight ?? 0;
