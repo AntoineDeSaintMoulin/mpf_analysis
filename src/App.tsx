@@ -901,6 +901,13 @@ const rows = holdings.map((h: any) => {
     } else if (rowId === "short_term") {
       if (!["Short Term","Cash","Liquidities"].includes(h.category ?? "")) return null;
       exposition = h.weight ?? 0;
+    } else if (["st_eur", "st_usd", "st_other"].includes(rowId)) {
+      if (!["Short Term","Cash","Liquidities"].includes(h.category ?? "")) return null;
+      const cur = (h.currency ?? "").toUpperCase();
+      if (rowId === "st_eur" && cur !== "EUR") return null;
+      if (rowId === "st_usd" && cur !== "USD") return null;
+      if (rowId === "st_other" && ["EUR", "USD"].includes(cur)) return null;
+      exposition = h.weight ?? 0;
     } else if (rowId === "alternatives") {
       if (!["Alternatives","Gold"].includes(h.category ?? "")) return null;
       exposition = h.weight ?? 0;
