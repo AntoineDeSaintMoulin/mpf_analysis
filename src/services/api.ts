@@ -178,7 +178,32 @@ export async function deleteManagementStyle(isin: string): Promise<{ success: bo
   return data ?? { success: false };
 }
 
-// ── Upload ────────────────────────────────────────────────────────────────────
+// ── Performance ──────────────────────────────────────────────────────────────
+export interface PerformanceRow {
+  report_code: string;
+  profile: string;
+  label: string;
+  category: "portfolio" | "external";
+  mtd: number | null;
+  ytd: number | null;
+  y2025: number | null;
+  report_date: string;
+  imported_at: string;
+}
+
+export async function fetchPerformanceData(): Promise<PerformanceRow[]> {
+  const data = await safeFetch<PerformanceRow[]>("/api/manual-data?resource=performance");
+  return data ?? [];
+}
+
+export async function savePerformanceData(report_date: string, rows: Omit<PerformanceRow, "report_date" | "imported_at">[]): Promise<{ success: boolean }> {
+  const data = await safeFetch<{ success: boolean }>("/api/manual-data?resource=performance", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ report_date, rows }),
+  });
+  return data ?? { success: false };
+}
 
 // ── Upload ────────────────────────────────────────────────────────────────────
 export async function uploadPortfolios(portfolios: any[]): Promise<{ success: boolean }> {
