@@ -5565,31 +5565,6 @@ const samdpDebtCreditBreakdown = useMemo(() => {
     currency: "EUR",
     weight: +weight.toFixed(2),
   }));
-}, [samdpDebtInstruments, creditBreakdowns]);
-  const m = new Map<string, number>();
-  level2.forEach((inst: any) => {
-    const w = Number(inst.wght_pct ?? 0);
-    if (w === 0) return;
-    // Priorité 1 : creditBreakdowns manuel
-    const manualCbd = creditBreakdowns[inst.isin];
-    if (manualCbd && manualCbd.length > 0) {
-      manualCbd.forEach((e: any) => {
-        m.set(e.credit_type, (m.get(e.credit_type) ?? 0) + w * e.weight / 100 * 100 / totalWght);
-      });
-      return;
-    }
-    // Priorité 2 : sector/ig_hy
-    const sector = inst.bics_sector_1 ?? "";
-    let credit = inst.ig_hy ?? "NR";
-    if (sector.toLowerCase().includes("government") || sector.toLowerCase().includes("sovereign")) credit = "Govies";
-    m.set(credit, (m.get(credit) ?? 0) + w * 100 / totalWght);
-  });
-  return Array.from(m.entries()).map(([credit_type, weight]) => ({
-    credit_type,
-    currency: "EUR",
-    weight: +weight.toFixed(2),
-  }));
-}, [samdpDebtInstruments, creditBreakdowns]);
   
 const samdpGeoBreakdown = useMemo(() => {
   if (samdpEquityRows.length === 0) return null;
