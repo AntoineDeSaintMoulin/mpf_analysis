@@ -4,8 +4,8 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const resource = req.query.resource as string;
 
-  if (!["breakdown", "currency", "ratings", "credit", "duration", "management_style"].includes(resource)) {
-    return res.status(400).json({ error: "resource doit être breakdown, currency, ratings, credit, duration ou management_style" });
+if (!["breakdown", "currency", "ratings", "credit", "duration", "management_style", "performance"].includes(resource)) {
+    return res.status(400).json({ error: "resource doit être breakdown, currency, ratings, credit, duration, management_style ou performance" });
   }
 
   // ── GET ────────────────────────────────────────────────────────────────────
@@ -84,7 +84,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.json(map);
       }
 
-      if (resource === "management_style") {
+     if (resource === "management_style") {
         const result = await pool.query(`
           SELECT isin, management_style, updated_at
           FROM instrument_management_style
@@ -96,6 +96,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         return res.json(map);
       }
+
+      if (resource === "performance") {
+        const result = await pool.query(`
+          SELECT report_code, profile, label, category, mtd, ytd, y2025, report_date, imported_at
+          FROM performance_data
+          ORDER BY report_date DESC, report_code, profile
+        `);
+        return res.json(result.rows);
+      }
     } catch (e) {
       console.error(e);
       return res.status(500).json({ error: String(e) });
@@ -103,8 +112,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // ── POST ───────────────────────────────────────────────────────────────────
-  if (req.method === "POST") {
+if (req.method === "POST") {
     try {
+      if (resource === "performance") {
+        const { report_date, rows } = req.body as {
+          report_date: string;
+          rows: { report_code: string; profile: string; label: string; category: string; mtd: number | null; ytd: number | null; y2025: number | null }[];
+        };
+        if (!report_date || !rows?.length) return res.status(400).json({ error: "report_date et rows requis" });
+        await pool.query("DELETE FROM performance_data WHERE report_date = $1", [report_date]);
+        for (const r of rows) {
+          await pool.query(
+            `INSERT INTO performance_data (report_code, profile, label, category, mtd, ytd, y2025, report_date)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [r.report_code, r.profile, r.label, r.category, r.mtd, r.ytd, r.y2025, report_date]
+          );
+        }
+        return res.json({ success: true });
+      }
       const { isin } = req.body as { isin: string };
       if (!isin) return res.status(400).json({ error: "isin requis" });
 
