@@ -264,7 +264,8 @@ function computePtfWeight(
   dpamLookup: Record<string, any> = {},
   samdpGeoBreakdown: { region: string; weight: number }[] | null = null,
   samdpDebtCreditBreakdown: { credit_type: string; currency: string; weight: number }[] | null = null,
-  samdpEquityCashPct: number = 0
+  samdpEquityCashPct: number = 0,
+  samdpDebtCashPct: number = 0
 ): number | null {
   
   if (ALWAYS_DASH.has(gridId)) return null;
@@ -280,6 +281,10 @@ const normalizeRegion = (r: string) => {
   };
 
 const getEquityCashWeight = (h: any): number => {
+    const SAMDP_DEBT_ISIN_CASH = "LU1545753169";
+    if (h.isin === SAMDP_DEBT_ISIN_CASH) {
+      return (h.weight ?? 0) * samdpDebtCashPct / 100;
+    }
     if (h?.category !== "Equities") return 0;
     if (h.isin === "LU1795355053") {
       return (h.weight ?? 0) * samdpEquityCashPct / 100;
@@ -350,7 +355,7 @@ case "eq_europe": case "eq_us": case "eq_em": case "eq_japan": case "eq_other": 
 case "fixed_income": {
       const subIds = ["fi_eur", "fi_usd", "fi_em_local", "fi_em_hard", "fi_global"];
       const result = subIds.reduce((s, id) => {
-const v = computePtfWeight(id, holdings, breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown, samdpDebtCreditBreakdown, samdpEquityCashPct);
+const v = computePtfWeight(id, holdings, breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown, samdpDebtCreditBreakdown, samdpEquityCashPct, samdpDebtCashPct);
         console.log("fixed_income sub:", id, "=", v);
         return s + (v ?? 0);
       }, 0);
@@ -361,7 +366,7 @@ const v = computePtfWeight(id, holdings, breakdowns, creditBreakdowns, dpamLooku
 case "fi_eur": {
       const subIds = ["fi_eur_gov", "fi_eur_ig", "fi_eur_hy"];
       return subIds.reduce((s, id) => {
-const v = computePtfWeight(id, holdings, breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown, samdpDebtCreditBreakdown, samdpEquityCashPct);
+const v = computePtfWeight(id, holdings, breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown, samdpDebtCreditBreakdown, samdpEquityCashPct, samdpDebtCashPct);
         return s + (v ?? 0);
       }, 0);
     }
@@ -488,8 +493,10 @@ case "fi_global": {
       return total;
     }
 
-case "short_term": {
-      const base = holdings.filter(h => ["Short Term", "Cash", "Liquidities"].includes(h?.category ?? "")).reduce((s, h) => s + (h.weight ?? 0), 0);
+case "st_other": {
+      const base = holdings
+        .filter(h => ["Short Term", "Cash", "Liquidities"].includes(h?.category ?? ""))
+        .reduce((s, h) => !["EUR", "USD"].includes((h.currency ?? "").toUpperCase()) ? s + (h.weight ?? 0) : s, 0);
       const equityCash = holdings.reduce((s, h) => s + getEquityCashWeight(h), 0);
       return base + equityCash;
     }
@@ -563,6 +570,7 @@ function BreakdownDeviationTable({
   durations,
   samdpDebtInstruments,
   samdpEquityCashPct,
+  samdpDebtCashPct,
 }: {
   allPortfolios: any[];
   targetGridData: Record<string, any>;
@@ -570,7 +578,8 @@ function BreakdownDeviationTable({
   creditBreakdowns: Record<string, any[]>;
   dpamLookup: Record<string, any>;
 samdpGeoBreakdown: { region: string; weight: number }[] | null;
-  samdpEquityCashPct: number;
+samdpEquityCashPct: number;
+  samdpDebtCashPct: number;
   samdpDebtCreditBreakdown: { credit_type: string; currency: string; weight: number }[] | null;
   durations: Record<string, { duration: number; updated_at: string }>;
   samdpDebtInstruments: any[];
@@ -740,7 +749,7 @@ const fmt = (v: number | null) => v == null ? "—" : v.toFixed(1) + "%";
 const ptfVal = ptf
                           ? (row.id === "modified_duration"
                               ? computePtfDuration(ptf.holdings ?? [], durations, dpamLookup, samdpDebtInstruments)
-                              : computePtfWeight(row.id, ptf.holdings ?? [], breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown, samdpDebtCreditBreakdown, samdpEquityCashPct))
+                              : computePtfWeight(row.id, ptf.holdings ?? [], breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown, samdpDebtCreditBreakdown, samdpEquityCashPct, samdpDebtCashPct))
                           : null;
 
                       // Active = Ptf - Target
@@ -874,6 +883,10 @@ return ["Target", "Ptf", "Active"].map(col => {
   const holdings = ptf.holdings ?? [];
 
 const getEquityCashWeightModal = (h: any): number => {
+    const SAMDP_DEBT_ISIN_CASH = "LU1545753169";
+    if (h.isin === SAMDP_DEBT_ISIN_CASH) {
+      return (h.weight ?? 0) * samdpDebtCashPct / 100;
+    }
     if (h?.category !== "Equities") return 0;
     const bd0 = h.isin ? breakdowns[h.isin] : null;
     if (h.isin === "LU1795355053") {
@@ -937,12 +950,12 @@ if (rowId === "equities") {
       if (!FI_CATS.includes(h.category ?? "")) return null;
       // Calcul d'exposition pour un holding individuel en isolant sa contribution
       const holdingOnly = [h];
-const val = computePtfWeight(rowId, holdingOnly, breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown, samdpDebtCreditBreakdown, samdpEquityCashPct);
+const val = computePtfWeight(rowId, holdingOnly, breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown, samdpDebtCreditBreakdown, samdpEquityCashPct, samdpDebtCashPct);
       exposition = val ?? 0;
 } else if (rowId === "short_term") {
       if (["Short Term","Cash","Liquidities"].includes(h.category ?? "")) {
         exposition = h.weight ?? 0;
-      } else if (h.category === "Equities") {
+      } else if (h.category === "Equities" || FI_CATS.includes(h.category ?? "")) {
         const cashW = getEquityCashWeightModal(h);
         if (cashW <= 0.001) return null;
         exposition = cashW;
@@ -953,12 +966,12 @@ const val = computePtfWeight(rowId, holdingOnly, breakdowns, creditBreakdowns, d
       if (rowId === "st_eur" && cur !== "EUR") return null;
       if (rowId === "st_usd" && cur !== "USD") return null;
       exposition = h.weight ?? 0;
-    } else if (rowId === "st_other") {
+} else if (rowId === "st_other") {
       if (["Short Term","Cash","Liquidities"].includes(h.category ?? "")) {
         const cur = (h.currency ?? "").toUpperCase();
         if (["EUR", "USD"].includes(cur)) return null;
         exposition = h.weight ?? 0;
-      } else if (h.category === "Equities") {
+      } else if (h.category === "Equities" || FI_CATS.includes(h.category ?? "")) {
         const cashW = getEquityCashWeightModal(h);
         if (cashW <= 0.001) return null;
         exposition = cashW;
@@ -5514,12 +5527,45 @@ console.log("LU2799769836:", result["LU2799769836"]);
   return result;
 }, [dpamMappings, dpamBondsData, dpamEquityData]);
 
+const samdpDebtCashPct = useMemo(() => {
+  if (samdpDebtInstruments.length === 0) return 0;
+  const CASH_NAMES_DEBT = new Set(["CASH: PROVISION", "CURRENCY"]);
+  const level2 = samdpDebtInstruments.filter((i: any) => i.level === 2);
+  const totalAll = level2.reduce((s: number, i: any) => s + Number(i.wght_pct ?? 0), 0);
+  if (totalAll === 0) return 0;
+  const cashSum = level2.filter((i: any) => CASH_NAMES_DEBT.has(i.name)).reduce((s: number, i: any) => s + Number(i.wght_pct ?? 0), 0);
+  return cashSum * 100 / totalAll;
+}, [samdpDebtInstruments]);
+
 const samdpDebtCreditBreakdown = useMemo(() => {
   if (samdpDebtInstruments.length === 0) return null;
   const LEVEL1_NAMES_CBD = new Set(["CASH: PROVISION", "CURRENCY", "ETF BONDS", "FIXED RATE BOND", "FLOATING RATE BOND"]);
-  const level2 = samdpDebtInstruments.filter((i: any) => i.level === 2 && !LEVEL1_NAMES_CBD.has(i.name));
-  const totalWght = level2.reduce((s: number, i: any) => s + Number(i.wght_pct ?? 0), 0);
-  if (totalWght === 0) return null;
+  const allLevel2 = samdpDebtInstruments.filter((i: any) => i.level === 2);
+  const level2 = allLevel2.filter((i: any) => !LEVEL1_NAMES_CBD.has(i.name));
+  const totalAll = allLevel2.reduce((s: number, i: any) => s + Number(i.wght_pct ?? 0), 0);
+  if (totalAll === 0) return null;
+  const m = new Map<string, number>();
+  level2.forEach((inst: any) => {
+    const w = Number(inst.wght_pct ?? 0);
+    if (w === 0) return;
+    const manualCbd = creditBreakdowns[inst.isin];
+    if (manualCbd && manualCbd.length > 0) {
+      manualCbd.forEach((e: any) => {
+        m.set(e.credit_type, (m.get(e.credit_type) ?? 0) + w * e.weight / 100 * 100 / totalAll);
+      });
+      return;
+    }
+    const sector = inst.bics_sector_1 ?? "";
+    let credit = inst.ig_hy ?? "NR";
+    if (sector.toLowerCase().includes("government") || sector.toLowerCase().includes("sovereign")) credit = "Govies";
+    m.set(credit, (m.get(credit) ?? 0) + w * 100 / totalAll);
+  });
+  return Array.from(m.entries()).map(([credit_type, weight]) => ({
+    credit_type,
+    currency: "EUR",
+    weight: +weight.toFixed(2),
+  }));
+}, [samdpDebtInstruments, creditBreakdowns]);
   const m = new Map<string, number>();
   level2.forEach((inst: any) => {
     const w = Number(inst.wght_pct ?? 0);
@@ -6175,6 +6221,7 @@ return (["RISK_ANALYSIS","SYNTHESE", "INSTRUMENTS", "TARGET_GRID", "Sicav", "Mix
                     durations={durations}
                     samdpDebtInstruments={samdpDebtInstruments}
                     samdpEquityCashPct={samdpEquityCashPct}
+                    samdpDebtCashPct={samdpDebtCashPct}
                   />
                 )}
               </motion.div>
