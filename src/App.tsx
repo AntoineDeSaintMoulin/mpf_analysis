@@ -3838,8 +3838,14 @@ debtLevel2Graph.forEach(inst => {
       {/* ── Modale Région Equity ── */}
 <Modal isOpen={showSamdpDetail === "region_equity"} onClose={() => { setShowSamdpDetail(null); setRegionFilter(null); }} title="Détail Exposition Régionale — Equities">
   {(() => {
+   const CASH_ISINS_MODAL = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
     const allRows = equityRows
       .filter((r: any) => r.level === 5 && r.isin)
+      .filter((r: any) => {
+        const isCash = CASH_ISINS_MODAL.has((r.isin ?? "").toUpperCase()) ||
+          (r.instrument_type ?? "").toUpperCase().includes("DEPOSIT");
+        return !isCash;
+      })
       .flatMap((inst: any) => {
         const w = Number(inst.expo_pct ?? 0) * 100;
         if (w === 0) return [];
