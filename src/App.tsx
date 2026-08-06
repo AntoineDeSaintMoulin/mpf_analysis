@@ -493,10 +493,10 @@ case "fi_global": {
       return total;
     }
 
-case "st_other": {
+case "short_term": {
       const base = holdings
         .filter(h => ["Short Term", "Cash", "Liquidities"].includes(h?.category ?? ""))
-        .reduce((s, h) => !["EUR", "USD"].includes((h.currency ?? "").toUpperCase()) ? s + (h.weight ?? 0) : s, 0);
+        .reduce((s, h) => s + (h.weight ?? 0), 0);
       const equityCash = holdings.reduce((s, h) => s + getEquityCashWeight(h), 0);
       return base + equityCash;
     }
