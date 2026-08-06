@@ -263,7 +263,8 @@ function computePtfWeight(
   creditBreakdowns: Record<string, any[]>,
   dpamLookup: Record<string, any> = {},
   samdpGeoBreakdown: { region: string; weight: number }[] | null = null,
-  samdpDebtCreditBreakdown: { credit_type: string; currency: string; weight: number }[] | null = null
+  samdpDebtCreditBreakdown: { credit_type: string; currency: string; weight: number }[] | null = null,
+  samdpEquityCashPct: number = 0
 ): number | null {
   
   if (ALWAYS_DASH.has(gridId)) return null;
@@ -278,10 +279,10 @@ const normalizeRegion = (r: string) => {
     return r;
   };
 
-  const getEquityCashWeight = (h: any): number => {
+const getEquityCashWeight = (h: any): number => {
     if (h?.category !== "Equities") return 0;
-    if (h.isin === "LU1795355053" && samdpGeoBreakdown) {
-      return samdpGeoBreakdown.filter((e: any) => e.region === "Cash").reduce((s: number, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
+    if (h.isin === "LU1795355053") {
+      return (h.weight ?? 0) * samdpEquityCashPct / 100;
     }
     const bd = h.isin ? breakdowns[h.isin] : null;
     if (bd && bd.length > 0) {
@@ -349,7 +350,7 @@ case "eq_europe": case "eq_us": case "eq_em": case "eq_japan": case "eq_other": 
 case "fixed_income": {
       const subIds = ["fi_eur", "fi_usd", "fi_em_local", "fi_em_hard", "fi_global"];
       const result = subIds.reduce((s, id) => {
-        const v = computePtfWeight(id, holdings, breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown, samdpDebtCreditBreakdown);
+const v = computePtfWeight(id, holdings, breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown, samdpDebtCreditBreakdown, samdpEquityCashPct);
         console.log("fixed_income sub:", id, "=", v);
         return s + (v ?? 0);
       }, 0);
@@ -360,7 +361,7 @@ case "fixed_income": {
 case "fi_eur": {
       const subIds = ["fi_eur_gov", "fi_eur_ig", "fi_eur_hy"];
       return subIds.reduce((s, id) => {
-        const v = computePtfWeight(id, holdings, breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown, samdpDebtCreditBreakdown);
+const v = computePtfWeight(id, holdings, breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown, samdpDebtCreditBreakdown, samdpEquityCashPct);
         return s + (v ?? 0);
       }, 0);
     }
@@ -561,13 +562,15 @@ function BreakdownDeviationTable({
   samdpDebtCreditBreakdown,
   durations,
   samdpDebtInstruments,
+  samdpEquityCashPct,
 }: {
   allPortfolios: any[];
   targetGridData: Record<string, any>;
   breakdowns: Record<string, any[]>;
   creditBreakdowns: Record<string, any[]>;
   dpamLookup: Record<string, any>;
-  samdpGeoBreakdown: { region: string; weight: number }[] | null;
+samdpGeoBreakdown: { region: string; weight: number }[] | null;
+  samdpEquityCashPct: number;
   samdpDebtCreditBreakdown: { credit_type: string; currency: string; weight: number }[] | null;
   durations: Record<string, { duration: number; updated_at: string }>;
   samdpDebtInstruments: any[];
@@ -737,7 +740,7 @@ const fmt = (v: number | null) => v == null ? "—" : v.toFixed(1) + "%";
 const ptfVal = ptf
                           ? (row.id === "modified_duration"
                               ? computePtfDuration(ptf.holdings ?? [], durations, dpamLookup, samdpDebtInstruments)
-                              : computePtfWeight(row.id, ptf.holdings ?? [], breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown, samdpDebtCreditBreakdown))
+                              : computePtfWeight(row.id, ptf.holdings ?? [], breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown, samdpDebtCreditBreakdown, samdpEquityCashPct))
                           : null;
 
                       // Active = Ptf - Target
@@ -873,8 +876,8 @@ return ["Target", "Ptf", "Active"].map(col => {
 const getEquityCashWeightModal = (h: any): number => {
     if (h?.category !== "Equities") return 0;
     const bd0 = h.isin ? breakdowns[h.isin] : null;
-    if (h.isin === "LU1795355053" && samdpGeoBreakdown) {
-      return samdpGeoBreakdown.filter((e: any) => e.region === "Cash").reduce((s: number, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
+    if (h.isin === "LU1795355053") {
+      return (h.weight ?? 0) * samdpEquityCashPct / 100;
     }
     if (bd0 && bd0.length > 0) {
       return bd0.filter((e: any) => e.region === "Cash").reduce((s: number, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
@@ -934,7 +937,7 @@ if (rowId === "equities") {
       if (!FI_CATS.includes(h.category ?? "")) return null;
       // Calcul d'exposition pour un holding individuel en isolant sa contribution
       const holdingOnly = [h];
-      const val = computePtfWeight(rowId, holdingOnly, breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown, samdpDebtCreditBreakdown);
+const val = computePtfWeight(rowId, holdingOnly, breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown, samdpDebtCreditBreakdown, samdpEquityCashPct);
       exposition = val ?? 0;
 } else if (rowId === "short_term") {
       if (["Short Term","Cash","Liquidities"].includes(h.category ?? "")) {
@@ -5587,6 +5590,18 @@ return Array.from(regionMap.entries()).map(([region, weight]) => ({
     weight: weight * 100,
   }));
 }, [samdpEquityRows, breakdowns, manualOverrides]);
+
+const samdpEquityCashPct = useMemo(() => {
+  if (samdpEquityRows.length === 0) return 0;
+  const level5 = samdpEquityRows.filter((r: any) => r.level === 5 && r.isin);
+  const CASH_ISINS_GEO = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
+  return level5.reduce((s: number, inst: any) => {
+    const isCash = CASH_ISINS_GEO.has((inst.isin ?? "").toUpperCase()) ||
+      (inst.instrument_type ?? "").toUpperCase().includes("DEPOSIT");
+    return isCash ? s + Number(inst.expo_pct ?? 0) * 100 : s;
+  }, 0);
+}, [samdpEquityRows]);
+  
   const breakdownsWithP30 = useMemo(() => ({
   ...breakdowns,
   [P30_ISIN]: [
@@ -6159,6 +6174,7 @@ return (["RISK_ANALYSIS","SYNTHESE", "INSTRUMENTS", "TARGET_GRID", "Sicav", "Mix
                     samdpDebtCreditBreakdown={samdpDebtCreditBreakdown}
                     durations={durations}
                     samdpDebtInstruments={samdpDebtInstruments}
+                    samdpEquityCashPct={samdpEquityCashPct}
                   />
                 )}
               </motion.div>
