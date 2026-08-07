@@ -6878,9 +6878,30 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
   </motion.div>
 )}
 
-            {activeTab === "PERFORMANCE" && (
-              <motion.div key="performance" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-7xl mx-auto">
-                <p className="text-slate-400 italic">Onglet Performance en construction — {performanceData.length} lignes chargées.</p>
+{activeTab === "PERFORMANCE" && (
+              <motion.div key="performance" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-7xl mx-auto space-y-8">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Performance</h2>
+                    <p className="text-slate-500">Performances des portefeuilles modèles et fonds de comparaison.</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 bg-white border border-dashed border-slate-200 rounded-xl px-4 py-2.5 hover:border-emerald-400 transition-all group cursor-pointer shrink-0">
+                      <input type="file" accept=".xlsx,.xlsm" onChange={handleFileUpload} className="hidden" />
+                      <Upload className="h-4 w-4 text-slate-400 group-hover:text-emerald-600" />
+                      <span className="text-sm font-bold text-slate-700">Importer</span>
+                      {uploading
+                        ? <Loader2 className="h-3.5 w-3.5 text-emerald-600 animate-spin" />
+                        : uploadSuccess
+                          ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                          : null
+                      }
+                    </label>
+                    <div className="bg-emerald-100 p-3 rounded-2xl"><TrendingUp className="h-6 w-6 text-emerald-600" /></div>
+                  </div>
+                </div>
+
+                <p className="text-slate-400 italic">Debug temporaire — {performanceData.length} lignes chargées.</p>
               </motion.div>
             )}
             
