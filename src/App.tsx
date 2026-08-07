@@ -1141,8 +1141,8 @@ function PerfCell({ value, maxAbs, thickBorder, onClick }: { value: number | nul
     const positive = value >= 0;
     return (
       <td onClick={onClick} className={cn("px-2 py-2.5 text-right relative", borderClass, clickClass)}>
-        <div className="absolute inset-y-0 right-0 flex items-center pointer-events-none" style={{ width: "60%" }}>
-          <div className={cn("h-4 rounded-sm ml-auto transition-all", positive ? "bg-emerald-100" : "bg-rose-100")}
+        <div className="absolute inset-y-0 left-0 right-0 flex items-center pointer-events-none px-2">
+          <div className={cn("h-4 rounded-sm transition-all", positive ? "bg-emerald-100 mr-auto" : "bg-rose-100 ml-auto")}
             style={{ width: `${pct}%` }} />
         </div>
         <span className={cn("relative font-medium", positive ? "text-emerald-700" : "text-rose-700")}>
