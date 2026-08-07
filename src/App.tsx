@@ -1067,7 +1067,8 @@ const PERF_SECTIONS = [
 ];
 
 function PerformanceTab({ performanceData }: { performanceData: PerformanceRow[] }) {
-  const [drillDown, setDrillDown] = React.useState<{ report_code: string; label: string } | null>(null);
+const [drillDown, setDrillDown] = React.useState<{ report_code: string; label: string; profile: string; profileLabel: string } | null>(null);
+  const [drillMode, setDrillMode] = React.useState<"byProfile" | "byPortfolio">("byProfile");
 
   const latestDate = React.useMemo(() => {
     if (performanceData.length === 0) return null;
@@ -1112,13 +1113,14 @@ const sectionMaxAbs = React.useMemo(() => {
     return m;
   }, [lookup]);
 
-function PerfCell({ value, maxAbs, thickBorder }: { value: number | null | undefined; maxAbs: number; thickBorder?: boolean }) {
+function PerfCell({ value, maxAbs, thickBorder, onClick }: { value: number | null | undefined; maxAbs: number; thickBorder?: boolean; onClick?: () => void }) {
     const borderClass = thickBorder ? "border-l-2 border-slate-300" : "";
-    if (value == null) return <td className={cn("px-2 py-2.5 text-right text-slate-300", borderClass)}>—</td>;
+    const clickClass = onClick ? "cursor-pointer hover:bg-slate-50" : "";
+    if (value == null) return <td onClick={onClick} className={cn("px-2 py-2.5 text-right text-slate-300", borderClass, clickClass)}>—</td>;
     const pct = Math.min(100, (Math.abs(value) / maxAbs) * 100);
     const positive = value >= 0;
     return (
-      <td className={cn("px-2 py-2.5 text-right relative", borderClass)}>
+      <td onClick={onClick} className={cn("px-2 py-2.5 text-right relative", borderClass, clickClass)}>
         <div className="absolute inset-y-0 right-0 flex items-center pointer-events-none" style={{ width: "60%" }}>
           <div className={cn("h-4 rounded-sm ml-auto transition-all", positive ? "bg-emerald-100" : "bg-rose-100")}
             style={{ width: `${pct}%` }} />
@@ -1130,12 +1132,25 @@ function PerfCell({ value, maxAbs, thickBorder }: { value: number | null | undef
     );
   }
   
-  const historyForCode = React.useMemo(() => {
+const historyForCode = React.useMemo(() => {
     if (!drillDown) return [];
     return performanceData
       .filter(r => r.report_code === drillDown.report_code)
       .sort((a, b) => a.report_date.localeCompare(b.report_date));
   }, [performanceData, drillDown]);
+
+  const historyForProfile = React.useMemo(() => {
+    if (!drillDown) return [];
+    return performanceData
+      .filter(r => r.profile === drillDown.profile)
+      .sort((a, b) => a.report_date.localeCompare(b.report_date));
+  }, [performanceData, drillDown]);
+
+  const codeLabels = React.useMemo(() => {
+    const m = new Map<string, string>();
+    performanceData.forEach(r => m.set(r.report_code, r.label));
+    return m;
+  }, [performanceData]);
 
   if (!latestDate) {
     return (
@@ -1192,18 +1207,21 @@ function PerfCell({ value, maxAbs, thickBorder }: { value: number | null | undef
                       const anyRow = section.profiles.map(p => lookup.get(`${code}__${p.key}`)).find(Boolean);
                       if (!anyRow) return null;
                       return (
-                        <tr key={code} className="hover:bg-slate-50/50 transition-colors cursor-pointer group"
-                          onClick={() => setDrillDown({ report_code: code, label: anyRow.label })}>
-                          <td className="px-6 py-2.5 font-medium text-slate-800 sticky left-0 bg-white group-hover:bg-slate-50/50 whitespace-nowrap">
+                          <tr key={code} className="hover:bg-slate-50/30 transition-colors">
+                          <td className="px-6 py-2.5 font-medium text-slate-800 sticky left-0 bg-white whitespace-nowrap">
                             {anyRow.label}
                           </td>
-                            {section.profiles.map(p => {
+                          {section.profiles.map(p => {
                             const row = lookup.get(`${code}__${p.key}`);
+                            const onCellClick = () => {
+                              setDrillMode("byProfile");
+                              setDrillDown({ report_code: code, label: anyRow.label, profile: p.key, profileLabel: p.label });
+                            };
                             return (
                               <React.Fragment key={p.key}>
-                                <PerfCell value={row?.mtd} maxAbs={sectionMaxAbs.get(`${section.title}__${p.key}__mtd`) ?? 1} thickBorder />
-                                <PerfCell value={row?.ytd} maxAbs={sectionMaxAbs.get(`${section.title}__${p.key}__ytd`) ?? 1} />
-                                <PerfCell value={row?.y2025} maxAbs={sectionMaxAbs.get(`${section.title}__${p.key}__y2025`) ?? 1} />
+                                <PerfCell value={row?.mtd} maxAbs={sectionMaxAbs.get(`${section.title}__${p.key}__mtd`) ?? 1} thickBorder onClick={onCellClick} />
+                                <PerfCell value={row?.ytd} maxAbs={sectionMaxAbs.get(`${section.title}__${p.key}__ytd`) ?? 1} onClick={onCellClick} />
+                                <PerfCell value={row?.y2025} maxAbs={sectionMaxAbs.get(`${section.title}__${p.key}__y2025`) ?? 1} onClick={onCellClick} />
                               </React.Fragment>
                             );
                           })}
@@ -1218,62 +1236,133 @@ function PerfCell({ value, maxAbs, thickBorder }: { value: number | null | undef
         </div>
       ))}
 
-      {/* ── Modale historique ── */}
-      <Modal isOpen={!!drillDown} onClose={() => setDrillDown(null)} title={drillDown?.label ?? ""}>
+     {/* ── Modale historique ── */}
+      <Modal isOpen={!!drillDown} onClose={() => setDrillDown(null)}
+        title={drillMode === "byProfile" ? `Profil ${drillDown?.profileLabel ?? ""}` : (drillDown?.label ?? "")}>
         <div className="space-y-6">
-          {historyForCode.length === 0 ? (
-            <p className="text-slate-400 text-sm italic text-center py-8">Aucun historique disponible.</p>
-          ) : (
-            <>
-              <div className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={
-                    Array.from(new Set(historyForCode.map(r => r.report_date))).map(date => {
-                      const entry: any = { date };
-                      historyForCode.filter(r => r.report_date === date).forEach(r => {
-                        entry[r.profile] = r.ytd;
-                      });
-                      return entry;
-                    })
-                  } margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#64748b" }}
-                      tickFormatter={(d) => new Date(d).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" })} />
-                    <YAxis tick={{ fontSize: 11, fill: "#64748b" }} tickFormatter={(v) => v.toFixed(1) + "%"} />
-                    <Tooltip contentStyle={{ borderRadius: "16px", border: "none" }}
-                      labelFormatter={(d) => new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}
-                      formatter={(v: number, name: string) => [v.toFixed(2) + "%", name]} />
-                    {Array.from(new Set(historyForCode.map(r => r.profile))).map((profile, i) => (
-                      <Line key={profile} type="monotone" dataKey={profile} name={profile}
-                        stroke={["#0ea5e9", "#f59e0b", "#8b5cf6", "#10b981", "#ec4899", "#14b8a6", "#ef4444"][i % 7]}
-                        strokeWidth={2} dot={{ r: 3 }} connectNulls />
-                    ))}
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-              <p className="text-[10px] text-slate-400 italic text-center">Évolution du YTD par profil de risque, au fil des imports.</p>
-              <table className="w-full text-left border-collapse text-sm">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-100">
-                    <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase">Date</th>
-                    <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase">Profil</th>
-                    <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">MTD</th>
-                    <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">YTD</th>
-                    <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">2025</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {historyForCode.slice().reverse().map((r, i) => (
-                    <tr key={i} className="hover:bg-slate-50/50">
-                      <td className="px-4 py-2 text-slate-600">{new Date(r.report_date).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}</td>
-                      <td className="px-4 py-2 text-slate-600">{r.profile}</td>
-                      <td className={cn("px-4 py-2 text-right font-medium", cellColor(r.mtd))}>{r.mtd != null ? r.mtd.toFixed(2) + "%" : "—"}</td>
-                      <td className={cn("px-4 py-2 text-right font-medium", cellColor(r.ytd))}>{r.ytd != null ? r.ytd.toFixed(2) + "%" : "—"}</td>
-                      <td className={cn("px-4 py-2 text-right font-medium", cellColor(r.y2025))}>{r.y2025 != null ? r.y2025.toFixed(2) + "%" : "—"}</td>
+          <div className="inline-flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+            <button onClick={() => setDrillMode("byProfile")}
+              className={cn("px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                drillMode === "byProfile" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700")}>
+              Comparer les portefeuilles ({drillDown?.profileLabel})
+            </button>
+            <button onClick={() => setDrillMode("byPortfolio")}
+              className={cn("px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                drillMode === "byPortfolio" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700")}>
+              Tous les profils ({drillDown?.label})
+            </button>
+          </div>
+
+          {drillMode === "byProfile" ? (
+            historyForProfile.length === 0 ? (
+              <p className="text-slate-400 text-sm italic text-center py-8">Aucun historique disponible.</p>
+            ) : (
+              <>
+                <div className="h-[280px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={
+                      Array.from(new Set(historyForProfile.map(r => r.report_date))).map(date => {
+                        const entry: any = { date };
+                        historyForProfile.filter(r => r.report_date === date).forEach(r => {
+                          entry[r.report_code] = r.ytd;
+                        });
+                        return entry;
+                      })
+                    } margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#64748b" }}
+                        tickFormatter={(d) => new Date(d).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" })} />
+                      <YAxis tick={{ fontSize: 11, fill: "#64748b" }} tickFormatter={(v) => v.toFixed(1) + "%"} />
+                      <Tooltip contentStyle={{ borderRadius: "16px", border: "none" }}
+                        labelFormatter={(d) => new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}
+                        formatter={(v: number, name: string) => [v.toFixed(2) + "%", codeLabels.get(name) ?? name]} />
+                      {Array.from(new Set(historyForProfile.map(r => r.report_code))).map((code, i) => (
+                        <Line key={code} type="monotone" dataKey={code} name={code}
+                          stroke={["#0ea5e9", "#f59e0b", "#8b5cf6", "#10b981", "#ec4899", "#14b8a6", "#ef4444", "#6366f1", "#84cc16", "#f97316"][i % 10]}
+                          strokeWidth={2} dot={{ r: 3 }} connectNulls />
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="text-[10px] text-slate-400 italic text-center">Évolution du YTD par portefeuille, pour le profil {drillDown?.profileLabel}.</p>
+                <table className="w-full text-left border-collapse text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100">
+                      <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase">Date</th>
+                      <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase">Portefeuille</th>
+                      <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">MTD</th>
+                      <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">YTD</th>
+                      <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">2025</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {historyForProfile.slice().reverse().map((r, i) => (
+                      <tr key={i} className="hover:bg-slate-50/50">
+                        <td className="px-4 py-2 text-slate-600">{new Date(r.report_date).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}</td>
+                        <td className="px-4 py-2 text-slate-600">{r.label}</td>
+                        <td className={cn("px-4 py-2 text-right font-medium", cellColor(r.mtd))}>{r.mtd != null ? r.mtd.toFixed(2) + "%" : "—"}</td>
+                        <td className={cn("px-4 py-2 text-right font-medium", cellColor(r.ytd))}>{r.ytd != null ? r.ytd.toFixed(2) + "%" : "—"}</td>
+                        <td className={cn("px-4 py-2 text-right font-medium", cellColor(r.y2025))}>{r.y2025 != null ? r.y2025.toFixed(2) + "%" : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )
+          ) : (
+            historyForCode.length === 0 ? (
+              <p className="text-slate-400 text-sm italic text-center py-8">Aucun historique disponible.</p>
+            ) : (
+              <>
+                <div className="h-[280px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={
+                      Array.from(new Set(historyForCode.map(r => r.report_date))).map(date => {
+                        const entry: any = { date };
+                        historyForCode.filter(r => r.report_date === date).forEach(r => {
+                          entry[r.profile] = r.ytd;
+                        });
+                        return entry;
+                      })
+                    } margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#64748b" }}
+                        tickFormatter={(d) => new Date(d).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" })} />
+                      <YAxis tick={{ fontSize: 11, fill: "#64748b" }} tickFormatter={(v) => v.toFixed(1) + "%"} />
+                      <Tooltip contentStyle={{ borderRadius: "16px", border: "none" }}
+                        labelFormatter={(d) => new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}
+                        formatter={(v: number, name: string) => [v.toFixed(2) + "%", name]} />
+                      {Array.from(new Set(historyForCode.map(r => r.profile))).map((profile, i) => (
+                        <Line key={profile} type="monotone" dataKey={profile} name={profile}
+                          stroke={["#0ea5e9", "#f59e0b", "#8b5cf6", "#10b981", "#ec4899", "#14b8a6", "#ef4444"][i % 7]}
+                          strokeWidth={2} dot={{ r: 3 }} connectNulls />
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="text-[10px] text-slate-400 italic text-center">Évolution du YTD par profil de risque, au fil des imports.</p>
+                <table className="w-full text-left border-collapse text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100">
+                      <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase">Date</th>
+                      <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase">Profil</th>
+                      <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">MTD</th>
+                      <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">YTD</th>
+                      <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">2025</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {historyForCode.slice().reverse().map((r, i) => (
+                      <tr key={i} className="hover:bg-slate-50/50">
+                        <td className="px-4 py-2 text-slate-600">{new Date(r.report_date).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}</td>
+                        <td className="px-4 py-2 text-slate-600">{r.profile}</td>
+                        <td className={cn("px-4 py-2 text-right font-medium", cellColor(r.mtd))}>{r.mtd != null ? r.mtd.toFixed(2) + "%" : "—"}</td>
+                        <td className={cn("px-4 py-2 text-right font-medium", cellColor(r.ytd))}>{r.ytd != null ? r.ytd.toFixed(2) + "%" : "—"}</td>
+                        <td className={cn("px-4 py-2 text-right font-medium", cellColor(r.y2025))}>{r.y2025 != null ? r.y2025.toFixed(2) + "%" : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )
           )}
         </div>
       </Modal>
