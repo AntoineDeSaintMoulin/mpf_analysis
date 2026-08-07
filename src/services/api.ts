@@ -188,6 +188,7 @@ export interface PerformanceRow {
   ytd: number | null;
   y2025: number | null;
   report_date: string;
+  filename: string | null;
   imported_at: string;
 }
 
@@ -196,11 +197,11 @@ export async function fetchPerformanceData(): Promise<PerformanceRow[]> {
   return data ?? [];
 }
 
-export async function savePerformanceData(report_date: string, rows: Omit<PerformanceRow, "report_date" | "imported_at">[]): Promise<{ success: boolean }> {
+export async function savePerformanceData(report_date: string, filename: string, rows: Omit<PerformanceRow, "report_date" | "filename" | "imported_at">[]): Promise<{ success: boolean }> {
   const data = await safeFetch<{ success: boolean }>("/api/manual-data?resource=performance", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ report_date, rows }),
+    body: JSON.stringify({ report_date, filename, rows }),
   });
   return data ?? { success: false };
 }
