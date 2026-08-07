@@ -5163,7 +5163,7 @@ const ROW_MAP: Record<number, string> = {
         const wsReturn = wb.Sheets[targetSheetName];
         const rawReturn: any[][] = XLSX.utils.sheet_to_json(wsReturn, { header: 1, defval: null, blankrows: true });
 
-        const titleCell = String(rawReturn[1]?.[1] ?? "");
+        const titleCell = String(rawReturn[1]?.[2] ?? "");
         const dateMatch = titleCell.match(/AS OF (\d{1,2}-\w{3}-\d{4})/i);
         if (!dateMatch) {
           setErrorMsg("Impossible de trouver la date du rapport (format attendu : 'AS OF 31-Jul-2026')");
