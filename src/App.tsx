@@ -64,6 +64,9 @@ import {
   saveManagementStyle,
   deleteManagementStyle,
   type ManagementStyleMap,
+  fetchPerformanceData,
+  savePerformanceData,
+  type PerformanceRow,
   type DurationsMap,
   type BreakdownMap,
   type BreakdownEntry,
@@ -115,7 +118,7 @@ const PORTFOLIO_ORDER = [
   "Mixed - MIX_MH", "Mixed - MIX_HIGH", "Mixed - MIX_VH",
 ];
 
-type Tab = "SYNTHESE" | "Sicav" | "Mixed" | "INSTRUMENTS" | "MANUALS" | "TARGET_GRID" | "DPAM" | "SIMULATION" | "SAMDP" | "RISK_ANALYSIS";
+type Tab = "SYNTHESE" | "Sicav" | "Mixed" | "INSTRUMENTS" | "MANUALS" | "TARGET_GRID" | "DPAM" | "SIMULATION" | "SAMDP" | "RISK_ANALYSIS" | "PERFORMANCE";
 
 const RISK_PROFILES = ["LOW", "MEDLOW", "MEDIUM", "MEDHIGH", "HIGH"] as const;
 type RiskProfile = typeof RISK_PROFILES[number];
@@ -4597,6 +4600,7 @@ is_hedged?: boolean;
   const [creditBreakdownSaving, setCreditBreakdownSaving] = useState(false);
   const [durations, setDurations] = useState<DurationsMap>({});
   const [managementStyles, setManagementStyles] = useState<ManagementStyleMap>({});
+  const [performanceData, setPerformanceData] = useState<PerformanceRow[]>([]);
   const [showCreditDetail, setShowCreditDetail] = useState<string | null>(null);
   const [showDurationDetail, setShowDurationDetail] = useState(false);
   const [showCurrencyDetail, setShowCurrencyDetail] = useState<string | null>(null);
@@ -4634,6 +4638,23 @@ is_hedged?: boolean;
     } catch (e) { console.warn("Could not load target grid", e); }
   };
 
+  const loadTargetGrid = async () => {
+    try {
+      const res = await fetch("/api/target-grid");
+      if (res.ok) {
+        const data = await res.json();
+        if (data && typeof data === "object") setTargetGridData(data);
+      }
+    } catch (e) { console.warn("Could not load target grid", e); }
+  };
+
+  const loadPerformanceData = async () => {
+    try {
+      const data = await fetchPerformanceData();
+      setPerformanceData(data);
+    } catch (e) { console.warn("Could not load performance data", e); }
+  };
+
   const loadBaseData = async () => {
     const [pList, mGrid, allP, overrides] = await Promise.all([
       safeArray(fetchPortfolios),
@@ -4664,6 +4685,8 @@ useEffect(() => {
       setCreditBreakdowns(data.creditBreakdowns ?? {});
       setDurations(data.durations ?? {});
             setManagementStyles(data.managementStyles ?? {});
+      setManagementStyles(data.managementStyles ?? {});
+      await loadPerformanceData();
             try {
         const dpamRes = await fetch("/api/dpam-data");
         if (dpamRes.ok) {
@@ -6176,9 +6199,9 @@ const filteredInstruments = useMemo(() => {
         </div>
         <div className="flex items-center bg-slate-100 p-1 rounded-xl">
           {(() => {
-const labels: Record<Tab, string> = { RISK_ANALYSIS: "⚠️ Risk Analysis", SYNTHESE: "Breakdown Deviation", INSTRUMENTS: "Synthèse Instruments", TARGET_GRID: "Target Grid", Sicav: "Sicav", Mixed: "Mixed", MANUALS: "Manuals", DPAM: "DPAM", SIMULATION: "Simulation", SAMDP: "SAMDP"};            
-return (["RISK_ANALYSIS","SYNTHESE", "INSTRUMENTS", "TARGET_GRID", "Sicav", "Mixed", "MANUALS", "DPAM", "SIMULATION", "SAMDP"] as Tab[]).map((tab) => {
-              const showDate = ["SYNTHESE", "Sicav", "Mixed", "TARGET_GRID"].includes(tab);
+const labels: Record<Tab, string> = { RISK_ANALYSIS: "⚠️ Risk Analysis", PERFORMANCE: "📈 Performance", SYNTHESE: "Breakdown Deviation", INSTRUMENTS: "Synthèse Instruments", TARGET_GRID: "Target Grid", Sicav: "Sicav", Mixed: "Mixed", MANUALS: "Manuals", DPAM: "DPAM", SIMULATION: "Simulation", SAMDP: "SAMDP"};
+return (["RISK_ANALYSIS","PERFORMANCE","SYNTHESE", "INSTRUMENTS", "TARGET_GRID", "Sicav", "Mixed", "MANUALS", "DPAM", "SIMULATION", "SAMDP"] as Tab[]).map((tab) => {
+  const showDate = ["SYNTHESE", "Sicav", "Mixed", "TARGET_GRID"].includes(tab);
               const latestDate = (() => {
                 if (!showDate) return null;
                 if (tab === "TARGET_GRID") return importLog.target_grid ? new Date(importLog.target_grid.imported_at) : null;
@@ -6864,6 +6887,12 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
     />
   </motion.div>
 )}
+
+            {activeTab === "PERFORMANCE" && (
+              <motion.div key="performance" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-7xl mx-auto">
+                <p className="text-slate-400 italic">Onglet Performance en construction — {performanceData.length} lignes chargées.</p>
+              </motion.div>
+            )}
             
    {/* ── SICAV / MIXED ── */}
             {(activeTab === "Sicav" || activeTab === "Mixed") && (
