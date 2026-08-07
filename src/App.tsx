@@ -1157,11 +1157,11 @@ const sectionMaxAbs = React.useMemo(() => {
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-sm">
-              <thead>
+                <thead>
                 <tr className="bg-slate-50/50">
                   <th className="px-6 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider sticky left-0 bg-slate-50/50"></th>
                   {section.profiles.map(p => (
-                    <th key={p.key} colSpan={3} className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-center border-l border-slate-100">
+                    <th key={p.key} colSpan={3} className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-center border-l-2 border-slate-300">
                       {p.label}
                     </th>
                   ))}
@@ -1170,7 +1170,7 @@ const sectionMaxAbs = React.useMemo(() => {
                   <th className="px-6 py-2 sticky left-0 bg-slate-50/30"></th>
                   {section.profiles.map(p => (
                     <React.Fragment key={p.key}>
-                      <th className="px-2 py-1 text-[10px] font-bold text-slate-400 text-right border-l border-slate-100">MTD</th>
+                      <th className="px-2 py-1 text-[10px] font-bold text-slate-400 text-right border-l-2 border-slate-300">MTD</th>
                       <th className="px-2 py-1 text-[10px] font-bold text-slate-400 text-right">YTD</th>
                       <th className="px-2 py-1 text-[10px] font-bold text-slate-400 text-right">2025</th>
                     </React.Fragment>
