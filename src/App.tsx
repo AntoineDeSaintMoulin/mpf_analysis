@@ -1068,7 +1068,27 @@ const PERF_SECTIONS = [
 
 function PerformanceTab({ performanceData }: { performanceData: PerformanceRow[] }) {
 const [drillDown, setDrillDown] = React.useState<{ report_code: string; label: string; profile: string; profileLabel: string } | null>(null);
-  const [drillMode, setDrillMode] = React.useState<"byProfile" | "byPortfolio">("byProfile");
+const [drillMode, setDrillMode] = React.useState<"byProfile" | "byPortfolio">("byProfile");
+  const [tableSort, setTableSort] = React.useState<{ key: "label" | "mtd" | "ytd" | "y2025"; dir: 1 | -1 }>({ key: "ytd", dir: -1 });
+
+  function SortableTh({ label, sortKey, sortState, setSortState, align }: {
+    label: string; sortKey: "label" | "mtd" | "ytd" | "y2025";
+    sortState: { key: string; dir: 1 | -1 }; setSortState: (s: { key: "label" | "mtd" | "ytd" | "y2025"; dir: 1 | -1 }) => void;
+    align: "left" | "right";
+  }) {
+    const active = sortState.key === sortKey;
+    return (
+      <th
+        onClick={() => setSortState({ key: sortKey, dir: active ? (sortState.dir === 1 ? -1 : 1) : (sortKey === "label" ? 1 : -1) })}
+        className={cn("px-4 py-2 text-xs font-bold uppercase cursor-pointer select-none hover:text-slate-700 transition-colors",
+          align === "right" ? "text-right" : "text-left", active ? "text-slate-900" : "text-slate-500")}>
+        <span className="inline-flex items-center gap-1">
+          {label}
+          {active && (sortState.dir === 1 ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
+        </span>
+      </th>
+    );
+  }
 
   const latestDate = React.useMemo(() => {
     if (performanceData.length === 0) return null;
