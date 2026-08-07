@@ -1196,19 +1196,13 @@ const sectionMaxAbs = React.useMemo(() => {
                           <td className="px-6 py-2.5 font-medium text-slate-800 sticky left-0 bg-white group-hover:bg-slate-50/50 whitespace-nowrap">
                             {anyRow.label}
                           </td>
-                          {section.profiles.map(p => {
+                            {section.profiles.map(p => {
                             const row = lookup.get(`${code}__${p.key}`);
                             return (
                               <React.Fragment key={p.key}>
-                                <td className={cn("px-2 py-2.5 text-right border-l border-slate-50 font-medium", cellColor(row?.mtd))}>
-                                  {row?.mtd != null ? row.mtd.toFixed(2) + "%" : "—"}
-                                </td>
-                                <td className={cn("px-2 py-2.5 text-right font-medium", cellColor(row?.ytd))}>
-                                  {row?.ytd != null ? row.ytd.toFixed(2) + "%" : "—"}
-                                </td>
-                                <td className={cn("px-2 py-2.5 text-right font-medium", cellColor(row?.y2025))}>
-                                  {row?.y2025 != null ? row.y2025.toFixed(2) + "%" : "—"}
-                                </td>
+                                <PerfCell value={row?.mtd} maxAbs={sectionMaxAbs.get(`${section.title}__${p.key}__mtd`) ?? 1} />
+                                <PerfCell value={row?.ytd} maxAbs={sectionMaxAbs.get(`${section.title}__${p.key}__ytd`) ?? 1} />
+                                <PerfCell value={row?.y2025} maxAbs={sectionMaxAbs.get(`${section.title}__${p.key}__y2025`) ?? 1} />
                               </React.Fragment>
                             );
                           })}
