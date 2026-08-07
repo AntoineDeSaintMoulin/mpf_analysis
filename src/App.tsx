@@ -1092,6 +1092,43 @@ function PerformanceTab({ performanceData }: { performanceData: PerformanceRow[]
     return "text-slate-500";
   };
 
+const sectionMaxAbs = React.useMemo(() => {
+    const m = new Map<string, number>();
+    PERF_SECTIONS.forEach(section => {
+      section.profiles.forEach(p => {
+        (["mtd", "ytd", "y2025"] as const).forEach(metric => {
+          let max = 0;
+          section.rowGroups.forEach(rg => {
+            rg.codes.forEach(code => {
+              const row = lookup.get(`${code}__${p.key}`);
+              const v = row?.[metric];
+              if (v != null) max = Math.max(max, Math.abs(v));
+            });
+          });
+          m.set(`${section.title}__${p.key}__${metric}`, max || 1);
+        });
+      });
+    });
+    return m;
+  }, [lookup]);
+
+  function PerfCell({ value, maxAbs }: { value: number | null | undefined; maxAbs: number }) {
+    if (value == null) return <td className="px-2 py-2.5 text-right text-slate-300">—</td>;
+    const pct = Math.min(100, (Math.abs(value) / maxAbs) * 100);
+    const positive = value >= 0;
+    return (
+      <td className="px-2 py-2.5 text-right relative">
+        <div className="absolute inset-y-0 right-0 flex items-center pointer-events-none" style={{ width: "60%" }}>
+          <div className={cn("h-4 rounded-sm ml-auto transition-all", positive ? "bg-emerald-100" : "bg-rose-100")}
+            style={{ width: `${pct}%` }} />
+        </div>
+        <span className={cn("relative font-medium", positive ? "text-emerald-700" : "text-rose-700")}>
+          {value.toFixed(2)}%
+        </span>
+      </td>
+    );
+  }
+  
   const historyForCode = React.useMemo(() => {
     if (!drillDown) return [];
     return performanceData
