@@ -1288,16 +1288,22 @@ const historyForCode = React.useMemo(() => {
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-100">
                       <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase">Date</th>
-                      <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase">Portefeuille</th>
-                      <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">MTD</th>
-                      <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">YTD</th>
-                      <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">2025</th>
+                      <SortableTh label="Portefeuille" sortKey="label" sortState={tableSort} setSortState={setTableSort} align="left" />
+                      <SortableTh label="MTD" sortKey="mtd" sortState={tableSort} setSortState={setTableSort} align="right" />
+                      <SortableTh label="YTD" sortKey="ytd" sortState={tableSort} setSortState={setTableSort} align="right" />
+                      <SortableTh label="2025" sortKey="y2025" sortState={tableSort} setSortState={setTableSort} align="right" />
                     </tr>
                   </thead>
-<tbody className="divide-y divide-slate-50">
+                  <tbody className="divide-y divide-slate-50">
                     {historyForProfile
                       .filter(r => r.report_date === latestDate)
-                      .sort((a, b) => (b.ytd ?? -Infinity) - (a.ytd ?? -Infinity))
+                      .sort((a, b) => {
+                        const { key, dir } = tableSort;
+                        if (key === "label") return dir * a.label.localeCompare(b.label);
+                        const av = a[key] ?? -Infinity;
+                        const bv = b[key] ?? -Infinity;
+                        return dir * (bv - av);
+                      })
                       .map((r, i) => (
                       <tr key={i} className="hover:bg-slate-50/50">
                         <td className="px-4 py-2 text-slate-600">{new Date(r.report_date).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}</td>
