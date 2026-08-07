@@ -1112,12 +1112,13 @@ const sectionMaxAbs = React.useMemo(() => {
     return m;
   }, [lookup]);
 
-  function PerfCell({ value, maxAbs }: { value: number | null | undefined; maxAbs: number }) {
-    if (value == null) return <td className="px-2 py-2.5 text-right text-slate-300">—</td>;
+function PerfCell({ value, maxAbs, thickBorder }: { value: number | null | undefined; maxAbs: number; thickBorder?: boolean }) {
+    const borderClass = thickBorder ? "border-l-2 border-slate-300" : "";
+    if (value == null) return <td className={cn("px-2 py-2.5 text-right text-slate-300", borderClass)}>—</td>;
     const pct = Math.min(100, (Math.abs(value) / maxAbs) * 100);
     const positive = value >= 0;
     return (
-      <td className="px-2 py-2.5 text-right relative">
+      <td className={cn("px-2 py-2.5 text-right relative", borderClass)}>
         <div className="absolute inset-y-0 right-0 flex items-center pointer-events-none" style={{ width: "60%" }}>
           <div className={cn("h-4 rounded-sm ml-auto transition-all", positive ? "bg-emerald-100" : "bg-rose-100")}
             style={{ width: `${pct}%` }} />
@@ -1200,7 +1201,7 @@ const sectionMaxAbs = React.useMemo(() => {
                             const row = lookup.get(`${code}__${p.key}`);
                             return (
                               <React.Fragment key={p.key}>
-                                <PerfCell value={row?.mtd} maxAbs={sectionMaxAbs.get(`${section.title}__${p.key}__mtd`) ?? 1} />
+                                <PerfCell value={row?.mtd} maxAbs={sectionMaxAbs.get(`${section.title}__${p.key}__mtd`) ?? 1} thickBorder />
                                 <PerfCell value={row?.ytd} maxAbs={sectionMaxAbs.get(`${section.title}__${p.key}__ytd`) ?? 1} />
                                 <PerfCell value={row?.y2025} maxAbs={sectionMaxAbs.get(`${section.title}__${p.key}__y2025`) ?? 1} />
                               </React.Fragment>
