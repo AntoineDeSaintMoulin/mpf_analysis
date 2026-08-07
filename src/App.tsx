@@ -4638,16 +4638,6 @@ is_hedged?: boolean;
     } catch (e) { console.warn("Could not load target grid", e); }
   };
 
-  const loadTargetGrid = async () => {
-    try {
-      const res = await fetch("/api/target-grid");
-      if (res.ok) {
-        const data = await res.json();
-        if (data && typeof data === "object") setTargetGridData(data);
-      }
-    } catch (e) { console.warn("Could not load target grid", e); }
-  };
-
   const loadPerformanceData = async () => {
     try {
       const data = await fetchPerformanceData();
