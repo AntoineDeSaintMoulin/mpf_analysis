@@ -5084,9 +5084,10 @@ if (isEquity) {
     } catch (e) { console.warn("Could not save import log", e); }
   };
 
-  const isTargetGridFile = (filename: string) =>
+const isTargetGridFile = (filename: string) =>
     filename.toLowerCase().startsWith("fullgrid") || filename.toLowerCase().startsWith("target grid");
-
+  const isPerformanceFile = (filename: string) =>
+    filename.toLowerCase().includes("return") || filename.toLowerCase().includes("perf");
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -5138,8 +5139,75 @@ const ROW_MAP: Record<number, string> = {
           await loadTargetGrid();
           setActiveTab("TARGET_GRID");
           setTimeout(() => setUploadSuccess(false), 3000);
-        } else {
+} else {
           setErrorMsg("Erreur upload Target Grid: " + await res.text());
+        }
+      } else if (isPerformanceFile(file.name)) {
+        const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs" as any);
+        const buffer = await file.arrayBuffer();
+        const wb = XLSX.read(buffer, { type: "array" });
+        const targetSheetName = wb.SheetNames.find((n: string) => n.toLowerCase() === "return") ?? wb.SheetNames[0];
+        const wsReturn = wb.Sheets[targetSheetName];
+        const rawReturn: any[][] = XLSX.utils.sheet_to_json(wsReturn, { header: 1, defval: null, blankrows: true });
+
+        const titleCell = String(rawReturn[1]?.[1] ?? "");
+        const dateMatch = titleCell.match(/AS OF (\d{1,2}-\w{3}-\d{4})/i);
+        if (!dateMatch) {
+          setErrorMsg("Impossible de trouver la date du rapport (format attendu : 'AS OF 31-Jul-2026')");
+        } else {
+          const reportDate = new Date(dateMatch[1]);
+          const reportDateStr = reportDate.toISOString().slice(0, 10);
+
+          const EXTERNAL_LABELS = new Set([
+            "Mild", "Moderate", "Strong",
+            "GLOBAL STRATEGY", "SELECT SUSTAINABLE", "SELECT TPF", "SELECT TPF FLEXIBLE",
+          ]);
+
+          const GROUPS = [
+            { dataStart: 8, dataEnd: 22, blocks: { 5: "BDS", 12: "LOW", 19: "MEDLOW" } },
+            { dataStart: 27, dataEnd: 43, blocks: { 5: "MEDIUM", 12: "MEDHIGH", 19: "HIGH" } },
+            { dataStart: 48, dataEnd: 56, blocks: { 12: "VH" } },
+          ];
+
+          const perfRows: { report_code: string; profile: string; label: string; category: string; mtd: number | null; ytd: number | null; y2025: number | null }[] = [];
+          const toNumPct = (v: any) => (v != null && typeof v === "number" ? v * 100 : null);
+
+          for (const group of GROUPS) {
+            for (let r = group.dataStart; r <= group.dataEnd; r++) {
+              const row = rawReturn[r];
+              if (!row) continue;
+              const code = row[0] ? String(row[0]).trim() : null;
+              const label = row[4] ? String(row[4]).trim() : null;
+              if (!code || !label) continue;
+
+              for (const [colStr, profile] of Object.entries(group.blocks)) {
+                const col = Number(colStr);
+                const mtd = toNumPct(row[col]);
+                const ytd = toNumPct(row[col + 2]);
+                const y2025 = toNumPct(row[col + 4]);
+                if (mtd == null && ytd == null && y2025 == null) continue;
+
+                const isExternal = EXTERNAL_LABELS.has(label.toUpperCase()) || EXTERNAL_LABELS.has(label);
+                perfRows.push({
+                  report_code: code,
+                  profile,
+                  label,
+                  category: isExternal ? "external" : "portfolio",
+                  mtd, ytd, y2025,
+                });
+              }
+            }
+          }
+
+          if (perfRows.length === 0) {
+            setErrorMsg("Aucune donnée de performance trouvée dans le fichier");
+          } else {
+            await savePerformanceData(reportDateStr, perfRows);
+            await loadPerformanceData();
+            setUploadSuccess(true);
+            setActiveTab("PERFORMANCE");
+            setTimeout(() => setUploadSuccess(false), 3000);
+          }
         }
       } else {
 const text = await file.text();
