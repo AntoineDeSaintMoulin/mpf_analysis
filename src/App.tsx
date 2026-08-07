@@ -17,7 +17,7 @@ import {
   MapPin,
   Tag,
   ArrowRight,
-  Upload,
+Upload,
   FileText,
   CheckCircle2,
   Edit2,
@@ -28,6 +28,7 @@ import {
   ChevronsUpDown,
   AlertTriangle,
   Search,
+  TrendingUp,
 } from "lucide-react";
 import Papa from "papaparse";
 import {
@@ -37,6 +38,8 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
@@ -1033,7 +1036,219 @@ const val = computePtfWeight(rowId, holdingOnly, breakdowns, creditBreakdowns, d
     </div>
   );
 }
- 
+
+const PERF_SECTIONS = [
+  {
+    title: "PROTECT",
+    profiles: [{ key: "BDS", label: "100% Bonds" }, { key: "LOW", label: "Low" }, { key: "MEDLOW", label: "Medium Low" }],
+    rowGroups: [
+      { label: "MODEL PORTFOLIOS", codes: ["DP_SCV_", "DP_MIX_", "DP_SCV_RESP_", "DP_MIX_RESP_", "DP_SCV_T_", "DP_SCV_CV_", "DP_CONVICTION_"] },
+      { label: "CORE", codes: ["DP_PAT_R2_", "DP_PAT_S3_", "DP_PAT_S4_"] },
+      { label: "FUNDS", codes: ["GS_", "SUST_"] },
+    ],
+  },
+  {
+    title: "GROWTH",
+    profiles: [{ key: "MEDIUM", label: "Medium" }, { key: "MEDHIGH", label: "Medium High" }, { key: "HIGH", label: "High" }],
+    rowGroups: [
+      { label: "MODEL PORTFOLIOS", codes: ["DP_SCV_", "DP_MIX_", "DP_SCV_RESP_", "DP_MIX_RESP_", "DP_SCV_T_", "DP_SCV_CV_", "DP_CONVICTION_"] },
+      { label: "CORE +", codes: ["DP_PAT_R2_", "DP_PAT_S3_", "DP_PAT_S4_"] },
+      { label: "FUNDS", codes: ["GS_", "SUST_", "SEL_", "FLEX_"] },
+    ],
+  },
+  {
+    title: "100% EQUITY",
+    profiles: [{ key: "VH", label: "Equity" }],
+    rowGroups: [
+      { label: "MODEL PORTFOLIOS", codes: ["DP_SCV_", "DP_MIX_", "DP_SCV_T_", "DP_VI_EQ", "DP_VI_VH", "DP_VI_RE"] },
+      { label: "", codes: ["DP_CONVICTION_"] },
+    ],
+  },
+];
+
+function PerformanceTab({ performanceData }: { performanceData: PerformanceRow[] }) {
+  const [drillDown, setDrillDown] = React.useState<{ report_code: string; label: string } | null>(null);
+
+  const latestDate = React.useMemo(() => {
+    if (performanceData.length === 0) return null;
+    return performanceData.reduce((max, r) => (r.report_date > max ? r.report_date : max), performanceData[0].report_date);
+  }, [performanceData]);
+
+  const latestRows = React.useMemo(
+    () => performanceData.filter(r => r.report_date === latestDate),
+    [performanceData, latestDate]
+  );
+
+  const lookup = React.useMemo(() => {
+    const m = new Map<string, PerformanceRow>();
+    latestRows.forEach(r => m.set(`${r.report_code}__${r.profile}`, r));
+    return m;
+  }, [latestRows]);
+
+  const cellColor = (v: number | null | undefined) => {
+    if (v == null) return "text-slate-300";
+    if (v > 0) return "text-emerald-600";
+    if (v < 0) return "text-rose-600";
+    return "text-slate-500";
+  };
+
+  const historyForCode = React.useMemo(() => {
+    if (!drillDown) return [];
+    return performanceData
+      .filter(r => r.report_code === drillDown.report_code)
+      .sort((a, b) => a.report_date.localeCompare(b.report_date));
+  }, [performanceData, drillDown]);
+
+  if (!latestDate) {
+    return (
+      <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">
+        Aucune donnée de performance importée pour le moment.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-10">
+      <p className="text-xs text-slate-400 italic">
+        Dernier import : {new Date(latestDate).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}
+      </p>
+
+      {PERF_SECTIONS.map(section => (
+        <div key={section.title} className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="bg-slate-900 px-6 py-3">
+            <h3 className="text-white font-bold text-sm tracking-wider">{section.title}</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr className="bg-slate-50/50">
+                  <th className="px-6 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider sticky left-0 bg-slate-50/50"></th>
+                  {section.profiles.map(p => (
+                    <th key={p.key} colSpan={3} className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-center border-l border-slate-100">
+                      {p.label}
+                    </th>
+                  ))}
+                </tr>
+                <tr className="bg-slate-50/30">
+                  <th className="px-6 py-2 sticky left-0 bg-slate-50/30"></th>
+                  {section.profiles.map(p => (
+                    <React.Fragment key={p.key}>
+                      <th className="px-2 py-1 text-[10px] font-bold text-slate-400 text-right border-l border-slate-100">MTD</th>
+                      <th className="px-2 py-1 text-[10px] font-bold text-slate-400 text-right">YTD</th>
+                      <th className="px-2 py-1 text-[10px] font-bold text-slate-400 text-right">2025</th>
+                    </React.Fragment>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {section.rowGroups.map((rg, rgi) => (
+                  <React.Fragment key={rgi}>
+                    {rg.label && (
+                      <tr className="bg-slate-50/60">
+                        <td colSpan={1 + section.profiles.length * 3} className="px-6 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          {rg.label}
+                        </td>
+                      </tr>
+                    )}
+                    {rg.codes.map(code => {
+                      const anyRow = section.profiles.map(p => lookup.get(`${code}__${p.key}`)).find(Boolean);
+                      if (!anyRow) return null;
+                      return (
+                        <tr key={code} className="hover:bg-slate-50/50 transition-colors cursor-pointer group"
+                          onClick={() => setDrillDown({ report_code: code, label: anyRow.label })}>
+                          <td className="px-6 py-2.5 font-medium text-slate-800 sticky left-0 bg-white group-hover:bg-slate-50/50 whitespace-nowrap">
+                            {anyRow.label}
+                          </td>
+                          {section.profiles.map(p => {
+                            const row = lookup.get(`${code}__${p.key}`);
+                            return (
+                              <React.Fragment key={p.key}>
+                                <td className={cn("px-2 py-2.5 text-right border-l border-slate-50 font-medium", cellColor(row?.mtd))}>
+                                  {row?.mtd != null ? row.mtd.toFixed(2) + "%" : "—"}
+                                </td>
+                                <td className={cn("px-2 py-2.5 text-right font-medium", cellColor(row?.ytd))}>
+                                  {row?.ytd != null ? row.ytd.toFixed(2) + "%" : "—"}
+                                </td>
+                                <td className={cn("px-2 py-2.5 text-right font-medium", cellColor(row?.y2025))}>
+                                  {row?.y2025 != null ? row.y2025.toFixed(2) + "%" : "—"}
+                                </td>
+                              </React.Fragment>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+
+      {/* ── Modale historique ── */}
+      <Modal isOpen={!!drillDown} onClose={() => setDrillDown(null)} title={drillDown?.label ?? ""}>
+        <div className="space-y-6">
+          {historyForCode.length === 0 ? (
+            <p className="text-slate-400 text-sm italic text-center py-8">Aucun historique disponible.</p>
+          ) : (
+            <>
+              <div className="h-[280px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={
+                    Array.from(new Set(historyForCode.map(r => r.report_date))).map(date => {
+                      const entry: any = { date };
+                      historyForCode.filter(r => r.report_date === date).forEach(r => {
+                        entry[r.profile] = r.ytd;
+                      });
+                      return entry;
+                    })
+                  } margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#64748b" }}
+                      tickFormatter={(d) => new Date(d).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" })} />
+                    <YAxis tick={{ fontSize: 11, fill: "#64748b" }} tickFormatter={(v) => v.toFixed(1) + "%"} />
+                    <Tooltip contentStyle={{ borderRadius: "16px", border: "none" }}
+                      labelFormatter={(d) => new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}
+                      formatter={(v: number, name: string) => [v.toFixed(2) + "%", name]} />
+                    {Array.from(new Set(historyForCode.map(r => r.profile))).map((profile, i) => (
+                      <Line key={profile} type="monotone" dataKey={profile} name={profile}
+                        stroke={["#0ea5e9", "#f59e0b", "#8b5cf6", "#10b981", "#ec4899", "#14b8a6", "#ef4444"][i % 7]}
+                        strokeWidth={2} dot={{ r: 3 }} connectNulls />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="text-[10px] text-slate-400 italic text-center">Évolution du YTD par profil de risque, au fil des imports.</p>
+              <table className="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100">
+                    <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase">Date</th>
+                    <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase">Profil</th>
+                    <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">MTD</th>
+                    <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">YTD</th>
+                    <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">2025</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {historyForCode.slice().reverse().map((r, i) => (
+                    <tr key={i} className="hover:bg-slate-50/50">
+                      <td className="px-4 py-2 text-slate-600">{new Date(r.report_date).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}</td>
+                      <td className="px-4 py-2 text-slate-600">{r.profile}</td>
+                      <td className={cn("px-4 py-2 text-right font-medium", cellColor(r.mtd))}>{r.mtd != null ? r.mtd.toFixed(2) + "%" : "—"}</td>
+                      <td className={cn("px-4 py-2 text-right font-medium", cellColor(r.ytd))}>{r.ytd != null ? r.ytd.toFixed(2) + "%" : "—"}</td>
+                      <td className={cn("px-4 py-2 text-right font-medium", cellColor(r.y2025))}>{r.y2025 != null ? r.y2025.toFixed(2) + "%" : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
 type DpamView = "Bonds" | "Equity";
  
 const RATING_COLORS: Record<string, string> = {
@@ -6901,7 +7116,7 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
                   </div>
                 </div>
 
-                <p className="text-slate-400 italic">Debug temporaire — {performanceData.length} lignes chargées.</p>
+<PerformanceTab performanceData={performanceData} />
               </motion.div>
             )}
             
