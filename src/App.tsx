@@ -6682,8 +6682,8 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
                     <p className="text-slate-500">Allocation cible vs benchmark par profil de risque.</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2 bg-white border border-dashed border-slate-200 rounded-xl px-4 py-2.5 hover:border-emerald-400 transition-all group cursor-pointer shrink-0">
-                      <input type="file" accept=".xlsx" onChange={handleFileUpload} className="hidden" />
+                      <label className="flex items-center gap-2 bg-white border border-dashed border-slate-200 rounded-xl px-4 py-2.5 hover:border-emerald-400 transition-all group cursor-pointer shrink-0">
+                      <input type="file" accept=".xlsx,.xlsm" onChange={handleFileUpload} className="hidden" />
                       <Upload className="h-4 w-4 text-slate-400 group-hover:text-emerald-600" />
                       <span className="text-sm font-bold text-slate-700">Importer</span>
                       {uploading
