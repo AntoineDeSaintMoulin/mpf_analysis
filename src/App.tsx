@@ -1071,6 +1071,22 @@ const [drillDown, setDrillDown] = React.useState<{ report_code: string; label: s
 const [drillMode, setDrillMode] = React.useState<"byProfile" | "byPortfolio">("byProfile");
   const [tableSort, setTableSort] = React.useState<{ key: "label" | "mtd" | "ytd" | "y2025"; dir: 1 | -1 }>({ key: "ytd", dir: -1 });
 
+  const [selectedItems, setSelectedItems] = React.useState<Set<string>>(new Set());
+
+  React.useEffect(() => {
+    if (!drillDown) return;
+    if (drillMode === "byProfile") setSelectedItems(new Set([drillDown.report_code]));
+    else setSelectedItems(new Set([drillDown.profile]));
+  }, [drillDown, drillMode]);
+
+  function toggleItem(key: string) {
+    setSelectedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
   function SortableTh({ label, sortKey, sortState, setSortState, align }: {
     label: string; sortKey: "label" | "mtd" | "ytd" | "y2025";
     sortState: { key: string; dir: 1 | -1 }; setSortState: (s: { key: "label" | "mtd" | "ytd" | "y2025"; dir: 1 | -1 }) => void;
@@ -1255,20 +1271,28 @@ const historyForCode = React.useMemo(() => {
       ))}
 
      {/* ── Modale historique ── */}
+      {/* ── Modale historique ── */}
       <Modal isOpen={!!drillDown} onClose={() => setDrillDown(null)}
         title={drillMode === "byProfile" ? `Profil ${drillDown?.profileLabel ?? ""}` : (drillDown?.label ?? "")}>
         <div className="space-y-6">
-          <div className="inline-flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
-            <button onClick={() => setDrillMode("byProfile")}
-              className={cn("px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
-                drillMode === "byProfile" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700")}>
-              Comparer les portefeuilles ({drillDown?.profileLabel})
-            </button>
-            <button onClick={() => setDrillMode("byPortfolio")}
-              className={cn("px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
-                drillMode === "byPortfolio" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700")}>
-              Tous les profils ({drillDown?.label})
-            </button>
+          <div className="flex items-center justify-between">
+            <div className="inline-flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+              <button onClick={() => setDrillMode("byProfile")}
+                className={cn("px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                  drillMode === "byProfile" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700")}>
+                Comparer les portefeuilles ({drillDown?.profileLabel})
+              </button>
+              <button onClick={() => setDrillMode("byPortfolio")}
+                className={cn("px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                  drillMode === "byPortfolio" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700")}>
+                Tous les profils ({drillDown?.label})
+              </button>
+            </div>
+            {latestDate && (
+              <span className="text-xs text-slate-400">
+                Au {new Date(latestDate).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}
+              </span>
+            )}
           </div>
 
           {drillMode === "byProfile" ? (
@@ -1293,7 +1317,9 @@ const historyForCode = React.useMemo(() => {
                       <Tooltip contentStyle={{ borderRadius: "16px", border: "none" }}
                         labelFormatter={(d) => new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}
                         formatter={(v: number, name: string) => [v.toFixed(2) + "%", codeLabels.get(name) ?? name]} />
-                      {Array.from(new Set(historyForProfile.map(r => r.report_code))).map((code, i) => (
+                      {Array.from(new Set(historyForProfile.map(r => r.report_code)))
+                        .filter(code => selectedItems.has(code))
+                        .map((code, i) => (
                         <Line key={code} type="monotone" dataKey={code} name={code}
                           stroke={["#0ea5e9", "#f59e0b", "#8b5cf6", "#10b981", "#ec4899", "#14b8a6", "#ef4444", "#6366f1", "#84cc16", "#f97316"][i % 10]}
                           strokeWidth={2} dot={{ r: 3 }} connectNulls />
@@ -1305,7 +1331,7 @@ const historyForCode = React.useMemo(() => {
                 <table className="w-full text-left border-collapse text-sm">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-100">
-                      <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase">Date</th>
+                      <th className="px-4 py-2 w-8"></th>
                       <SortableTh label="Portefeuille" sortKey="label" sortState={tableSort} setSortState={setTableSort} align="left" />
                       <SortableTh label="MTD" sortKey="mtd" sortState={tableSort} setSortState={setTableSort} align="right" />
                       <SortableTh label="YTD" sortKey="ytd" sortState={tableSort} setSortState={setTableSort} align="right" />
@@ -1324,7 +1350,10 @@ const historyForCode = React.useMemo(() => {
                       })
                       .map((r, i) => (
                       <tr key={i} className="hover:bg-slate-50/50">
-                        <td className="px-4 py-2 text-slate-600">{new Date(r.report_date).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}</td>
+                        <td className="px-4 py-2">
+                          <input type="checkbox" checked={selectedItems.has(r.report_code)} onChange={() => toggleItem(r.report_code)}
+                            className="rounded border-slate-300 text-sky-600 focus:ring-sky-500 cursor-pointer" />
+                        </td>
                         <td className="px-4 py-2 text-slate-600">{r.label}</td>
                         <td className={cn("px-4 py-2 text-right font-medium", cellColor(r.mtd))}>{r.mtd != null ? r.mtd.toFixed(2) + "%" : "—"}</td>
                         <td className={cn("px-4 py-2 text-right font-medium", cellColor(r.ytd))}>{r.ytd != null ? r.ytd.toFixed(2) + "%" : "—"}</td>
@@ -1357,7 +1386,9 @@ const historyForCode = React.useMemo(() => {
                       <Tooltip contentStyle={{ borderRadius: "16px", border: "none" }}
                         labelFormatter={(d) => new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}
                         formatter={(v: number, name: string) => [v.toFixed(2) + "%", name]} />
-                      {Array.from(new Set(historyForCode.map(r => r.profile))).map((profile, i) => (
+                      {Array.from(new Set(historyForCode.map(r => r.profile)))
+                        .filter(profile => selectedItems.has(profile))
+                        .map((profile, i) => (
                         <Line key={profile} type="monotone" dataKey={profile} name={profile}
                           stroke={["#0ea5e9", "#f59e0b", "#8b5cf6", "#10b981", "#ec4899", "#14b8a6", "#ef4444"][i % 7]}
                           strokeWidth={2} dot={{ r: 3 }} connectNulls />
@@ -1369,7 +1400,7 @@ const historyForCode = React.useMemo(() => {
                 <table className="w-full text-left border-collapse text-sm">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-100">
-                      <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase">Date</th>
+                      <th className="px-4 py-2 w-8"></th>
                       <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase">Profil</th>
                       <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">MTD</th>
                       <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">YTD</th>
@@ -1377,9 +1408,14 @@ const historyForCode = React.useMemo(() => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {historyForCode.slice().reverse().map((r, i) => (
+                    {historyForCode
+                      .filter(r => r.report_date === latestDate)
+                      .map((r, i) => (
                       <tr key={i} className="hover:bg-slate-50/50">
-                        <td className="px-4 py-2 text-slate-600">{new Date(r.report_date).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}</td>
+                        <td className="px-4 py-2">
+                          <input type="checkbox" checked={selectedItems.has(r.profile)} onChange={() => toggleItem(r.profile)}
+                            className="rounded border-slate-300 text-sky-600 focus:ring-sky-500 cursor-pointer" />
+                        </td>
                         <td className="px-4 py-2 text-slate-600">{r.profile}</td>
                         <td className={cn("px-4 py-2 text-right font-medium", cellColor(r.mtd))}>{r.mtd != null ? r.mtd.toFixed(2) + "%" : "—"}</td>
                         <td className={cn("px-4 py-2 text-right font-medium", cellColor(r.ytd))}>{r.ytd != null ? r.ytd.toFixed(2) + "%" : "—"}</td>
