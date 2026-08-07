@@ -1182,12 +1182,7 @@ const historyForCode = React.useMemo(() => {
 
   return (
     <div className="space-y-10">
-<div className="flex items-center gap-3">
-        <div className="bg-white px-4 py-2 rounded-xl border border-slate-100 shadow-sm text-xs text-slate-500">
-          <span className="font-bold text-slate-700 block truncate max-w-[280px]">{latestRows[0]?.filename ?? "—"}</span>
-          <span>{new Date(latestDate).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })} à {new Date(latestRows[0]?.imported_at ?? latestDate).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
-        </div>
-      </div>
+
 
       {PERF_SECTIONS.map(section => (
         <div key={section.title} className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
@@ -7265,6 +7260,16 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
                           : null
                       }
                     </label>
+                    {performanceData.length > 0 && (() => {
+                      const latestDate = performanceData.reduce((max, r) => (r.report_date > max ? r.report_date : max), performanceData[0].report_date);
+                      const latestRow = performanceData.find(r => r.report_date === latestDate);
+                      return (
+                        <div className="bg-white px-4 py-2 rounded-xl border border-slate-100 shadow-sm text-xs text-slate-500">
+                          <span className="font-bold text-slate-700 block truncate max-w-[220px]">{latestRow?.filename ?? "—"}</span>
+                          <span>{new Date(latestDate).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })} à {new Date(latestRow?.imported_at ?? latestDate).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+                        </div>
+                      );
+                    })()}
                     <div className="bg-emerald-100 p-3 rounded-2xl"><TrendingUp className="h-6 w-6 text-emerald-600" /></div>
                   </div>
                 </div>
