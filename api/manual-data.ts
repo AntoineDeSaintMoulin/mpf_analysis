@@ -97,9 +97,9 @@ if (!["breakdown", "currency", "ratings", "credit", "duration", "management_styl
         return res.json(map);
       }
 
-      if (resource === "performance") {
+    if (resource === "performance") {
         const result = await pool.query(`
-          SELECT report_code, profile, label, category, mtd, ytd, y2025, report_date, imported_at
+          SELECT report_code, profile, label, category, mtd, ytd, y2025, report_date, filename, imported_at
           FROM performance_data
           ORDER BY report_date DESC, report_code, profile
         `);
@@ -114,18 +114,19 @@ if (!["breakdown", "currency", "ratings", "credit", "duration", "management_styl
   // ── POST ───────────────────────────────────────────────────────────────────
 if (req.method === "POST") {
     try {
-      if (resource === "performance") {
-        const { report_date, rows } = req.body as {
+  if (resource === "performance") {
+        const { report_date, filename, rows } = req.body as {
           report_date: string;
+          filename: string;
           rows: { report_code: string; profile: string; label: string; category: string; mtd: number | null; ytd: number | null; y2025: number | null }[];
         };
         if (!report_date || !rows?.length) return res.status(400).json({ error: "report_date et rows requis" });
         await pool.query("DELETE FROM performance_data WHERE report_date = $1", [report_date]);
         for (const r of rows) {
           await pool.query(
-            `INSERT INTO performance_data (report_code, profile, label, category, mtd, ytd, y2025, report_date)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-            [r.report_code, r.profile, r.label, r.category, r.mtd, r.ytd, r.y2025, report_date]
+            `INSERT INTO performance_data (report_code, profile, label, category, mtd, ytd, y2025, report_date, filename)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            [r.report_code, r.profile, r.label, r.category, r.mtd, r.ytd, r.y2025, report_date, filename ?? null]
           );
         }
         return res.json({ success: true });
