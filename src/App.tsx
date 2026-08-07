@@ -1182,9 +1182,12 @@ const historyForCode = React.useMemo(() => {
 
   return (
     <div className="space-y-10">
-      <p className="text-xs text-slate-400 italic">
-        Dernier import : {new Date(latestDate).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}
-      </p>
+<div className="flex items-center gap-3">
+        <div className="bg-white px-4 py-2 rounded-xl border border-slate-100 shadow-sm text-xs text-slate-500">
+          <span className="font-bold text-slate-700 block truncate max-w-[280px]">{latestRows[0]?.filename ?? "—"}</span>
+          <span>{new Date(latestDate).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })} à {new Date(latestRows[0]?.imported_at ?? latestDate).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+        </div>
+      </div>
 
       {PERF_SECTIONS.map(section => (
         <div key={section.title} className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
@@ -5580,7 +5583,7 @@ const ROW_MAP: Record<number, string> = {
           if (perfRows.length === 0) {
             setErrorMsg("Aucune donnée de performance trouvée dans le fichier");
           } else {
-            await savePerformanceData(reportDateStr, perfRows);
+            await savePerformanceData(reportDateStr, file.name, perfRows);
             await loadPerformanceData();
             setUploadSuccess(true);
             setActiveTab("PERFORMANCE");
