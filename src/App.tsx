@@ -1294,8 +1294,11 @@ const historyForCode = React.useMemo(() => {
                       <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase text-right">2025</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {historyForProfile.slice().reverse().map((r, i) => (
+<tbody className="divide-y divide-slate-50">
+                    {historyForProfile
+                      .filter(r => r.report_date === latestDate)
+                      .sort((a, b) => (b.ytd ?? -Infinity) - (a.ytd ?? -Infinity))
+                      .map((r, i) => (
                       <tr key={i} className="hover:bg-slate-50/50">
                         <td className="px-4 py-2 text-slate-600">{new Date(r.report_date).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}</td>
                         <td className="px-4 py-2 text-slate-600">{r.label}</td>
