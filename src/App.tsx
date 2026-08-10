@@ -293,7 +293,7 @@ const getEquityCashWeight = (h: any): number => {
     }
     if (h?.category !== "Equities") return 0;
     if (h.isin === "LU1795355053") {
-      return (h.weight ?? 0) * samdpEquityCashPctRaw;
+      return (h.weight ?? 0) * samdpEquityCashPct;
     }
     const bd = h.isin ? breakdowns[h.isin] : null;
     if (bd && bd.length > 0) {
@@ -895,8 +895,8 @@ const getEquityCashWeightModal = (h: any): number => {
     }
     if (h?.category !== "Equities") return 0;
     const bd0 = h.isin ? breakdowns[h.isin] : null;
-    if (h.isin === "LU1795355053") {
-      return (h.weight ?? 0) * samdpEquityCashPct / 100;
+if (h.isin === "LU1795355053") {
+      return (h.weight ?? 0) * samdpEquityCashPct;
     }
     if (bd0 && bd0.length > 0) {
       return bd0.filter((e: any) => e.region === "Cash").reduce((s: number, e: any) => s + (h.weight ?? 0) * e.weight / 100, 0);
@@ -6094,17 +6094,6 @@ return Array.from(regionMap.entries()).map(([region, weight]) => ({
 }, [samdpEquityRows, breakdowns, manualOverrides]);
 
 const samdpEquityCashPct = useMemo(() => {
-  if (samdpEquityRows.length === 0) return 0;
-  const level5 = samdpEquityRows.filter((r: any) => r.level === 5 && r.isin);
-  const CASH_ISINS_GEO = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
-  return level5.reduce((s: number, inst: any) => {
-    const isCash = CASH_ISINS_GEO.has((inst.isin ?? "").toUpperCase()) ||
-      (inst.instrument_type ?? "").toUpperCase().includes("DEPOSIT");
-    return isCash ? s + Number(inst.expo_pct ?? 0) * 100 : s;
-  }, 0);
-}, [samdpEquityRows]);
-
-  const samdpEquityCashPctRaw = useMemo(() => {
   if (samdpEquityRows.length === 0) return 0;
   const CASH_ISINS_SAMDP = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
   const cashLines = samdpEquityRows.filter((row: any) =>
