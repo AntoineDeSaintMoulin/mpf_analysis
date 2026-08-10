@@ -293,7 +293,7 @@ const getEquityCashWeight = (h: any): number => {
     }
     if (h?.category !== "Equities") return 0;
     if (h.isin === "LU1795355053") {
-      return (h.weight ?? 0) * samdpEquityCashPct / 100;
+      return (h.weight ?? 0) * samdpEquityCashPctRaw;
     }
     const bd = h.isin ? breakdowns[h.isin] : null;
     if (bd && bd.length > 0) {
@@ -6103,6 +6103,17 @@ const samdpEquityCashPct = useMemo(() => {
     return isCash ? s + Number(inst.expo_pct ?? 0) * 100 : s;
   }, 0);
 }, [samdpEquityRows]);
+
+  const samdpEquityCashPctRaw = useMemo(() => {
+  if (samdpEquityRows.length === 0) return 0;
+  const CASH_ISINS_SAMDP = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
+  const cashLines = samdpEquityRows.filter((row: any) =>
+    row.level === 5 &&
+    (CASH_ISINS_SAMDP.has((row.isin ?? "").toUpperCase()) ||
+     (row.instrument_type ?? "").toUpperCase().includes("DEPOSIT"))
+  );
+  return cashLines.reduce((s: number, row: any) => s + Number(row.wght_ptf_ref ?? 0), 0);
+}, [samdpEquityRows]);
   
   const breakdownsWithP30 = useMemo(() => ({
   ...breakdowns,
@@ -6229,8 +6240,6 @@ const categoryData = useMemo(() => {
   
   // Cash extra provenant des breakdowns géographiques (région "Cash")
   let extraCash = 0;
-  const SAMDP_EQ_ISIN = "LU1795355053";
-  const SAMDP_DEBT_ISIN = "LU1545753169";
   
 (currentPortfolioEffective?.holdings ?? []).forEach((h) => {
     if (!h?.category) return;
@@ -6239,40 +6248,38 @@ const categoryData = useMemo(() => {
       m.set(h.category, (m.get(h.category) ?? 0) + (h.weight ?? 0));
     }
 
-    // Chercher la part Cash dans les breakdowns géo — Equities uniquement
-    if (h.category === "Equities") {
-      const bd = h.isin ? breakdownsWithP30[h.isin] : null;
-      if (bd) {
-        const cashEntry = bd.find(e => e.region === "Cash");
-        if (cashEntry) {
-          extraCash += (h.weight ?? 0) * cashEntry.weight / 100;
-        }
-      }
-      
-      // Chercher la part Cash dans les fonds DPAM
-      const dpamGeo = h.isin ? dpamLookup[h.isin]?.geoBreakdown : null;
-      if (dpamGeo) {
-        const cashEntry = dpamGeo.find((e: any) => e.region === "Cash");
-        if (cashEntry) {
-          extraCash += (h.weight ?? 0) * cashEntry.weight / 100;
-        }
+    // Chercher la part Cash dans les breakdowns géo (tous fonds y compris Equities)
+const bd = h.isin ? breakdownsWithP30[h.isin] : null;
+    if (bd) {
+      const cashEntry = bd.find(e => e.region === "Cash");
+      if (cashEntry) {
+        extraCash += (h.weight ?? 0) * cashEntry.weight / 100;
       }
     }
     
-    // Cash SAMDP Equity — via expo_pct (fraction du fonds SAMDP lui-même)
-    if (h.isin === SAMDP_EQ_ISIN && samdpEquityRows.length > 0) {
+    // Chercher la part Cash dans les fonds DPAM
+    const dpamGeo = h.isin ? dpamLookup[h.isin]?.geoBreakdown : null;
+    if (dpamGeo) {
+      const cashEntry = dpamGeo.find((e: any) => e.region === "Cash");
+      if (cashEntry) {
+        extraCash += (h.weight ?? 0) * cashEntry.weight / 100;
+      }
+    }
+    
+// Chercher la part Cash dans le SAMDP Equity via les lignes niveau 5
+    if (h.isin === "LU1795355053" && samdpEquityRows.length > 0) {
       const CASH_ISINS_SAMDP = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
       const cashLines = samdpEquityRows.filter((row: any) =>
         row.level === 5 &&
         (CASH_ISINS_SAMDP.has((row.isin ?? "").toUpperCase()) ||
          (row.instrument_type ?? "").toUpperCase().includes("DEPOSIT"))
       );
-      const samdpCashPct = cashLines.reduce((s: number, row: any) => s + Number(row.expo_pct ?? 0), 0);
+      const samdpCashPct = cashLines.reduce((s: number, row: any) => s + Number(row.wght_ptf_ref ?? 0), 0);
       extraCash += (h.weight ?? 0) * samdpCashPct;
     }
 
-    // Cash SAMDP Debt — CASH: PROVISION et CURRENCY uniquement
-    if (h.isin === SAMDP_DEBT_ISIN && samdpDebtInstruments.length > 0) {
+    // Chercher la part Cash dans le SAMDP Debt (CASH: PROVISION et CURRENCY)
+    if (h.isin === "LU1545753169" && samdpDebtInstruments.length > 0) {
       const CASH_NAMES_DEBT = new Set(["CASH: PROVISION", "CURRENCY"]);
       const level2 = samdpDebtInstruments.filter((i: any) => i.level === 2);
       const totalAll = level2.reduce((s: number, i: any) => s + Number(i.wght_pct ?? 0), 0);
