@@ -2776,12 +2776,11 @@ function computeDuration(holdings: any[]) {
                     </td>
                   </tr>
                 );
-             })}
+              })}
             </tbody>
           </table>
-          </>
-          )}
         </div>
+        )}
       </div>
 
       {/* ── Comparaison KPI ── */}
