@@ -2204,6 +2204,9 @@ function SimulationTab({
   const [resetFlash, setResetFlash] = React.useState(false);
   const [categoryFilter, setCategoryFilter] = React.useState<string | null>(null);
 const [regionFilter, setRegionFilter] = React.useState<string | null>(null);
+  const [quickEditIds, setQuickEditIds] = React.useState<number[]>([]);
+  const [quickAddInput, setQuickAddInput] = React.useState("");
+  const [quickAddSuggestions, setQuickAddSuggestions] = React.useState<any[]>([]);
 
   const CREDIT_COLORS_SIM: Record<string, string> = {
     Govies: "#0ea5e9", IG: "#10b981", HY: "#f59e0b", NR: "#94a3b8", "EM Debt": "#8b5cf6",
@@ -2237,6 +2240,23 @@ const [regionFilter, setRegionFilter] = React.useState<string | null>(null);
 });
     setSimulatedWeights(init);
     setSearch("");
+  }, [selectedPortfolioId]);
+
+  // Init poids simulés quand on change de portefeuille
+  React.useEffect(() => {
+    if (!currentPortfolio) return;
+    const init: Record<number, number> = {};
+(currentPortfolio.holdings ?? []).forEach((h: any) => {
+  init[h.id] = Math.round((h.weight ?? 0) * 100) / 100;
+});
+    setSimulatedWeights(init);
+    setSearch("");
+  }, [selectedPortfolioId]);
+
+  React.useEffect(() => {
+    setQuickEditIds([]);
+    setQuickAddInput("");
+    setQuickAddSuggestions([]);
   }, [selectedPortfolioId]);
 
   const totalSimulated = Object.values(simulatedWeights).reduce((s, v) => s + (Number(v) || 0), 0);
@@ -2277,6 +2297,36 @@ const filteredHoldings = React.useMemo(() => {
     if (["Emerging and Frontier Markets", "Emerging Markets"].includes(r)) return "EM";
     if (["Other"].includes(r)) return "Others";
     return r;
+  }
+
+  function handleQuickAddInputChange(value: string) {
+    setQuickAddInput(value);
+    if (!currentPortfolio || value.trim().length < 2) {
+      setQuickAddSuggestions([]);
+      return;
+    }
+    const q = value.trim().toLowerCase();
+    // Match ISIN exact d'abord
+    const isinMatch = (currentPortfolio.holdings ?? []).find((h: any) => (h.isin ?? "").toLowerCase() === q);
+    if (isinMatch) {
+      addQuickEditRow(isinMatch.id);
+      return;
+    }
+    const matches = (currentPortfolio.holdings ?? [])
+      .filter((h: any) => (h.asset_name ?? "").toLowerCase().includes(q) || (h.isin ?? "").toLowerCase().includes(q))
+      .filter((h: any) => !quickEditIds.includes(h.id))
+      .slice(0, 8);
+    setQuickAddSuggestions(matches);
+  }
+
+  function addQuickEditRow(id: number) {
+    setQuickEditIds(prev => prev.includes(id) ? prev : [...prev, id]);
+    setQuickAddInput("");
+    setQuickAddSuggestions([]);
+  }
+
+  function removeQuickEditRow(id: number) {
+    setQuickEditIds(prev => prev.filter(x => x !== id));
   }
 
   // ── Calculs AVANT / APRÈS ──
@@ -2497,6 +2547,107 @@ function computeDuration(holdings: any[]) {
         </div>
       </div>
 
+
+      {/* ── Édition rapide ── */}
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-50">
+          <h3 className="text-sm font-bold text-slate-700">Édition rapide</h3>
+          <p className="text-xs text-slate-400 mt-0.5">Collez un ISIN ou recherchez un instrument pour ajuster son poids simulé directement.</p>
+        </div>
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-slate-50/50">
+              <th className="px-6 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider bg-sky-50/40">ISIN</th>
+              <th className="px-6 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider bg-sky-50/40">Nom</th>
+              <th className="px-6 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Poids Original</th>
+              <th className="px-6 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Poids Simulé</th>
+              <th className="px-6 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Delta</th>
+              <th className="px-2 py-2.5 w-8"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {quickEditIds.map(id => {
+              const h = (currentPortfolio?.holdings ?? []).find((x: any) => x.id === id);
+              if (!h) return null;
+              const original = h.weight ?? 0;
+              const simWeight = simulatedWeights[id] ?? original;
+              const delta = simWeight - original;
+              const changed = Math.abs(delta) > 0.001;
+              return (
+                <tr key={id} className={cn("transition-colors", changed && "bg-amber-50/30")}>
+                  <td className="px-6 py-2.5 text-xs font-mono text-slate-500 bg-sky-50/20">{h.isin ?? "—"}</td>
+                  <td className="px-6 py-2.5 text-sm font-medium text-slate-800 bg-sky-50/20 truncate max-w-[240px]">{h.asset_name ?? "—"}</td>
+                  <td className="px-6 py-2.5 text-right text-slate-500 text-sm">{original.toFixed(2)}%</td>
+                  <td className="px-6 py-2.5 text-right">
+                    <input
+                      type="number"
+                      step={0.01}
+                      value={simWeight}
+                      onChange={e => {
+                        const v = Math.round((parseFloat(e.target.value) || 0) * 100) / 100;
+                        setSimulatedWeights(prev => ({ ...prev, [id]: v }));
+                      }}
+                      className={cn(
+                        "w-20 px-2 py-1 text-right rounded-lg border text-sm font-bold outline-none transition-colors",
+                        changed ? "border-amber-300 bg-amber-50 text-amber-700 focus:ring-2 focus:ring-amber-400"
+                          : "border-slate-200 bg-white text-slate-700 focus:ring-2 focus:ring-sky-400"
+                      )}
+                    />
+                  </td>
+                  <td className="px-6 py-2.5 text-right">
+                    <input
+                      type="number"
+                      step={0.01}
+                      value={+delta.toFixed(2)}
+                      onChange={e => {
+                        const d = parseFloat(e.target.value) || 0;
+                        const v = Math.round((original + d) * 100) / 100;
+                        setSimulatedWeights(prev => ({ ...prev, [id]: v }));
+                      }}
+                      className={cn(
+                        "w-20 px-2 py-1 text-right rounded-lg border text-sm font-bold outline-none transition-colors",
+                        changed ? "border-amber-300 bg-amber-50 text-amber-700 focus:ring-2 focus:ring-amber-400"
+                          : "border-slate-200 bg-white text-slate-700 focus:ring-2 focus:ring-sky-400"
+                      )}
+                    />
+                  </td>
+                  <td className="px-2 py-2.5 text-center">
+                    <button onClick={() => removeQuickEditRow(id)} className="p-1 hover:bg-slate-100 rounded">
+                      <X className="h-3.5 w-3.5 text-slate-400" />
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+            {/* Ligne d'ajout */}
+            <tr>
+              <td colSpan={2} className="px-6 py-2.5 bg-sky-50/40 relative">
+                <input
+                  type="text"
+                  value={quickAddInput}
+                  onChange={e => handleQuickAddInputChange(e.target.value)}
+                  placeholder="Coller un ISIN ou rechercher un nom…"
+                  className="w-full text-sm outline-none bg-transparent text-slate-700 placeholder:text-slate-400"
+                />
+                {quickAddSuggestions.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-10 max-h-56 overflow-y-auto">
+                    {quickAddSuggestions.map((h: any) => (
+                      <button key={h.id} onClick={() => addQuickEditRow(h.id)}
+                        className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center justify-between gap-3">
+                        <span className="text-sm text-slate-700 truncate">{h.asset_name ?? "—"}</span>
+                        <span className="text-xs font-mono text-slate-400 shrink-0">{h.isin ?? "—"}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </td>
+              <td colSpan={4} className="px-6 py-2.5 text-xs text-slate-300 italic">Sélectionnez un instrument pour l'ajouter</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      
       {/* Total + table positions */}
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
         {/* Header table */}
