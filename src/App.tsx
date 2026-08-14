@@ -2207,6 +2207,7 @@ const [regionFilter, setRegionFilter] = React.useState<string | null>(null);
   const [quickEditIds, setQuickEditIds] = React.useState<number[]>([]);
   const [quickAddInput, setQuickAddInput] = React.useState("");
   const [quickAddSuggestions, setQuickAddSuggestions] = React.useState<any[]>([]);
+  const [fullTableCollapsed, setFullTableCollapsed] = React.useState(false);
 
   const CREDIT_COLORS_SIM: Record<string, string> = {
     Govies: "#0ea5e9", IG: "#10b981", HY: "#f59e0b", NR: "#94a3b8", "EM Debt": "#8b5cf6",
@@ -2648,12 +2649,15 @@ function computeDuration(holdings: any[]) {
       </div>
 
       
-      {/* Total + table positions */}
+{/* Total + table positions */}
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
         {/* Header table */}
         <div className="px-6 py-4 border-b border-slate-50 flex flex-col gap-3">
           {/* Ligne 1 : search + total */}
           <div className="flex items-center justify-between gap-4">
+            <button onClick={() => setFullTableCollapsed(prev => !prev)} className="p-1 hover:bg-slate-100 rounded shrink-0">
+              {fullTableCollapsed ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronUp className="h-4 w-4 text-slate-400" />}
+            </button>
             <div className="flex items-center gap-3 flex-1">
               <Search className="h-4 w-4 text-slate-400 shrink-0" />
               <input type="text" value={search} onChange={e => setSearch(e.target.value)}
@@ -2677,7 +2681,9 @@ function computeDuration(holdings: any[]) {
               )}
             </div>
           </div>
-          {/* Ligne 2 : filtres catégorie + région */}
+          {!fullTableCollapsed && (
+          <>
+          {/* Ligne 2 : filtres */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider shrink-0">Catégorie</span>
             {Array.from(new Set((currentPortfolio?.holdings ?? []).map((h: any) => h.category).filter(Boolean))).sort().map((cat: any) => (
@@ -2768,9 +2774,11 @@ function computeDuration(holdings: any[]) {
                     </td>
                   </tr>
                 );
-              })}
+             })}
             </tbody>
           </table>
+          </>
+          )}
         </div>
       </div>
 
