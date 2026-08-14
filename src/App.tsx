@@ -2548,8 +2548,8 @@ function computeDuration(holdings: any[]) {
       </div>
 
 
-      {/* ── Édition rapide ── */}
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+    {/* ── Édition rapide ── */}
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm">
         <div className="px-6 py-4 border-b border-slate-50">
           <h3 className="text-sm font-bold text-slate-700">Édition rapide</h3>
           <p className="text-xs text-slate-400 mt-0.5">Collez un ISIN ou recherchez un instrument pour ajuster son poids simulé directement.</p>
