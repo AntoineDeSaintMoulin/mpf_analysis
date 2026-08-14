@@ -2713,16 +2713,18 @@ function computeDuration(holdings: any[]) {
                 </button>
               ));
             })()}
-            {(categoryFilter || regionFilter) && (
+           {(categoryFilter || regionFilter) && (
               <button onClick={() => { setCategoryFilter(null); setRegionFilter(null); }}
                 className="px-3 py-1 rounded-lg text-xs font-bold text-rose-500 border border-rose-200 hover:bg-rose-50 transition-all">
                 Réinitialiser filtres
               </button>
             )}
           </div>
+          </>
+          )}
         </div>
 
-
+        {!fullTableCollapsed && (
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
