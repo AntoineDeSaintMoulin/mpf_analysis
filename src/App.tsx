@@ -863,7 +863,7 @@ return ["Target", "Ptf", "Active"].map(col => {
         <p className="text-xs text-slate-500 italic">Duration moyenne pondérée pour le portefeuille {ptf.name}.</p>
         <div className="border border-slate-100 rounded-2xl overflow-hidden">
           <div className="px-4 py-2 bg-slate-50 border-b border-slate-100">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Instruments utilisés ({fiHoldings.length} / {allFiHoldings.length})</p>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Instruments utilisés ({bondHoldings.length + (cashWeight > 0.001 ? 1 : 0)})</p>
           </div>
           <div className="divide-y divide-slate-50 max-h-32 overflow-y-auto">
             {(ptf.holdings ?? [])
