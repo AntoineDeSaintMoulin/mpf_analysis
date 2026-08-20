@@ -529,6 +529,45 @@ case "short_term": {
   }
 }
 
+function computeUnifiedCashWeight(
+  holdings: any[],
+  breakdowns: Record<string, any[]>,
+  dpamLookup: Record<string, any>,
+  samdpEquityCashPct: number,
+  samdpDebtCashPct: number
+): number {
+  const SAMDP_EQ_ISIN = "LU1795355053";
+  const SAMDP_DEBT_ISIN = "LU1545753169";
+  let total = 0;
+  holdings.forEach((h: any) => {
+    if (!h) return;
+    if (h.category === "Liquidities") {
+      total += h.weight ?? 0;
+      return;
+    }
+    if (h.category === "Equities") {
+      const bd = h.isin ? breakdowns[h.isin] : null;
+      if (bd) {
+        const cashEntry = bd.find((e: any) => e.region === "Cash");
+        if (cashEntry) { total += (h.weight ?? 0) * cashEntry.weight / 100; return; }
+      }
+      const dpamGeo = h.isin ? dpamLookup[h.isin]?.geoBreakdown : null;
+      if (dpamGeo) {
+        const cashEntry = dpamGeo.find((e: any) => e.region === "Cash");
+        if (cashEntry) { total += (h.weight ?? 0) * cashEntry.weight / 100; return; }
+      }
+    }
+    if (h.isin === SAMDP_EQ_ISIN) {
+      total += (h.weight ?? 0) * samdpEquityCashPct;
+      return;
+    }
+    if (h.isin === SAMDP_DEBT_ISIN) {
+      total += (h.weight ?? 0) * samdpDebtCashPct / 100;
+      return;
+    }
+  });
+  return total;
+}
 
 function getInstrumentDuration(
   isin: string | null | undefined,
@@ -554,15 +593,20 @@ function computePtfDuration(
   holdings: any[],
   durations: Record<string, { duration: number; updated_at: string }>,
   dpamLookup: Record<string, any>,
-  samdpDebtInstruments: any[]
+  samdpDebtInstruments: any[],
+  breakdowns: Record<string, any[]>,
+  samdpEquityCashPct: number,
+  samdpDebtCashPct: number
 ): number | null {
-  const FI_CATS = ["Fixed Income", "Bonds", "Liquidities"];
-  const fi = holdings.filter(h => h && FI_CATS.includes(h.category ?? "") &&
-    (h.isin ? (getInstrumentDuration(h.isin, durations, dpamLookup, samdpDebtInstruments) != null || h.category === "Liquidities") : h.category === "Liquidities"));
-  const total = fi.reduce((s, h) => s + (h.weight ?? 0), 0);
-  if (total === 0) return null;
-  const weighted = fi.reduce((s, h) => s + (h.weight ?? 0) * (getInstrumentDuration(h.isin, durations, dpamLookup, samdpDebtInstruments) ?? 0), 0);
-  return +(weighted / total).toFixed(2);
+  const BOND_CATS = ["Fixed Income", "Bonds"];
+  const bondHoldings = holdings.filter(h => h && BOND_CATS.includes(h.category ?? "") &&
+    h.isin && getInstrumentDuration(h.isin, durations, dpamLookup, samdpDebtInstruments) != null);
+  const bondWeight = bondHoldings.reduce((s, h) => s + (h.weight ?? 0), 0);
+  const cashWeight = computeUnifiedCashWeight(holdings, breakdowns, dpamLookup, samdpEquityCashPct, samdpDebtCashPct);
+  const totalWeight = bondWeight + cashWeight;
+  if (totalWeight === 0) return null;
+  const weighted = bondHoldings.reduce((s, h) => s + (h.weight ?? 0) * (getInstrumentDuration(h.isin, durations, dpamLookup, samdpDebtInstruments) ?? 0), 0);
+  return +(weighted / totalWeight).toFixed(2);
 }
 
 function BreakdownDeviationTable({
@@ -754,7 +798,7 @@ const fmt = (v: number | null) => v == null ? "—" : v.toFixed(1) + "%";
                       // Ptf calculé
 const ptfVal = ptf
                           ? (row.id === "modified_duration"
-                              ? computePtfDuration(ptf.holdings ?? [], durations, dpamLookup, samdpDebtInstruments)
+                              ? computePtfDuration(ptf.holdings ?? [], durations, dpamLookup, samdpDebtInstruments, breakdowns, samdpEquityCashPct, samdpDebtCashPct)
                               : computePtfWeight(row.id, ptf.holdings ?? [], breakdowns, creditBreakdowns, dpamLookup, samdpGeoBreakdown, samdpDebtCreditBreakdown, samdpEquityCashPct, samdpDebtCashPct))
                           : null;
 
@@ -813,7 +857,7 @@ return ["Target", "Ptf", "Active"].map(col => {
     h.isin ? (getInstrumentDuration(h.isin, durations, dpamLookup, samdpDebtInstruments) != null || h.category === "Liquidities") : h.category === "Liquidities"
   );
   const totalWeight = fiHoldings.reduce((s: number, h: any) => s + (h.weight ?? 0), 0);
-  const ptfDuration = computePtfDuration(ptf.holdings ?? [], durations, dpamLookup, samdpDebtInstruments);
+  const ptfDuration = computePtfDuration(ptf.holdings ?? [], durations, dpamLookup, samdpDebtInstruments, breakdowns, samdpEquityCashPct, samdpDebtCashPct);
 
   return (
     <Modal isOpen={true} onClose={() => setDrillDown(null)} title={`${rowLabel} — ${profile}`}>
