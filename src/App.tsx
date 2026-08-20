@@ -8392,7 +8392,7 @@ currentPortfolioEffective.type === "Sicav" ? "bg-purple-100 text-purple-700" : "
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-{fiHoldings.map((h, i) => {
+{bondHoldings.map((h, i) => {
 const dur = Number((h.isin && getEffectiveDuration(h.isin)) ?? 0);
 const contribution = totalWeight > 0 ? (h.weight ?? 0) * dur / totalWeight : 0;
                     return (
@@ -8410,6 +8410,14 @@ const contribution = totalWeight > 0 ? (h.weight ?? 0) * dur / totalWeight : 0;
                       </tr>
                     );
                   })}
+                  {cashWeight > 0.001 && (
+                    <tr className="hover:bg-slate-50/50 bg-slate-50/30">
+                      <td className="px-4 py-3 font-medium text-slate-900">CASH (direct + indirect)</td>
+                      <td className="px-4 py-3 text-right text-slate-600">{cashWeight.toFixed(2)}%</td>
+                      <td className="px-4 py-3 text-right text-slate-600">0.00</td>
+                      <td className="px-4 py-3 text-right font-bold text-sky-600">0.00</td>
+                    </tr>
+                  )}
                 </tbody>
                 <tfoot>
                   <tr className="bg-slate-50 border-t border-slate-200">
