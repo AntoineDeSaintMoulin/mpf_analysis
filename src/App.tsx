@@ -8336,27 +8336,26 @@ currentPortfolioEffective.type === "Sicav" ? "bg-purple-100 text-purple-700" : "
 
       <Modal isOpen={showDurationDetail} onClose={() => setShowDurationDetail(false)} title="Détail Duration">
   {currentPortfolio && (() => {
-        const FIXED_INCOME_CATS = ["Fixed Income", "Bonds", "Liquidities"];
-const fiHoldings = (currentPortfolio.holdings ?? [])
-  .filter(h => h && FIXED_INCOME_CATS.includes(h.category ?? "") &&
-    (h.isin ? (getEffectiveDuration(h.isin) != null || h.category === "Liquidities") : h.category === "Liquidities"))
-  .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0));
-
-const allFiHoldings = (currentPortfolio.holdings ?? [])
-  .filter(h => h && FIXED_INCOME_CATS.includes(h.category ?? ""))
-  .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0));
-        const totalWeight = fiHoldings.reduce((s, h) => s + (h.weight ?? 0), 0);
+        const BOND_CATS = ["Fixed Income", "Bonds"];
+        const bondHoldings = (currentPortfolio.holdings ?? [])
+          .filter(h => h && BOND_CATS.includes(h.category ?? "") && h.isin && getEffectiveDuration(h.isin) != null)
+          .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0));
+        const allBondHoldings = (currentPortfolio.holdings ?? [])
+          .filter(h => h && BOND_CATS.includes(h.category ?? ""))
+          .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0));
+        const cashWeight = computeUnifiedCashWeight(currentPortfolio.holdings ?? [], breakdownsWithP30, dpamLookup, samdpEquityCashPct, samdpDebtCashPct);
+        const totalWeight = bondHoldings.reduce((s, h) => s + (h.weight ?? 0), 0) + cashWeight;
 
         return (
           <div className="space-y-4">
-            <p className="text-xs text-slate-500 italic">Duration moyenne pondérée — divisée par le poids total des instruments obligataires avec duration configurée.</p>
+            <p className="text-xs text-slate-500 italic">Duration moyenne pondérée — divisée par le poids total des instruments obligataires avec duration configurée, plus le cash direct et indirect.</p>
             <div className="border border-slate-100 rounded-2xl overflow-hidden">
               <div className="px-4 py-2 bg-slate-50 border-b border-slate-100">
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Instruments utilisés ({fiHoldings.length} / {allFiHoldings.length})</p>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Instruments utilisés ({bondHoldings.length + (cashWeight > 0.001 ? 1 : 0)})</p>
               </div>
 <div className="divide-y divide-slate-50 max-h-32 overflow-y-auto">
-                {allFiHoldings.map((h, i) => {
-                  const hasDur = h.category === "Liquidities" || (h.isin && getEffectiveDuration(h.isin) != null);
+                {allBondHoldings.map((h, i) => {
+                  const hasDur = h.isin && getEffectiveDuration(h.isin) != null;
                   return (
                     <div key={i} className="flex items-center justify-between px-4 py-2">
                       <span className={cn("text-xs truncate max-w-[220px]", hasDur ? "text-slate-700 font-medium" : "text-slate-300 italic")}>
@@ -8371,6 +8370,15 @@ const allFiHoldings = (currentPortfolio.holdings ?? [])
                     </div>
                   );
                 })}
+                {cashWeight > 0.001 && (
+                  <div className="flex items-center justify-between px-4 py-2 bg-slate-50/50">
+                    <span className="text-xs truncate max-w-[220px] text-slate-700 font-medium">CASH (direct + indirect)</span>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-xs text-slate-600">{cashWeight.toFixed(2)}%</span>
+                      <span className="text-[10px] bg-emerald-50 text-emerald-600 font-bold px-1.5 py-0.5 rounded-full">✓</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             <div className="overflow-x-auto">
