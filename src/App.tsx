@@ -849,14 +849,12 @@ return ["Target", "Ptf", "Active"].map(col => {
 
 {drillDown && drillDown.rowId === "modified_duration" && (() => {
   const { rowLabel, profile, ptf } = drillDown;
-  const FIXED_INCOME_CATS = ["Fixed Income", "Bonds", "Liquidities"];
-  const allFiHoldings = (ptf.holdings ?? [])
-    .filter((h: any) => h && FIXED_INCOME_CATS.includes(h.category ?? ""))
+  const BOND_CATS = ["Fixed Income", "Bonds"];
+  const bondHoldings = (ptf.holdings ?? [])
+    .filter((h: any) => h && BOND_CATS.includes(h.category ?? "") && h.isin && getInstrumentDuration(h.isin, durations, dpamLookup, samdpDebtInstruments) != null)
     .sort((a: any, b: any) => (b.weight ?? 0) - (a.weight ?? 0));
-  const fiHoldings = allFiHoldings.filter((h: any) =>
-    h.isin ? (getInstrumentDuration(h.isin, durations, dpamLookup, samdpDebtInstruments) != null || h.category === "Liquidities") : h.category === "Liquidities"
-  );
-  const totalWeight = fiHoldings.reduce((s: number, h: any) => s + (h.weight ?? 0), 0);
+  const cashWeight = computeUnifiedCashWeight(ptf.holdings ?? [], breakdowns, dpamLookup, samdpEquityCashPct, samdpDebtCashPct);
+  const totalWeight = bondHoldings.reduce((s: number, h: any) => s + (h.weight ?? 0), 0) + cashWeight;
   const ptfDuration = computePtfDuration(ptf.holdings ?? [], durations, dpamLookup, samdpDebtInstruments, breakdowns, samdpEquityCashPct, samdpDebtCashPct);
 
   return (
@@ -868,8 +866,11 @@ return ["Target", "Ptf", "Active"].map(col => {
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Instruments utilisés ({fiHoldings.length} / {allFiHoldings.length})</p>
           </div>
           <div className="divide-y divide-slate-50 max-h-32 overflow-y-auto">
-            {allFiHoldings.map((h: any, i: number) => {
-              const hasDur = h.category === "Liquidities" || (h.isin && getInstrumentDuration(h.isin, durations, dpamLookup, samdpDebtInstruments) != null);
+            {(ptf.holdings ?? [])
+              .filter((h: any) => h && BOND_CATS.includes(h.category ?? ""))
+              .sort((a: any, b: any) => (b.weight ?? 0) - (a.weight ?? 0))
+              .map((h: any, i: number) => {
+              const hasDur = h.isin && getInstrumentDuration(h.isin, durations, dpamLookup, samdpDebtInstruments) != null;
               return (
                 <div key={i} className="flex items-center justify-between px-4 py-2">
                   <span className={cn("text-xs truncate max-w-[220px]", hasDur ? "text-slate-700 font-medium" : "text-slate-300 italic")}>
@@ -884,6 +885,15 @@ return ["Target", "Ptf", "Active"].map(col => {
                 </div>
               );
             })}
+            {cashWeight > 0.001 && (
+              <div className="flex items-center justify-between px-4 py-2 bg-slate-50/50">
+                <span className="text-xs truncate max-w-[220px] text-slate-700 font-medium">CASH (direct + indirect)</span>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="text-xs text-slate-600">{cashWeight.toFixed(2)}%</span>
+                  <span className="text-[10px] bg-emerald-50 text-emerald-600 font-bold px-1.5 py-0.5 rounded-full">✓</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
         <table className="w-full text-left border-collapse text-sm">
@@ -896,7 +906,7 @@ return ["Target", "Ptf", "Active"].map(col => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {fiHoldings.map((h: any, i: number) => {
+            {bondHoldings.map((h: any, i: number) => {
               const dur = Number(getInstrumentDuration(h.isin, durations, dpamLookup, samdpDebtInstruments) ?? 0);
               const contribution = totalWeight > 0 ? (h.weight ?? 0) * dur / totalWeight : 0;
               return (
@@ -911,6 +921,14 @@ return ["Target", "Ptf", "Active"].map(col => {
                 </tr>
               );
             })}
+            {cashWeight > 0.001 && (
+              <tr className="hover:bg-slate-50/50 bg-slate-50/30">
+                <td className="px-4 py-3 font-medium text-slate-900">CASH (direct + indirect)</td>
+                <td className="px-4 py-3 text-right text-slate-600">{cashWeight.toFixed(2)}%</td>
+                <td className="px-4 py-3 text-right text-slate-600">0.00</td>
+                <td className="px-4 py-3 text-right font-bold text-sky-600">0.00</td>
+              </tr>
+            )}
           </tbody>
           <tfoot>
             <tr className="bg-slate-50 border-t border-slate-200">
@@ -6554,19 +6572,20 @@ function getEffectiveDuration(isin: string | null | undefined): number | null {
 }
   
 const portfolioDuration = useMemo(() => {
-  const FIXED_INCOME_CATS = ["Fixed Income", "Bonds", "Liquidities"];
-  const fiHoldings = (currentPortfolio?.holdings ?? []).filter(h =>
-    h && FIXED_INCOME_CATS.includes(h.category ?? "") &&
-    (h.isin ? (getEffectiveDuration(h.isin) != null || h.category === "Liquidities") : h.category === "Liquidities")
+  const BOND_CATS = ["Fixed Income", "Bonds"];
+  const bondHoldings = (currentPortfolio?.holdings ?? []).filter(h =>
+    h && BOND_CATS.includes(h.category ?? "") && h.isin && getEffectiveDuration(h.isin) != null
   );
-  const totalWeight = fiHoldings.reduce((s, h) => s + (h.weight ?? 0), 0);
+  const bondWeight = bondHoldings.reduce((s, h) => s + (h.weight ?? 0), 0);
+  const cashWeight = computeUnifiedCashWeight(currentPortfolio?.holdings ?? [], breakdownsWithP30, dpamLookup, samdpEquityCashPct, samdpDebtCashPct);
+  const totalWeight = bondWeight + cashWeight;
   if (totalWeight === 0) return null;
-  const weightedDuration = fiHoldings.reduce((s, h) => {
+  const weightedDuration = bondHoldings.reduce((s, h) => {
     const dur = getEffectiveDuration(h.isin) ?? 0;
     return s + (h.weight ?? 0) * dur;
   }, 0);
   return +(weightedDuration / totalWeight).toFixed(2);
-}, [currentPortfolio, durations, dpamLookup, samdpDebtInstruments]);
+}, [currentPortfolio, durations, dpamLookup, samdpDebtInstruments, breakdownsWithP30, samdpEquityCashPct, samdpDebtCashPct]);
   
   const CREDIT_COLORS: Record<string, string> = {
     "Govies":  "#0ea5e9",
