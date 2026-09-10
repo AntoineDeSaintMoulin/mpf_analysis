@@ -6847,7 +6847,7 @@ return (["RISK_ANALYSIS","PERFORMANCE","SYNTHESE", "INSTRUMENTS", "TARGET_GRID",
       <div className="flex flex-1 overflow-hidden">
 
         {(activeTab === "Sicav" || activeTab === "Mixed") && (
-          <aside className="w-72 border-r border-slate-200 bg-white p-6 flex flex-col overflow-y-auto">
+          <aside className="hidden lg:flex lg:flex-col w-72 border-r border-slate-200 bg-white p-6 overflow-y-auto">
 <div className="flex items-center justify-between mb-4 px-2">
   <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Profils {activeTab}</p>
   {activeTab === "Mixed" && (
@@ -6878,7 +6878,37 @@ return (["RISK_ANALYSIS","PERFORMANCE","SYNTHESE", "INSTRUMENTS", "TARGET_GRID",
           </aside>
         )}
 
-        <main className="flex-1 overflow-y-auto p-10 bg-slate-50/50">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-10 bg-slate-50/50">
+          {(activeTab === "Sicav" || activeTab === "Mixed") && (
+            <div className="lg:hidden mb-4 bg-white rounded-2xl border border-slate-100 shadow-sm p-3 flex items-center gap-3">
+              <Briefcase className="h-4 w-4 text-slate-400 shrink-0" />
+              <select
+                value={selectedId ?? ""}
+                onChange={e => setSelectedId(Number(e.target.value))}
+                className="flex-1 text-sm font-medium text-slate-700 bg-transparent outline-none"
+              >
+                {filteredPortfolios.length === 0 ? (
+                  <option value="">Aucun portefeuille</option>
+                ) : (
+                  filteredPortfolios.map(p => (
+                    <option key={p.id} value={p.id}>{portfolioLabel(p.name)}</option>
+                  ))
+                )}
+              </select>
+              {activeTab === "Mixed" && (
+                <button
+                  onClick={() => setP30Mode(v => !v)}
+                  className={cn(
+                    "text-[10px] font-bold px-2 py-1 rounded-lg border transition-all shrink-0",
+                    p30Mode
+                      ? "bg-violet-600 text-white border-violet-600"
+                      : "bg-white text-slate-400 border-slate-200"
+                  )}>
+                  {p30Mode ? "P30" : "Real"}
+                </button>
+              )}
+            </div>
+          )}
           <AnimatePresence mode="wait">
 
             {/* ── BREAKDOWN DEVIATION ── */}
