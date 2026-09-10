@@ -6810,12 +6810,12 @@ const filteredInstruments = useMemo(() => {
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 font-sans text-slate-900">
-      <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between z-20 shadow-sm">
-        <div className="flex items-center gap-3">
+      <header className="h-16 bg-white border-b border-slate-200 px-3 sm:px-8 flex items-center justify-between gap-2 z-20 shadow-sm">
+        <div className="flex items-center gap-3 shrink-0">
           <div className="bg-sky-600 p-1.5 rounded-lg"><TrendingUp className="text-white h-4 w-4" /></div>
-          <h1 className="text-lg font-bold tracking-tight">Portfolio Insight</h1>
+          <h1 className="text-lg font-bold tracking-tight hidden sm:block">Portfolio Insight</h1>
         </div>
-        <div className="flex items-center bg-slate-100 p-1 rounded-xl">
+        <div className="flex items-center bg-slate-100 p-1 rounded-xl overflow-x-auto max-w-full [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {(() => {
 const labels: Record<Tab, string> = { RISK_ANALYSIS: "⚠️ Risk Analysis", PERFORMANCE: "📈 Performance", SYNTHESE: "Breakdown Deviation", INSTRUMENTS: "Synthèse Instruments", TARGET_GRID: "Target Grid", Sicav: "Sicav", Mixed: "Mixed", MANUALS: "Manuals", DPAM: "DPAM", SIMULATION: "Simulation", SAMDP: "SAMDP"};
 return (["RISK_ANALYSIS","PERFORMANCE","SYNTHESE", "INSTRUMENTS", "TARGET_GRID", "Sicav", "Mixed", "MANUALS", "DPAM", "SIMULATION", "SAMDP"] as Tab[]).map((tab) => {
@@ -6841,7 +6841,7 @@ return (["RISK_ANALYSIS","PERFORMANCE","SYNTHESE", "INSTRUMENTS", "TARGET_GRID",
             });
           })()}
         </div>
-        <div className="w-32" />
+        <div className="w-32 hidden lg:block shrink-0" />
       </header>
 
       <div className="flex flex-1 overflow-hidden">
