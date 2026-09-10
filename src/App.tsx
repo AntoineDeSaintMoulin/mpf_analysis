@@ -6808,8 +6808,8 @@ const filteredInstruments = useMemo(() => {
     );
   }
 
-  return (
-    <div className="flex flex-col h-screen bg-slate-50 font-sans text-slate-900">
+  return (    
+    <div className="flex flex-col h-screen w-screen overflow-x-hidden bg-slate-50 font-sans text-slate-900">
       <header className="h-16 bg-white border-b border-slate-200 px-3 sm:px-8 flex items-center justify-between gap-2 z-20 shadow-sm">
         <div className="flex items-center gap-3 shrink-0">
           <div className="bg-sky-600 p-1.5 rounded-lg"><TrendingUp className="text-white h-4 w-4" /></div>
@@ -6878,7 +6878,7 @@ return (["RISK_ANALYSIS","PERFORMANCE","SYNTHESE", "INSTRUMENTS", "TARGET_GRID",
           </aside>
         )}
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-10 bg-slate-50/50">
+        <main className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-10 bg-slate-50/50">
           {(activeTab === "Sicav" || activeTab === "Mixed") && (
             <div className="lg:hidden mb-4 bg-white rounded-2xl border border-slate-100 shadow-sm p-3 flex items-center gap-3">
               <Briefcase className="h-4 w-4 text-slate-400 shrink-0" />
