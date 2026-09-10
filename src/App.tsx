@@ -712,13 +712,12 @@ const fmt = (v: number | null) => v == null ? "—" : v.toFixed(1) + "%";
 
       {/* Table */}
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-        <div style={{ transform: "rotateX(180deg)", overflowX: "auto" }} className="[&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-slate-50 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300">
-  <div style={{ transform: "rotateX(180deg)" }}>
+        <div style={{ transform: "rotateX(180deg)", overflowX: "auto" }} className="snap-x snap-mandatory [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-slate-50 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300">  <div style={{ transform: "rotateX(180deg)" }}>
           <table className="w-full text-left border-collapse">
             <thead>
               {/* Row 1 : profils */}
-              <tr className="bg-slate-50/50">
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 min-w-[260px]">Catégorie</th>
+              <tr className="bg-slate-50/50">                
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 min-w-[140px] sm:min-w-[260px]">Catégorie</th>
                 {visibleProfiles.map(profile => (
                   <th key={profile} colSpan={3}
                     className={cn("px-2 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center border-l border-slate-100",
@@ -735,7 +734,7 @@ const fmt = (v: number | null) => v == null ? "—" : v.toFixed(1) + "%";
                     <th key={`${profile}-${col}`}
                       className={cn(
                         "px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-center min-w-[68px]",
-                        col === "Target" && "border-l border-slate-100 text-emerald-600 bg-emerald-50/40",
+                        col === "Target" && "border-l border-slate-100 text-emerald-600 bg-emerald-50/40 snap-start",
                         col === "Ptf" && "text-sky-600",
                         col === "Active" && "text-violet-500",
                       )}>
