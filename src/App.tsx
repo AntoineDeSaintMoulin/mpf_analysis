@@ -734,7 +734,7 @@ const fmt = (v: number | null) => v == null ? "—" : v.toFixed(1) + "%";
                   ["Target", "Ptf", "Active"].map(col => (
                     <th key={`${profile}-${col}`}
                       className={cn(
-                        "px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-center min-w-[68px]",
+                        "px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-center min-w-[68px] w-[calc((100vw-115px)/3)] sm:w-auto",
                         col === "Target" && "border-l border-slate-100 text-emerald-600 bg-emerald-50/40 snap-start",
                         col === "Ptf" && "text-sky-600",
                         col === "Active" && "text-violet-500",
@@ -818,7 +818,7 @@ return ["Target", "Ptf", "Active"].map(col => {
                         return (
                           <td key={`${profile}-${col}`}
                             className={cn(
-                              "px-3 py-3 text-right text-xs font-medium min-w-[68px]",
+                              "px-3 py-3 text-right text-xs font-medium min-w-[68px] w-[calc((100vw-115px)/3)] sm:w-auto",
                               col === "Target" && "border-l border-slate-100 bg-emerald-50/40",
                               row.level === 0
                                 ? "text-white/80"
