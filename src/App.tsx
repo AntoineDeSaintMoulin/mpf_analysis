@@ -1210,7 +1210,7 @@ const sectionMaxAbs = React.useMemo(() => {
   }, [lookup]);
 
 function PerfCell({ value, maxAbs, thickBorder, onClick }: { value: number | null | undefined; maxAbs: number; thickBorder?: boolean; onClick?: () => void }) {
-    const borderClass = thickBorder ? "border-l-2 border-slate-300" : "";
+    const borderClass = thickBorder ? "border-l-2 border-slate-300 snap-start" : "";
     const clickClass = onClick ? "cursor-pointer hover:bg-slate-50" : "";
     if (value == null) return <td onClick={onClick} className={cn("px-2 py-2.5 text-right text-slate-300", borderClass, clickClass)}>—</td>;
     const pct = Math.min(100, (Math.abs(value) / maxAbs) * 100);
@@ -1265,11 +1265,11 @@ const historyForCode = React.useMemo(() => {
           <div className="bg-slate-900 px-6 py-3">
             <h3 className="text-white font-bold text-sm tracking-wider">{section.title}</h3>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto snap-x snap-mandatory [scroll-padding-left:120px]">
             <table className="w-full text-left border-collapse text-sm">
                 <thead>
                 <tr className="bg-slate-50/50">
-                  <th className="px-6 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider sticky left-0 bg-slate-50/50"></th>
+                  <th className="w-[120px] sm:w-auto px-3 sm:px-6 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider sticky left-0 bg-slate-50/50"></th>
                   {section.profiles.map(p => (
                     <th key={p.key} colSpan={3} className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-center border-l-2 border-slate-300">
                       {p.label}
@@ -1277,7 +1277,7 @@ const historyForCode = React.useMemo(() => {
                   ))}
                 </tr>
                 <tr className="bg-slate-50/30">
-                  <th className="px-6 py-2 sticky left-0 bg-slate-50/30"></th>
+                  <th className="w-[120px] sm:w-auto px-3 sm:px-6 py-2 sticky left-0 bg-slate-50/30"></th>
                   {section.profiles.map(p => (
                     <React.Fragment key={p.key}>
                       <th className="px-2 py-1 text-[10px] font-bold text-slate-400 text-right border-l-2 border-slate-300">MTD</th>
@@ -1292,7 +1292,7 @@ const historyForCode = React.useMemo(() => {
                   <React.Fragment key={rgi}>
                     {rg.label && (
                       <tr className="bg-slate-50/60">
-                        <td colSpan={1 + section.profiles.length * 3} className="px-6 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        <td colSpan={1 + section.profiles.length * 3} className="px-3 sm:px-6 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                           {rg.label}
                         </td>
                       </tr>
@@ -1302,7 +1302,7 @@ const historyForCode = React.useMemo(() => {
                       if (!anyRow) return null;
                       return (
                           <tr key={code} className="hover:bg-slate-50/30 transition-colors">
-                          <td className="px-6 py-2.5 font-medium text-slate-800 sticky left-0 bg-white whitespace-nowrap">
+                          <td className="w-[120px] sm:w-auto max-w-[120px] sm:max-w-none px-3 sm:px-6 py-2.5 text-[11px] sm:text-sm font-medium text-slate-800 sticky left-0 bg-white leading-tight whitespace-normal break-words sm:whitespace-nowrap">
                             {anyRow.label}
                           </td>
                           {section.profiles.map(p => {
