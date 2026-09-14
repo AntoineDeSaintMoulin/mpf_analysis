@@ -7007,20 +7007,20 @@ return (["RISK_ANALYSIS","PERFORMANCE","SYNTHESE", "INSTRUMENTS", "TARGET_GRID",
                         {instrumentsSearch && <button onClick={() => setInstrumentsSearch("")} className="p-1 hover:bg-slate-100 rounded-lg transition-colors"><X className="h-3.5 w-3.5 text-slate-400" /></button>}
                         <span className="text-xs text-slate-400 shrink-0">{filteredInstruments.length} résultat{filteredInstruments.length !== 1 ? "s" : ""}</span>
                       </div>
-                      <div className="overflow-x-auto">
+                      <div className="overflow-x-auto snap-x snap-mandatory [scroll-padding-left:140px] sm:[scroll-padding-left:0px]">
                         <table className="w-full text-left border-collapse">
                           <thead>
                             <tr className="bg-slate-50/50">
-                              <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 min-w-[200px]">
+                              <th className="px-3 sm:px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 w-[140px] sm:w-auto sm:min-w-[200px]">
                                 <button onClick={() => handleSort("name")} className="flex items-center gap-1 hover:text-slate-900 transition-colors">
                                   Instrument <SortIcon active={sortConfig?.key === "name"} direction={sortConfig?.key === "name" ? sortConfig.direction : undefined} />
                                 </button>
                               </th>
-                              <th className="px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">ISIN</th>
+                              <th className="hidden sm:table-cell px-8 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">ISIN</th>
                               {sortedPortfolios.map((p) => {
                                 const isActive = sortConfig?.key === p.name;
                                 return (
-                                  <th key={p.id} className="px-4 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right min-w-[90px]" title={p.name}>
+                                  <th key={p.id} className="px-4 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right w-[90px] sm:min-w-[90px] sm:w-auto snap-start" title={p.name}>
                                     <button onClick={() => handleSort(p.name)} className="flex flex-col items-end w-full hover:text-slate-900 transition-colors">
                                       <span className="opacity-60 leading-tight">{portfolioTypePart(p.name)}</span>
                                       <span className={cn("leading-tight flex items-center gap-1", isActive ? "text-sky-600" : "text-slate-900")}>
@@ -7035,15 +7035,16 @@ return (["RISK_ANALYSIS","PERFORMANCE","SYNTHESE", "INSTRUMENTS", "TARGET_GRID",
                           <tbody className="divide-y divide-slate-50">
                             {filteredInstruments.map((row, i) => (
                               <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
-                                <td className="px-8 py-4 sticky left-0 bg-white group-hover:bg-slate-50">
-<button onClick={() => setSelectedInstrument(row.details as Holding)} className="flex items-center gap-2 text-sky-600 font-bold hover:underline text-left">
-  {row.name}
-
-  
-  <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                <td className="w-[140px] sm:w-auto max-w-[140px] sm:max-w-none px-3 sm:px-8 py-4 sticky left-0 bg-white group-hover:bg-slate-50">
+<button onClick={() => setSelectedInstrument(row.details as Holding)} className="flex flex-col items-start gap-0.5 text-left group/btn">
+  <span className="flex items-center gap-2 text-sky-600 font-bold hover:underline text-[11px] sm:text-sm leading-tight whitespace-normal break-words sm:whitespace-nowrap">
+    {row.name}
+    <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:inline" />
+  </span>
+  <span className="sm:hidden text-[10px] font-mono text-slate-400">{row.isin || "—"}</span>
 </button>
                                 </td>
-                                <td className="px-8 py-4 text-xs font-mono text-slate-400">{row.isin || "—"}</td>
+                                <td className="hidden sm:table-cell px-8 py-4 text-xs font-mono text-slate-400">{row.isin || "—"}</td>
 {sortedPortfolios.map((p) => {
   const w = row.weights[p.name] ?? 0;
   const samdpW = (row as any).isSamdp ? (row as any).samdpWght : null;
