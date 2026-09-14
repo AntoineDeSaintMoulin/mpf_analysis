@@ -718,7 +718,7 @@ const fmt = (v: number | null) => v == null ? "—" : v.toFixed(1) + "%";
             <thead>
               {/* Row 1 : profils */}
               <tr className="bg-slate-50/50">                                
-                <th className="px-3 sm:px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 w-[100px] sm:w-[260px] overflow-hidden whitespace-nowrap text-ellipsis">Catégorie</th>
+                <th className="px-2 sm:px-6 py-4 text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 w-[100px] sm:w-[260px] overflow-hidden whitespace-nowrap text-ellipsis">Catégorie</th>
                 {visibleProfiles.map(profile => (
                   <th key={profile} colSpan={3}
                     className={cn("px-2 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center border-l border-slate-100",
@@ -763,7 +763,7 @@ const fmt = (v: number | null) => v == null ? "—" : v.toFixed(1) + "%";
                 return (
                   <tr key={row.id} className={cn("transition-colors", row.level === 0 ? bgColor : "hover:bg-slate-50/50")}>
                     {/* Label */}                    
-                    <td className={cn("w-[100px] sm:w-[260px] max-w-[100px] sm:max-w-none px-3 sm:px-6 py-3 sticky left-0 z-10 font-medium overflow-hidden whitespace-nowrap text-ellipsis", bgColor, textColor, indent)}>
+                    <td className={cn("w-[100px] sm:w-[260px] max-w-[100px] sm:max-w-none px-2 sm:px-6 py-3 text-[11px] sm:text-sm sticky left-0 z-10 font-medium overflow-hidden whitespace-nowrap text-ellipsis leading-tight", bgColor, textColor, indent)}>
                       <div className="flex items-center gap-2">
                         {hasChildren && (
                           <button
