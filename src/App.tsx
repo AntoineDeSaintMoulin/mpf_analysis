@@ -717,8 +717,8 @@ const fmt = (v: number | null) => v == null ? "—" : v.toFixed(1) + "%";
           <table className="w-full text-left border-collapse">
             <thead>
               {/* Row 1 : profils */}
-              <tr className="bg-slate-50/50">                
-                <th className="px-3 sm:px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 min-w-[100px] sm:min-w-[260px]">Catégorie</th>
+              <tr className="bg-slate-50/50">                                
+                <th className="px-3 sm:px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 w-[100px] sm:w-[260px]">Catégorie</th>
                 {visibleProfiles.map(profile => (
                   <th key={profile} colSpan={3}
                     className={cn("px-2 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center border-l border-slate-100",
@@ -728,13 +728,13 @@ const fmt = (v: number | null) => v == null ? "—" : v.toFixed(1) + "%";
                 ))}
               </tr>
               {/* Row 2 : Target / Ptf / Active */}
-              <tr className="bg-slate-50/30 border-b border-slate-100">                
-                <th className="px-3 sm:px-6 py-2 sticky left-0 bg-slate-50/30 z-10" />
+              <tr className="bg-slate-50/30 border-b border-slate-100">                                
+                <th className="w-[100px] sm:w-[260px] px-3 sm:px-6 py-2 sticky left-0 bg-slate-50/30 z-10" />
                 {visibleProfiles.map(profile => (
                   ["Target", "Ptf", "Active"].map(col => (
                     <th key={`${profile}-${col}`}
                       className={cn(
-                        "px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-center min-w-[68px] w-[calc((100vw-115px)/3)] sm:w-auto",
+                        "px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-center min-w-[68px] w-[calc((100vw-100px)/3)] sm:w-auto",
                         col === "Target" && "border-l border-slate-100 text-emerald-600 bg-emerald-50/40 snap-start",
                         col === "Ptf" && "text-sky-600",
                         col === "Active" && "text-violet-500",
@@ -763,7 +763,7 @@ const fmt = (v: number | null) => v == null ? "—" : v.toFixed(1) + "%";
                 return (
                   <tr key={row.id} className={cn("transition-colors", row.level === 0 ? bgColor : "hover:bg-slate-50/50")}>
                     {/* Label */}                    
-                    <td className={cn("px-3 sm:px-6 py-3 sticky left-0 z-10 font-medium", bgColor, textColor, indent)}>
+                    <td className={cn("w-[100px] sm:w-[260px] px-3 sm:px-6 py-3 sticky left-0 z-10 font-medium", bgColor, textColor, indent)}>
                       <div className="flex items-center gap-2">
                         {hasChildren && (
                           <button
@@ -818,7 +818,7 @@ return ["Target", "Ptf", "Active"].map(col => {
                         return (
                           <td key={`${profile}-${col}`}
                             className={cn(
-                              "px-3 py-3 text-right text-xs font-medium min-w-[68px] w-[calc((100vw-115px)/3)] sm:w-auto",
+                              "px-3 py-3 text-right text-xs font-medium min-w-[68px] w-[calc((100vw-100px)/3)] sm:w-auto",
                               col === "Target" && "border-l border-slate-100 bg-emerald-50/40",
                               row.level === 0
                                 ? "text-white/80"
