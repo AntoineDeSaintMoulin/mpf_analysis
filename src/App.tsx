@@ -714,11 +714,11 @@ const fmt = (v: number | null) => v == null ? "—" : v.toFixed(1) + "%";
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
         <div style={{ overflowX: "auto" }} className="snap-x snap-mandatory [scroll-padding-left:100px] sm:[scroll-padding-left:260px] sm:[transform:rotateX(180deg)] [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-slate-50 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300">
   <div className="sm:[transform:rotateX(180deg)]">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse [table-layout:fixed] sm:[table-layout:auto]">
             <thead>
               {/* Row 1 : profils */}
               <tr className="bg-slate-50/50">                                
-                <th className="px-3 sm:px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 w-[100px] sm:w-[260px]">Catégorie</th>
+                <th className="px-3 sm:px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 w-[100px] sm:w-[260px] break-words">Catégorie</th>
                 {visibleProfiles.map(profile => (
                   <th key={profile} colSpan={3}
                     className={cn("px-2 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center border-l border-slate-100",
@@ -763,7 +763,7 @@ const fmt = (v: number | null) => v == null ? "—" : v.toFixed(1) + "%";
                 return (
                   <tr key={row.id} className={cn("transition-colors", row.level === 0 ? bgColor : "hover:bg-slate-50/50")}>
                     {/* Label */}                    
-                    <td className={cn("w-[100px] sm:w-[260px] px-3 sm:px-6 py-3 sticky left-0 z-10 font-medium", bgColor, textColor, indent)}>
+                    <td className={cn("w-[100px] sm:w-[260px] px-3 sm:px-6 py-3 sticky left-0 z-10 font-medium break-words", bgColor, textColor, indent)}>
                       <div className="flex items-center gap-2">
                         {hasChildren && (
                           <button
