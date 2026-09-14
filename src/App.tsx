@@ -843,7 +843,6 @@ return ["Target", "Ptf", "Active"].map(col => {
 </tbody>
           </table>
         </div>
-        </div>
       </div>
 
 {drillDown && drillDown.rowId === "modified_duration" && (() => {
