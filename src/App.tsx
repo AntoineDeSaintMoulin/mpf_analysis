@@ -713,6 +713,7 @@ const fmt = (v: number | null) => v == null ? "—" : v.toFixed(1) + "%";
       {/* Table */}
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">        
         <div style={{ overflowX: "auto" }} className="snap-x snap-mandatory [scroll-padding-left:150px] sm:[scroll-padding-left:260px] sm:[transform:rotateX(180deg)] [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-slate-50 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300">
+          <div className="sm:[transform:rotateX(180deg)]">
           <table className="w-full text-left border-collapse">
             <thead>
               {/* Row 1 : profils */}
@@ -842,6 +843,7 @@ return ["Target", "Ptf", "Active"].map(col => {
               })}
 </tbody>
           </table>
+          </div>
         </div>
       </div>
 
