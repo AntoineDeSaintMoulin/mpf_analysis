@@ -7009,7 +7009,7 @@ return (["RISK_ANALYSIS","PERFORMANCE","SYNTHESE", "INSTRUMENTS", "TARGET_GRID",
                         {instrumentsSearch && <button onClick={() => setInstrumentsSearch("")} className="p-1 hover:bg-slate-100 rounded-lg transition-colors"><X className="h-3.5 w-3.5 text-slate-400" /></button>}
                         <span className="text-xs text-slate-400 shrink-0">{filteredInstruments.length} résultat{filteredInstruments.length !== 1 ? "s" : ""}</span>
                       </div>
-                      <div className="overflow-x-auto snap-x snap-mandatory [scroll-padding-left:140px] sm:[scroll-padding-left:0px]">
+                      <div className="overflow-x-auto snap-x snap-mandatory sm:snap-none [scroll-padding-left:140px] sm:[scroll-padding-left:0px]">
                         <table className="w-full text-left border-collapse">
                           <thead>
                             <tr className="bg-slate-50/50">
