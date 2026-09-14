@@ -7367,23 +7367,23 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
                   </div>
                 ) : (
                   <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-                    <div style={{ transform: "rotateX(180deg)", overflowX: "auto" }} className="[&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-slate-50 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300">
-                      <div style={{ transform: "rotateX(180deg)" }}>
+                    <div style={{ overflowX: "auto" }} className="snap-x snap-mandatory [scroll-padding-left:150px] sm:[scroll-padding-left:280px] sm:[transform:rotateX(180deg)] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-slate-50 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300">
+                      <div className="sm:[transform:rotateX(180deg)]">
                         <table className="w-full text-left border-collapse">
                           <thead>
                             <tr className="bg-slate-50/50">
-                              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 min-w-[280px]">Catégorie</th>
+                              <th className="px-2 sm:px-6 py-4 text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 w-[150px] sm:w-[280px]">Catégorie</th>
                               {RISK_PROFILES.map((profile) => (
                                 <th key={profile} colSpan={3} className="px-2 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center border-l border-slate-100">{profile}</th>
                               ))}
                             </tr>
                             <tr className="bg-slate-50/30 border-b border-slate-100">
-                              <th className="px-6 py-2 sticky left-0 bg-slate-50/30 z-10" />
+                              <th className="w-[150px] sm:w-[280px] px-3 sm:px-6 py-2 sticky left-0 bg-slate-50/30 z-10" />
                               {RISK_PROFILES.map((profile) => (
                                 ["bench", "target", "active"].map((col) => (
                                   <th key={`${profile}-${col}`} className={cn(
-                                    "px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-center min-w-[72px]",
-                                    col === "bench" && "border-l border-slate-100",
+                                    "px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-center min-w-[72px] w-[calc((100vw-150px)/3)] sm:w-auto",
+                                    col === "bench" && "border-l border-slate-100 snap-start",
                                     col === "target" && "bg-emerald-50/40",
                                     col === "active" ? "text-violet-500" : col === "target" ? "text-emerald-600" : "text-slate-400"
                                   )}>
@@ -7405,10 +7405,10 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
                               const data = targetGridData[row.id];
                               const bgColor = row.level === 0 ? "bg-slate-800" : row.level === 1 ? "bg-slate-50/80" : "bg-white";
                               const textColor = row.level === 0 ? "text-white" : "text-slate-900";
-                              const indent = row.level === 1 ? "pl-10" : row.level === 2 ? "pl-16" : "pl-6";
+                              const indent = row.level === 1 ? "pl-4 sm:pl-10" : row.level === 2 ? "pl-6 sm:pl-16" : "pl-3 sm:pl-6";
                               return (
                                 <tr key={row.id} className={cn("transition-colors", row.level === 0 ? bgColor : "hover:bg-slate-50/50")}>
-                                  <td className={cn("px-6 py-3 sticky left-0 z-10 font-medium", bgColor, textColor, indent)}>
+                                  <td className={cn("w-[150px] sm:w-[280px] max-w-[150px] sm:max-w-none px-2 sm:px-6 py-3 text-[11px] sm:text-sm sticky left-0 z-10 font-medium leading-tight whitespace-normal break-words sm:whitespace-nowrap", bgColor, textColor, indent)}>
                                     <div className="flex items-center gap-2">
                                       {hasChildren && (
                                         <button onClick={() => setCollapsedRows(prev => { const next = new Set(prev); next.has(row.id) ? next.delete(row.id) : next.add(row.id); return next; })}
@@ -7429,7 +7429,7 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
                                       const isNeg = (val ?? 0) < 0;
                                       return (
                                         <td key={`${profile}-${col}`} className={cn(
-                                          "px-3 py-3 text-right text-xs font-medium min-w-[72px]",
+                                          "px-3 py-3 text-right text-xs font-medium min-w-[72px] w-[calc((100vw-150px)/3)] sm:w-auto",
                                           col === "bench" && "border-l border-slate-100",
                                           col === "target" && "bg-emerald-50/40",
                                           row.level === 0 ? "text-white/80" : isActive ? (isPos ? "text-emerald-600 font-bold" : isNeg ? "text-rose-600 font-bold" : "text-slate-400") : "text-slate-600"
