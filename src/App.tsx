@@ -761,8 +761,9 @@ const fmt = (v: number | null) => v == null ? "—" : v.toFixed(1) + "%";
 
                 return (
                   <tr key={row.id} className={cn("transition-colors", row.level === 0 ? bgColor : "hover:bg-slate-50/50")}>
-                    {/* Label */}                    
+                    {/* Label */}
                     <td className={cn("w-[150px] sm:w-[260px] max-w-[150px] sm:max-w-none px-2 sm:px-6 py-3 text-[11px] sm:text-sm sticky left-0 z-10 font-medium leading-tight whitespace-normal break-words sm:whitespace-nowrap", bgColor, textColor, indent)}>
+                      <div className="flex items-center gap-2">
                         {hasChildren && (
                           <button
                             onClick={() => setCollapsedRows(prev => {
