@@ -7935,7 +7935,7 @@ currentPortfolioEffective.type === "Sicav" ? "bg-purple-100 text-purple-700" : "
                     <Info className="h-4 w-4" />
                     <span className="text-xs font-semibold uppercase tracking-wider">Duration</span>
                   </div>
-                  <div className="flex items-end justify-between gap-2">
+                                   <div className="flex items-end justify-between gap-2">
                     <input
                       type="number"
                       step={0.01}
@@ -7955,11 +7955,18 @@ currentPortfolioEffective.type === "Sicav" ? "bg-purple-100 text-purple-700" : "
                       }}
                       className="font-bold text-slate-900 bg-transparent outline-none w-20 border-b border-slate-200 focus:border-violet-400 transition-colors text-sm"
                     />
-                    {durations[selectedInstrument.isin ?? ""]?.updated_at && (
-                      <span className="text-[10px] italic text-slate-400 shrink-0">
-                        maj {formatDate(durations[selectedInstrument.isin ?? ""].updated_at)}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {selectedInstrument.isin && dpamLookup[selectedInstrument.isin]?.duration != null && (
+                        <span className="text-[10px] font-bold text-sky-600 bg-sky-50 px-2 py-1 rounded-lg">
+                          DPAM: {Number(dpamLookup[selectedInstrument.isin].duration).toFixed(2)}
+                        </span>
+                      )}
+                      {durations[selectedInstrument.isin ?? ""]?.updated_at && (
+                        <span className="text-[10px] italic text-slate-400">
+                          maj {formatDate(durations[selectedInstrument.isin ?? ""].updated_at)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
