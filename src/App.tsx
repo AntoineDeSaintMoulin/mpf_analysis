@@ -640,10 +640,31 @@ samdpEquityCashPct: number;
   const [showVH, setShowVH] = React.useState(false);const [collapsedRows, setCollapsedRows] = React.useState<Set<string>>(new Set(["fi_usd", "alternatives"]));
   const [drillDown, setDrillDown] = React.useState<{ rowId: string; rowLabel: string; profile: ProfileKey; ptf: any } | null>(null);
   const [portfolioFilter, setPortfolioFilter] = React.useState<PortfolioFilter>("main");
+  const [p30Mode, setP30Mode] = React.useState(false);
 
   const cn = (...classes: (string | undefined | false | null)[]) => classes.filter(Boolean).join(" ");
 
   // Portefeuilles filtrés par type, triés par profil
+  function applyP30(p: any) {
+    if (!p30Mode || p?.type !== "Mixed") return p;
+    const shareHoldings = (p.holdings ?? []).filter((h: any) => h?.instrument === "Share");
+    const otherHoldings = (p.holdings ?? []).filter((h: any) => h?.instrument !== "Share");
+    const shareWeight = shareHoldings.reduce((s: number, h: any) => s + (h.weight ?? 0), 0);
+    if (shareWeight === 0) return p;
+    const p30Holding = {
+      id: -1,
+      asset_name: "P30",
+      isin: P30_ISIN,
+      category: "Equities",
+      region: "Global",
+      instrument: "Fund",
+      currency: "EUR",
+      weight: shareWeight,
+      original_asset_name: "P30",
+    };
+    return { ...p, holdings: [...otherHoldings, p30Holding] };
+  }
+
 const portfoliosByProfile = React.useMemo(() => {
     const map: Partial<Record<ProfileKey, any>> = {};
     const filtered = allPortfolios.filter(p => p?.type === portfolioType);
@@ -651,10 +672,10 @@ const portfoliosByProfile = React.useMemo(() => {
     const list = filtered.filter(p => filterFn(p.name ?? ""));
 list.forEach(p => {
       const profile = portfolioToProfile(p.name ?? "");
-      if (profile) map[profile] = p;
+      if (profile) map[profile] = applyP30(p);
     });
     return map;
-  }, [allPortfolios, portfolioType, portfolioFilter]);
+  }, [allPortfolios, portfolioType, portfolioFilter, p30Mode]);
 
   // Profils visibles selon les toggles
   const visibleProfiles = React.useMemo(() => {
@@ -691,12 +712,23 @@ const fmt = (v: number | null) => v == null ? "—" : v.toFixed(1) + "%";
           {showBDS ? "← Masquer BDS" : "← Afficher BDS"}
         </button>
 
-{/* Toggle VH */}
+        {/* Toggle VH */}
         <button onClick={() => setShowVH(v => !v)}
           className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border",
             showVH ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-500 border-slate-200 hover:border-slate-300")}>
           {showVH ? "Masquer VH →" : "Afficher VH →"}
         </button>
+
+{/* Toggle P30/Real (Mixed uniquement) */}
+        {portfolioType === "Mixed" && (
+          <button onClick={() => setP30Mode(v => !v)}
+            className={cn("text-[10px] font-bold px-2 py-1.5 rounded-xl border transition-all",
+              p30Mode
+                ? "bg-violet-600 text-white border-violet-600"
+                : "bg-white text-slate-400 border-slate-200 hover:border-slate-300")}>
+            {p30Mode ? "P30" : "Real"}
+          </button>
+        )}
 
 {/* Toggle portefeuilles */}
         <div className="flex items-center bg-slate-100 p-1 rounded-xl">
@@ -6977,7 +7009,7 @@ return (["RISK_ANALYSIS","PERFORMANCE","SYNTHESE", "INSTRUMENTS", "TARGET_GRID",
 <BreakdownDeviationTable
                     allPortfolios={allPortfolios}
                     targetGridData={targetGridData}
-                    breakdowns={breakdowns}
+                    breakdowns={breakdownsWithP30}
                     creditBreakdowns={creditBreakdowns}
                     dpamLookup={dpamLookup}
                     samdpGeoBreakdown={samdpGeoBreakdown}
