@@ -1211,6 +1211,49 @@ const sectionMaxAbs = React.useMemo(() => {
     return m;
   }, [lookup]);
 
+function ReadOnlyCreditTable({ entries }: { entries: { credit_type: string; currency: string; weight: number }[] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs border-collapse">
+        <thead>
+          <tr className="bg-slate-50/50">
+            <th className="px-4 py-2 text-left font-bold text-slate-500 uppercase tracking-wider">Type</th>
+            {CREDIT_CURRENCIES.map(cur => (
+              <th key={cur} className="px-3 py-2 text-right font-bold text-slate-500 uppercase tracking-wider">{cur}</th>
+            ))}
+            <th className="px-3 py-2 text-right font-bold text-slate-500 uppercase tracking-wider">Total</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-50">
+          {CREDIT_TYPES.map(ct => {
+            const rows = entries.filter(e => e.credit_type === ct);
+            if (rows.length === 0) return null;
+            const totalCt = rows.reduce((s, e) => s + e.weight, 0);
+            return (
+              <tr key={ct} className="hover:bg-slate-50/50">
+                <td className="px-4 py-2 font-bold" style={{ color: CREDIT_COLORS[ct] ?? "#64748b" }}>{ct}</td>
+                {CREDIT_CURRENCIES.map(cur => {
+                  const w = rows.find(e => e.currency === cur)?.weight ?? 0;
+                  return <td key={cur} className="px-3 py-2 text-right text-slate-600">{w > 0 ? w.toFixed(1) + "%" : "—"}</td>;
+                })}
+                <td className="px-3 py-2 text-right font-bold text-slate-900">{totalCt.toFixed(1)}%</td>
+              </tr>
+            );
+          })}
+          <tr className="bg-slate-50/50 font-bold">
+            <td className="px-4 py-2 text-slate-700">Total</td>
+            {CREDIT_CURRENCIES.map(cur => {
+              const total = entries.filter(e => e.currency === cur).reduce((s, e) => s + e.weight, 0);
+              return <td key={cur} className="px-3 py-2 text-right text-slate-700">{total > 0 ? total.toFixed(1) + "%" : "—"}</td>;
+            })}
+            <td className="px-3 py-2 text-right text-slate-900">{entries.reduce((s, e) => s + e.weight, 0).toFixed(1)}%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+  
 function PerfCell({ value, maxAbs, thickBorder, onClick }: { value: number | null | undefined; maxAbs: number; thickBorder?: boolean; onClick?: () => void }) {
     const borderClass = thickBorder ? "border-l-2 border-slate-300 snap-start" : "";
     const clickClass = onClick ? "cursor-pointer hover:bg-slate-50" : "";
@@ -8044,6 +8087,22 @@ currentPortfolioEffective.type === "Sicav" ? "bg-purple-100 text-purple-700" : "
           </table>
         </div>
       )}
+    </div>
+  )}
+  {selectedInstrument.isin && dpamLookup[selectedInstrument.isin]?.creditBreakdown?.length > 0 && (
+    <div className="border border-slate-100 rounded-2xl overflow-hidden">
+      <div className="px-4 py-3 bg-sky-50/50 border-b border-slate-100">
+        <p className="text-xs font-semibold text-sky-700 uppercase tracking-wider">Credit Quality — Onglet DPAM</p>
+      </div>
+      <ReadOnlyCreditTable entries={dpamLookup[selectedInstrument.isin].creditBreakdown} />
+    </div>
+  )}
+  {selectedInstrument.isin === "LU1545753169" && samdpDebtCreditBreakdown && samdpDebtCreditBreakdown.length > 0 && (
+    <div className="border border-slate-100 rounded-2xl overflow-hidden">
+      <div className="px-4 py-3 bg-violet-50/50 border-b border-slate-100">
+        <p className="text-xs font-semibold text-violet-700 uppercase tracking-wider">Credit Quality — Onglet SAMDP</p>
+      </div>
+      <ReadOnlyCreditTable entries={samdpDebtCreditBreakdown} />
     </div>
   )}
              <div className="p-6 bg-sky-50 rounded-2xl border border-sky-100">
