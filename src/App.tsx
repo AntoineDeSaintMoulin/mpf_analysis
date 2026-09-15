@@ -6650,9 +6650,15 @@ return Array.from(im.values());
     });
   }, [instrumentsSynthesis, sortConfig]);
 
+  const VI_PORTFOLIOS_AS_MIXED = ["VI_EQ", "VI_EQ_SUST", "VI_RE"];
+
   const filteredPortfolios = useMemo(() =>
     portfolios
-      .filter((p) => p?.type === activeTab)
+      .filter((p) => {
+        const isViPortfolio = VI_PORTFOLIOS_AS_MIXED.some(code => (p?.name ?? "").includes(code));
+        if (isViPortfolio) return activeTab === "Mixed";
+        return p?.type === activeTab;
+      })
       .sort((a, b) => {
         const ai = PORTFOLIO_ORDER.indexOf(a.name);
         const bi = PORTFOLIO_ORDER.indexOf(b.name);
