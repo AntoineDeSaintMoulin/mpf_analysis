@@ -7961,6 +7961,11 @@ currentPortfolioEffective.type === "Sicav" ? "bg-purple-100 text-purple-700" : "
                           DPAM: {Number(dpamLookup[selectedInstrument.isin].duration).toFixed(2)}
                         </span>
                       )}
+                      {selectedInstrument.isin === "LU1545753169" && getEffectiveDuration(selectedInstrument.isin) != null && (
+                        <span className="text-[10px] font-bold text-violet-600 bg-violet-50 px-2 py-1 rounded-lg">
+                          SAMDP: {Number(getEffectiveDuration(selectedInstrument.isin)).toFixed(2)}
+                        </span>
+                      )}
                       {durations[selectedInstrument.isin ?? ""]?.updated_at && (
                         <span className="text-[10px] italic text-slate-400">
                           maj {formatDate(durations[selectedInstrument.isin ?? ""].updated_at)}
