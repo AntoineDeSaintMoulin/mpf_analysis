@@ -1128,6 +1128,14 @@ const PERF_SECTIONS = [
   },
 ];
 
+const CREDIT_COLORS: Record<string, string> = {
+  "Govies":  "#0ea5e9",
+  "IG":      "#10b981",
+  "HY":      "#f59e0b",
+  "NR":      "#94a3b8",
+  "EM Debt": "#8b5cf6",
+};
+
 function ReadOnlyCreditTable({ entries }: { entries: { credit_type: string; currency: string; weight: number }[] }) {
   return (
     <div className="overflow-x-auto">
@@ -6632,16 +6640,6 @@ const portfolioDuration = useMemo(() => {
   return +(weightedDuration / totalWeight).toFixed(2);
 }, [currentPortfolio, durations, dpamLookup, samdpDebtInstruments, breakdownsWithP30, samdpEquityCashPct, samdpDebtCashPct]);
   
-  const CREDIT_COLORS: Record<string, string> = {
-    "Govies":  "#0ea5e9",
-    "IG":      "#10b981",
-    "HY":      "#f59e0b",
-    "NR":      "#94a3b8",
-    "EM Debt": "#8b5cf6",
-  };
-   
-
-
  const instrumentsSynthesis = useMemo(() => {
     const im = new Map<string, { name: string; isin: string; weights: Record<string, number>; details: Partial<Holding> }>();
     const names = allPortfolios.map((p) => p?.name).filter(Boolean) as string[];
