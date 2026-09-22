@@ -3114,11 +3114,10 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
     if (equityRows.length === 0) return { hedgedPct: 0, nonHedgedPct: 0, cashEurPct: 0, cashUsdPct: 0, rows: [] as { name: string; isin: string; weight: number; hedged: boolean; isCash?: boolean }[] };
     const level5 = equityRows.filter((r: any) => r.level === 5 && r.isin);
     const CASH_ISINS_SAMDP = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
-    let hedgedW = 0, nonHedgedW = 0, cashEurW = 0, cashUsdW = 0, total = 0;
+    let hedgedW = 0, nonHedgedW = 0, cashEurW = 0, cashUsdW = 0;
     const rows: { name: string; isin: string; weight: number; hedged: boolean; isCash?: boolean }[] = [];
     level5.forEach((row: any) => {
       const w = Number(row.expo_pct ?? 0) * 100;
-      total += w;
       const isinUp = (row.isin ?? "").toUpperCase();
       const isCash = CASH_ISINS_SAMDP.has(isinUp) || (row.instrument_type ?? "").toUpperCase().includes("DEPOSIT");
       if (isCash) {
@@ -3137,12 +3136,11 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
       if (isHedgedInstr) hedgedW += w; else nonHedgedW += w;
       rows.push({ name: row.name ?? "—", isin: row.isin ?? "—", weight: w, hedged: isHedgedInstr });
     });
-    if (total === 0) return { hedgedPct: 0, nonHedgedPct: 0, cashEurPct: 0, cashUsdPct: 0, rows: [] };
     return {
-      hedgedPct: +(hedgedW / total * 100).toFixed(2),
-      nonHedgedPct: +(nonHedgedW / total * 100).toFixed(2),
-      cashEurPct: +(cashEurW / total * 100).toFixed(2),
-      cashUsdPct: +(cashUsdW / total * 100).toFixed(2),
+      hedgedPct: +hedgedW.toFixed(2),
+      nonHedgedPct: +nonHedgedW.toFixed(2),
+      cashEurPct: +cashEurW.toFixed(2),
+      cashUsdPct: +cashUsdW.toFixed(2),
       rows: rows.sort((a, b) => b.weight - a.weight),
     };
   }, [equityRows, manualOverrides]);
