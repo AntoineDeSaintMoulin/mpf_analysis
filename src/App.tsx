@@ -8628,9 +8628,19 @@ const contribution = totalWeight > 0 ? (h.weight ?? 0) * dur / totalWeight : 0;
               .map(h => {
                 if (!h) return null;
                 const targetCur = showCurrencyDetail.toUpperCase();
-                const cbd = h.isin ? currencyBreakdowns[h.isin] : null;
+                const isHedgedFund = manualOverrides.some(
+                  ov => ((ov.manual_isin && ov.manual_isin === h.isin) ||
+                  (ov.original_asset_name && ov.original_asset_name === (h.original_asset_name ?? h.asset_name)))
+                  && ov.is_hedged === true
+                );
                 let curWeight: number | null = null;
                 let exposition = 0;
+                if (isHedgedFund) {
+                  if (targetCur !== "EUR") return null;
+                  curWeight = 100;
+                  exposition = h.weight ?? 0;
+                } else {
+                const cbd = h.isin ? currencyBreakdowns[h.isin] : null;
                 if (cbd && cbd.length > 0) {
                   const entry = cbd.find(e => e.currency.toUpperCase() === targetCur);
                   if (!entry) return null;
@@ -8640,6 +8650,7 @@ const contribution = totalWeight > 0 ? (h.weight ?? 0) * dur / totalWeight : 0;
                   if ((h.currency ?? "").toUpperCase() !== targetCur) return null;
                   curWeight = 100;
                   exposition = h.weight ?? 0;
+                }
                 }
                 return { h, curWeight, exposition };
               })
