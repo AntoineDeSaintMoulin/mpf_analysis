@@ -6196,6 +6196,14 @@ const bd = h.isin ? breakdownsWithP30[h.isin] : null;
     && ov.is_hedged === true
   );
 }
+    function computeUsdHedgedPct(holdings: Holding[]): number {
+    const total = holdings.reduce((s, h) => s + (h?.weight ?? 0), 0);
+    if (total === 0) return 0;
+    const usdHedged = holdings
+      .filter(h => h && (h.currency ?? "").toUpperCase() === "USD" && isHedged(h))
+      .reduce((s, h) => s + (h.weight ?? 0), 0);
+    return +(usdHedged / total * 100).toFixed(1);
+  }
   
   // ── Derived data ───────────────────────────────────────────────────────────
 const dpamLookup = useMemo(() => {
@@ -7746,9 +7754,19 @@ currentPortfolioEffective.type === "Sicav" ? "bg-purple-100 text-purple-700" : "
 
                       {/* Currency Exposure */}
                       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="bg-emerald-100 p-2 rounded-xl"><Coins className="h-5 w-5 text-emerald-600" /></div>
-                          <span className="text-sm font-semibold text-slate-500">Currency Exposure</span>
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="bg-emerald-100 p-2 rounded-xl"><Coins className="h-5 w-5 text-emerald-600" /></div>
+                            <span className="text-sm font-semibold text-slate-500">Currency Exposure</span>
+                          </div>
+                          {(() => {
+                            const usdHedgedPct = computeUsdHedgedPct(currentPortfolioEffective?.holdings ?? []);
+                            return usdHedgedPct > 0 ? (
+                              <span className="text-[10px] font-bold text-sky-600 bg-sky-50 px-2 py-1 rounded-lg">
+                                {usdHedgedPct.toFixed(1)}% USD hedgé
+                              </span>
+                            ) : null;
+                          })()}
                         </div>
                         {currencyData.length === 0 ? (
                           <div className="text-slate-400 text-sm italic">Aucune donnée</div>
