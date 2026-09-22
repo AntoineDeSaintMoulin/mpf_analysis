@@ -3760,9 +3760,17 @@ console.log("etfRows utilisés:", etfRows.map((r: any) => `${r.name} expo=${r.ex
                 </div>
               </div>
               <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                <h3 onClick={() => setShowSamdpDetail("currency_equity")} className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2 cursor-pointer hover:text-sky-700">
-                  <Coins className="h-4 w-4 text-sky-600" />Exposition Devise
-                </h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 onClick={() => setShowSamdpDetail("currency_equity")} className="text-base font-bold text-slate-900 flex items-center gap-2 cursor-pointer hover:text-sky-700">
+                    <Coins className="h-4 w-4 text-sky-600" />Exposition Devise
+                  </h3>
+                  {samdpHedgeSplit.hedgedPct > 0 && (
+                    <button onClick={() => setShowHedgeDetail(true)}
+                      className="text-[10px] font-bold text-sky-600 bg-sky-50 hover:bg-sky-100 px-2 py-1 rounded-lg transition-colors">
+                      {samdpHedgeSplit.hedgedPct.toFixed(1)}% EUR hedgé
+                    </button>
+                  )}
+                </div>
                 <div className="space-y-3">
                   {currencyData.map(({ label, value }) => (
                     <div key={label} className="flex items-center gap-3">
@@ -4571,17 +4579,7 @@ debtLevel2Graph.forEach(inst => {
       
       {/* ── Modales détail ── */}
       {/* ── Modale Devise Equity ── */}
-      <Modal isOpen={showSamdpDetail === "currency_equity"} onClose={() => setShowSamdpDetail(null)} title={
-        <div className="flex items-center gap-3">
-          <span>Détail Exposition Devise — Equities</span>
-          {samdpHedgeSplit.hedgedPct > 0 && (
-            <button onClick={() => setShowHedgeDetail(true)}
-              className="text-[10px] font-bold text-sky-600 bg-sky-50 hover:bg-sky-100 px-2 py-1 rounded-lg transition-colors">
-              {samdpHedgeSplit.hedgedPct.toFixed(1)}% EUR hedgé
-            </button>
-          )}
-        </div>
-      }>
+      <Modal isOpen={showSamdpDetail === "currency_equity"} onClose={() => setShowSamdpDetail(null)} title="Détail Exposition Devise — Equities">
         <div className="space-y-3">
           {equityData.map(inst => {
             const w = Number(inst.wght_pct ?? 0) * 100;
