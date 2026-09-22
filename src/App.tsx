@@ -3107,6 +3107,40 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
   breakdowns: Record<string, any[]>;
   creditBreakdowns: Record<string, any[]>;
 }) {
+
+  const [showHedgeDetail, setShowHedgeDetail] = React.useState(false);
+
+  const samdpHedgeSplit = React.useMemo(() => {
+    if (equityRows.length === 0) return { eurPct: 0, usdPct: 0, rows: [] as { name: string; isin: string; weight: number; hedged: boolean }[] };
+    const level5 = equityRows.filter((r: any) => r.level === 5 && r.isin);
+    const CASH_ISINS_SAMDP = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
+    let eurW = 0, usdW = 0, total = 0;
+    const rows: { name: string; isin: string; weight: number; hedged: boolean }[] = [];
+    level5.forEach((row: any) => {
+      const w = Number(row.expo_pct ?? 0) * 100;
+      total += w;
+      const isinUp = (row.isin ?? "").toUpperCase();
+      const isCash = CASH_ISINS_SAMDP.has(isinUp) || (row.instrument_type ?? "").toUpperCase().includes("DEPOSIT");
+      if (isCash) {
+        const cur = isinUp === "YEN" ? "JPY" : isinUp;
+        if (cur === "EUR") eurW += w; else if (cur === "USD") usdW += w;
+        return;
+      }
+      const isHedgedInstr = manualOverrides.some(
+        (ov: any) => ((ov.manual_isin && ov.manual_isin === row.isin) ||
+        (ov.original_asset_name && ov.original_asset_name === row.name))
+        && ov.is_hedged === true
+      );
+      if (isHedgedInstr) eurW += w; else usdW += w;
+      rows.push({ name: row.name ?? "—", isin: row.isin ?? "—", weight: w, hedged: isHedgedInstr });
+    });
+    if (total === 0) return { eurPct: 0, usdPct: 0, rows: [] };
+    return {
+      eurPct: +(eurW / total * 100).toFixed(2),
+      usdPct: +(usdW / total * 100).toFixed(2),
+      rows: rows.sort((a, b) => b.weight - a.weight),
+    };
+  }, [equityRows, manualOverrides]);
   
   const [view, setView] = React.useState<SamdpView>("Equities");
   const [uploading, setUploading] = React.useState(false);
@@ -3585,6 +3619,14 @@ const avgDuration = debtLeafRows.length > 0
 
 {view === "Equities" && (
   <>
+    {samdpHedgeSplit.eurPct > 0 && (
+      <div className="flex justify-end mb-3">
+        <button onClick={() => setShowHedgeDetail(true)}
+          className="text-[10px] font-bold text-sky-600 bg-sky-50 hover:bg-sky-100 px-2 py-1 rounded-lg transition-colors">
+          {samdpHedgeSplit.eurPct.toFixed(1)}% EUR hedgé
+        </button>
+      </div>
+    )}
     {equityRows.length === 0 ? (
       <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">
         <TableIcon className="h-12 w-12 mx-auto mb-4 opacity-20" />
@@ -4857,6 +4899,52 @@ const total = cashLines.reduce((s: number, row: any) => s + Number(row.wght_ptf_
     );
   })()}
 </Modal>
+
+          <Modal isOpen={showHedgeDetail} onClose={() => setShowHedgeDetail(false)} title="Détail % EUR hedgé — SAMDP Equity">
+      <div className="space-y-4">
+        <p className="text-xs text-slate-500 italic">
+          Répartition du fonds SAMDP Equity entre positions hedgées EUR et non-hedgées, selon le toggle configuré sur chaque instrument.
+        </p>
+        <div className="flex items-center gap-4 mb-2">
+          <div className="flex-1 bg-sky-50 rounded-2xl p-4">
+            <p className="text-[10px] font-bold text-sky-600 uppercase tracking-wider">EUR hedgé</p>
+            <p className="text-2xl font-bold text-sky-700">{samdpHedgeSplit.eurPct.toFixed(2)}%</p>
+          </div>
+          <div className="flex-1 bg-slate-50 rounded-2xl p-4">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Non hedgé</p>
+            <p className="text-2xl font-bold text-slate-700">{samdpHedgeSplit.usdPct.toFixed(2)}%</p>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr className="bg-slate-50/50 border-b border-slate-100">
+                <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Instrument</th>
+                <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Poids</th>
+                <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Hedgé</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {samdpHedgeSplit.rows.map((r, i) => (
+                <tr key={i} className="hover:bg-slate-50/50">
+                  <td className="px-4 py-3 font-medium truncate max-w-[220px]">
+                    <p className="text-slate-900">{r.name}</p>
+                    <p className="text-xs font-mono text-slate-400">{r.isin}</p>
+                  </td>
+                  <td className="px-4 py-3 text-right text-slate-600">{r.weight.toFixed(2)}%</td>
+                  <td className="px-4 py-3 text-center">
+                    {r.hedged
+                      ? <span className="text-[10px] bg-sky-50 text-sky-600 font-bold px-2 py-0.5 rounded-full">EUR hedgé</span>
+                      : <span className="text-[10px] bg-slate-100 text-slate-400 px-2 py-0.5 rounded-full">Non hedgé</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </Modal>
+      
     </div>
   );
 }
