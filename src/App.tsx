@@ -6196,12 +6196,44 @@ const bd = h.isin ? breakdownsWithP30[h.isin] : null;
     && ov.is_hedged === true
   );
 }
-    function computeUsdHedgedPct(holdings: Holding[]): number {
+
+    function computeSamdpEquityCurrencySplit(): { eurPct: number; usdPct: number } {
+    if (samdpEquityRows.length === 0) return { eurPct: 0, usdPct: 0 };
+    const level5 = samdpEquityRows.filter((r: any) => r.level === 5 && r.isin);
+    const CASH_ISINS_SAMDP = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
+    let eurW = 0, usdW = 0, total = 0;
+    level5.forEach((row: any) => {
+      const w = Number(row.expo_pct ?? 0) * 100;
+      total += w;
+      const isinUp = (row.isin ?? "").toUpperCase();
+      if (CASH_ISINS_SAMDP.has(isinUp) || (row.instrument_type ?? "").toUpperCase().includes("DEPOSIT")) {
+        const cur = isinUp === "YEN" ? "JPY" : isinUp;
+        if (cur === "EUR") eurW += w;
+        else if (cur === "USD") usdW += w;
+        return;
+      }
+      const isHedgedInstr = manualOverrides.some(
+        ov => ((ov.manual_isin && ov.manual_isin === row.isin) ||
+        (ov.original_asset_name && ov.original_asset_name === row.name))
+        && ov.is_hedged === true
+      );
+      if (isHedgedInstr) eurW += w; else usdW += w;
+    });
+    if (total === 0) return { eurPct: 0, usdPct: 0 };
+    return { eurPct: +(eurW / total * 100).toFixed(2), usdPct: +(usdW / total * 100).toFixed(2) };
+  }
+  
+  function computeUsdHedgedPct(holdings: Holding[]): number {
     const total = holdings.reduce((s, h) => s + (h?.weight ?? 0), 0);
     if (total === 0) return 0;
-    const usdHedged = holdings
+    let usdHedged = holdings
       .filter(h => h && (h.currency ?? "").toUpperCase() === "USD" && isHedged(h))
       .reduce((s, h) => s + (h.weight ?? 0), 0);
+    const samdpHolding = holdings.find(h => h?.isin === "LU1795355053");
+    if (samdpHolding && samdpEquityRows.length > 0) {
+      const { eurPct } = computeSamdpEquityCurrencySplit();
+      usdHedged += (samdpHolding.weight ?? 0) * eurPct / 100;
+    }
     return +(usdHedged / total * 100).toFixed(1);
   }
   
@@ -6491,6 +6523,12 @@ const isHedgedFund = manualOverrides.some(
 if (isHedgedFund) {
   m.set("EUR", (m.get("EUR") ?? 0) + (h.weight ?? 0));
 } else {
+if (h.isin === "LU1795355053" && samdpEquityRows.length > 0) {
+        const { eurPct, usdPct } = computeSamdpEquityCurrencySplit();
+        m.set("EUR", (m.get("EUR") ?? 0) + (h.weight ?? 0) * eurPct / 100);
+        m.set("USD", (m.get("USD") ?? 0) + (h.weight ?? 0) * usdPct / 100);
+        return;
+      }
 const cbd = h.isin ? currencyBreakdownsWithP30[h.isin] : null;
       if (cbd && cbd.length > 0) {
         for (const entry of cbd) {
@@ -8628,6 +8666,12 @@ const contribution = totalWeight > 0 ? (h.weight ?? 0) * dur / totalWeight : 0;
               .map(h => {
                 if (!h) return null;
                 const targetCur = showCurrencyDetail.toUpperCase();
+                if (h.isin === "LU1795355053" && samdpEquityRows.length > 0) {
+                  const { eurPct, usdPct } = computeSamdpEquityCurrencySplit();
+                  const pct = targetCur === "EUR" ? eurPct : targetCur === "USD" ? usdPct : 0;
+                  if (pct <= 0.001) return null;
+                  return { h, curWeight: pct, exposition: (h.weight ?? 0) * pct / 100 };
+                }
                 const isHedgedFund = manualOverrides.some(
                   ov => ((ov.manual_isin && ov.manual_isin === h.isin) ||
                   (ov.original_asset_name && ov.original_asset_name === (h.original_asset_name ?? h.asset_name)))
