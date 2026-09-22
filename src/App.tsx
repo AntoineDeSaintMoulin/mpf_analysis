@@ -3115,7 +3115,7 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
     const level5 = equityRows.filter((r: any) => r.level === 5 && r.isin);
     const CASH_ISINS_SAMDP = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
     let eurW = 0, usdW = 0, total = 0;
-    const rows: { name: string; isin: string; weight: number; hedged: boolean }[] = [];
+    const rows: { name: string; isin: string; weight: number; hedged: boolean; isCash?: boolean }[] = [];
     level5.forEach((row: any) => {
       const w = Number(row.expo_pct ?? 0) * 100;
       total += w;
@@ -3124,6 +3124,9 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
       if (isCash) {
         const cur = isinUp === "YEN" ? "JPY" : isinUp;
         if (cur === "EUR") eurW += w; else if (cur === "USD") usdW += w;
+        if (cur === "EUR" || cur === "USD") {
+          rows.push({ name: row.name || `Cash ${cur}`, isin: row.isin ?? "—", weight: w, hedged: cur === "EUR", isCash: true });
+        }
         return;
       }
       const isHedgedInstr = manualOverrides.some(
@@ -4933,9 +4936,11 @@ const total = cashLines.reduce((s: number, row: any) => s + Number(row.wght_ptf_
                   </td>
                   <td className="px-4 py-3 text-right text-slate-600">{r.weight.toFixed(2)}%</td>
                   <td className="px-4 py-3 text-center">
-                    {r.hedged
-                      ? <span className="text-[10px] bg-sky-50 text-sky-600 font-bold px-2 py-0.5 rounded-full">EUR hedgé</span>
-                      : <span className="text-[10px] bg-slate-100 text-slate-400 px-2 py-0.5 rounded-full">Non hedgé</span>}
+                    {r.isCash
+                      ? <span className="text-[10px] bg-emerald-50 text-emerald-600 font-bold px-2 py-0.5 rounded-full">{r.hedged ? "Cash EUR" : "Cash USD"}</span>
+                      : r.hedged
+                        ? <span className="text-[10px] bg-sky-50 text-sky-600 font-bold px-2 py-0.5 rounded-full">EUR hedgé</span>
+                        : <span className="text-[10px] bg-slate-100 text-slate-400 px-2 py-0.5 rounded-full">Non hedgé</span>}
                   </td>
                 </tr>
               ))}
