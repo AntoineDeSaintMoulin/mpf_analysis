@@ -3110,11 +3110,11 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
 
   const [showHedgeDetail, setShowHedgeDetail] = React.useState(false);
 
-  const samdpHedgeSplit = React.useMemo(() => {
-    if (equityRows.length === 0) return { eurPct: 0, usdPct: 0, rows: [] as { name: string; isin: string; weight: number; hedged: boolean }[] };
+   const samdpHedgeSplit = React.useMemo(() => {
+    if (equityRows.length === 0) return { hedgedPct: 0, nonHedgedPct: 0, cashEurPct: 0, cashUsdPct: 0, rows: [] as { name: string; isin: string; weight: number; hedged: boolean; isCash?: boolean }[] };
     const level5 = equityRows.filter((r: any) => r.level === 5 && r.isin);
     const CASH_ISINS_SAMDP = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
-    let eurW = 0, usdW = 0, total = 0;
+    let hedgedW = 0, nonHedgedW = 0, cashEurW = 0, cashUsdW = 0, total = 0;
     const rows: { name: string; isin: string; weight: number; hedged: boolean; isCash?: boolean }[] = [];
     level5.forEach((row: any) => {
       const w = Number(row.expo_pct ?? 0) * 100;
@@ -3123,9 +3123,9 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
       const isCash = CASH_ISINS_SAMDP.has(isinUp) || (row.instrument_type ?? "").toUpperCase().includes("DEPOSIT");
       if (isCash) {
         const cur = isinUp === "YEN" ? "JPY" : isinUp;
-        if (cur === "EUR") eurW += w; else if (cur === "USD") usdW += w;
+        if (cur === "EUR") cashEurW += w; else if (cur === "USD") cashUsdW += w;
         if (cur === "EUR" || cur === "USD") {
-          rows.push({ name: row.name || `Cash ${cur}`, isin: row.isin ?? "—", weight: w, hedged: cur === "EUR", isCash: true });
+          rows.push({ name: row.name || `Cash ${cur}`, isin: row.isin ?? "—", weight: w, hedged: false, isCash: true });
         }
         return;
       }
@@ -3134,13 +3134,15 @@ function SamdpTab({ equityData, importLog, manualOverrides, onSelectInstrument, 
         (ov.original_asset_name && ov.original_asset_name === row.name))
         && ov.is_hedged === true
       );
-      if (isHedgedInstr) eurW += w; else usdW += w;
+      if (isHedgedInstr) hedgedW += w; else nonHedgedW += w;
       rows.push({ name: row.name ?? "—", isin: row.isin ?? "—", weight: w, hedged: isHedgedInstr });
     });
-    if (total === 0) return { eurPct: 0, usdPct: 0, rows: [] };
+    if (total === 0) return { hedgedPct: 0, nonHedgedPct: 0, cashEurPct: 0, cashUsdPct: 0, rows: [] };
     return {
-      eurPct: +(eurW / total * 100).toFixed(2),
-      usdPct: +(usdW / total * 100).toFixed(2),
+      hedgedPct: +(hedgedW / total * 100).toFixed(2),
+      nonHedgedPct: +(nonHedgedW / total * 100).toFixed(2),
+      cashEurPct: +(cashEurW / total * 100).toFixed(2),
+      cashUsdPct: +(cashUsdW / total * 100).toFixed(2),
       rows: rows.sort((a, b) => b.weight - a.weight),
     };
   }, [equityRows, manualOverrides]);
