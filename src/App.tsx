@@ -5310,6 +5310,7 @@ is_hedged?: boolean;
   const [showCreditDetail, setShowCreditDetail] = useState<string | null>(null);
   const [showDurationDetail, setShowDurationDetail] = useState(false);
   const [showCurrencyDetail, setShowCurrencyDetail] = useState<string | null>(null);
+  const [showUsdHedgedDetail, setShowUsdHedgedDetail] = useState(false);
   const [p30Mode, setP30Mode] = useState(false);
   const [dpamBondsData, setDpamBondsData] = useState<any>(null);
   const [dpamEquityData, setDpamEquityData] = useState<any>(null);
@@ -7810,9 +7811,10 @@ currentPortfolioEffective.type === "Sicav" ? "bg-purple-100 text-purple-700" : "
                           {(() => {
                             const usdHedgedPct = computeUsdHedgedPct(currentPortfolioEffective?.holdings ?? []);
                             return usdHedgedPct > 0 ? (
-                              <span className="text-[10px] font-bold text-sky-600 bg-sky-50 px-2 py-1 rounded-lg">
+                              <button onClick={() => setShowUsdHedgedDetail(true)}
+                                className="text-[10px] font-bold text-sky-600 bg-sky-50 hover:bg-sky-100 px-2 py-1 rounded-lg transition-colors">
                                 {usdHedgedPct.toFixed(1)}% USD hedgé
-                              </span>
+                              </button>
                             ) : null;
                           })()}
                         </div>
@@ -8730,6 +8732,81 @@ const contribution = totalWeight > 0 ? (h.weight ?? 0) * dur / totalWeight : 0;
     </div>
   )}
 </Modal>
+
+      <Modal isOpen={showUsdHedgedDetail} onClose={() => setShowUsdHedgedDetail(false)} title="Détail % USD hedgé">
+{currentPortfolioEffective && (
+    <div className="space-y-4">
+      <p className="text-xs text-slate-500 italic">
+        Positions comptabilisées comme "USD hedgé" : parts en devise USD explicitement flaggées hedgées dans MANUALS, plus la portion interne du SAMDP Equity investie en ETFs hedgés EUR.
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse text-sm">
+          <thead>
+            <tr className="bg-slate-50/50 border-b border-slate-100">
+              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Instrument</th>
+              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Poids Ptf</th>
+              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">% Hedgé</th>
+              <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Contribution</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {(() => {
+              const rows: { name: string; isin: string; weight: number; hedgedPct: number; contribution: number; onClick?: () => void }[] = [];
+              (currentPortfolioEffective.holdings ?? []).forEach(h => {
+                if (!h) return;
+                if (h.isin === "LU1795355053" && samdpEquityRows.length > 0) {
+                  const { eurPct } = computeSamdpEquityCurrencySplit();
+                  if (eurPct > 0.001) {
+                    rows.push({
+                      name: h.asset_name ?? "SAMDP Equity",
+                      isin: h.isin,
+                      weight: h.weight ?? 0,
+                      hedgedPct: eurPct,
+                      contribution: (h.weight ?? 0) * eurPct / 100,
+                    });
+                  }
+                  return;
+                }
+                if ((h.currency ?? "").toUpperCase() === "USD" && isHedged(h)) {
+                  rows.push({
+                    name: h.asset_name ?? "—",
+                    isin: h.isin ?? "—",
+                    weight: h.weight ?? 0,
+                    hedgedPct: 100,
+                    contribution: h.weight ?? 0,
+                  });
+                }
+              });
+              const total = rows.reduce((s, r) => s + r.contribution, 0);
+              return rows.length === 0 ? (
+                <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400 italic">Aucune position identifiée.</td></tr>
+              ) : (
+                <>
+                  {rows.sort((a, b) => b.contribution - a.contribution).map((r, i) => (
+                    <tr key={i} className="hover:bg-slate-50/50">
+                      <td className="px-4 py-3 font-medium truncate max-w-[200px]">
+                        <p className="text-slate-900">{r.name}</p>
+                        <p className="text-xs font-mono text-slate-400">{r.isin}</p>
+                      </td>
+                      <td className="px-4 py-3 text-right text-slate-600">{r.weight.toFixed(2)}%</td>
+                      <td className="px-4 py-3 text-right text-slate-500">{r.hedgedPct.toFixed(1)}%</td>
+                      <td className="px-4 py-3 text-right font-bold text-sky-600">{r.contribution.toFixed(2)}%</td>
+                    </tr>
+                  ))}
+                  <tr className="bg-slate-50/50 border-t border-slate-200 font-bold">
+                    <td colSpan={3} className="px-4 py-3 text-slate-700 text-right">Total</td>
+                    <td className="px-4 py-3 text-right text-slate-900">{total.toFixed(2)}%</td>
+                  </tr>
+                </>
+              );
+            })()}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )}
+</Modal>
+      
     </div>
   );
 }
