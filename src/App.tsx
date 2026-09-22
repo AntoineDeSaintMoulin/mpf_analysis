@@ -158,7 +158,7 @@ const TARGET_GRID_STRUCTURE: { id: string; label: string; level: 0 | 1 | 2; pare
   { id: "modified_duration", label: "Modified Duration", level: 0 },
 ];
 
-function Modal({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
+function Modal({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title: React.ReactNode; children: React.ReactNode }) {
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
@@ -3622,14 +3622,6 @@ const avgDuration = debtLeafRows.length > 0
 
 {view === "Equities" && (
   <>
-    {samdpHedgeSplit.hedgedPct > 0 && (
-      <div className="flex justify-end mb-3">
-        <button onClick={() => setShowHedgeDetail(true)}
-          className="text-[10px] font-bold text-sky-600 bg-sky-50 hover:bg-sky-100 px-2 py-1 rounded-lg transition-colors">
-          {samdpHedgeSplit.hedgedPct.toFixed(1)}% EUR hedgé
-        </button>
-      </div>
-    )}
     {equityRows.length === 0 ? (
       <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center text-slate-400">
         <TableIcon className="h-12 w-12 mx-auto mb-4 opacity-20" />
@@ -4579,7 +4571,17 @@ debtLevel2Graph.forEach(inst => {
       
       {/* ── Modales détail ── */}
       {/* ── Modale Devise Equity ── */}
-      <Modal isOpen={showSamdpDetail === "currency_equity"} onClose={() => setShowSamdpDetail(null)} title="Détail Exposition Devise — Equities">
+      <Modal isOpen={showSamdpDetail === "currency_equity"} onClose={() => setShowSamdpDetail(null)} title={
+        <div className="flex items-center gap-3">
+          <span>Détail Exposition Devise — Equities</span>
+          {samdpHedgeSplit.hedgedPct > 0 && (
+            <button onClick={() => setShowHedgeDetail(true)}
+              className="text-[10px] font-bold text-sky-600 bg-sky-50 hover:bg-sky-100 px-2 py-1 rounded-lg transition-colors">
+              {samdpHedgeSplit.hedgedPct.toFixed(1)}% EUR hedgé
+            </button>
+          )}
+        </div>
+      }>
         <div className="space-y-3">
           {equityData.map(inst => {
             const w = Number(inst.wght_pct ?? 0) * 100;
