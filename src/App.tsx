@@ -3624,11 +3624,11 @@ const avgDuration = debtLeafRows.length > 0
 
 {view === "Equities" && (
   <>
-    {samdpHedgeSplit.eurPct > 0 && (
+    {samdpHedgeSplit.hedgedPct > 0 && (
       <div className="flex justify-end mb-3">
         <button onClick={() => setShowHedgeDetail(true)}
           className="text-[10px] font-bold text-sky-600 bg-sky-50 hover:bg-sky-100 px-2 py-1 rounded-lg transition-colors">
-          {samdpHedgeSplit.eurPct.toFixed(1)}% EUR hedgé
+          {samdpHedgeSplit.hedgedPct.toFixed(1)}% EUR hedgé
         </button>
       </div>
     )}
@@ -4910,14 +4910,18 @@ const total = cashLines.reduce((s: number, row: any) => s + Number(row.wght_ptf_
         <p className="text-xs text-slate-500 italic">
           Répartition du fonds SAMDP Equity entre positions hedgées EUR et non-hedgées, selon le toggle configuré sur chaque instrument.
         </p>
-        <div className="flex items-center gap-4 mb-2">
+        <div className="flex items-center gap-3 mb-2">
           <div className="flex-1 bg-sky-50 rounded-2xl p-4">
             <p className="text-[10px] font-bold text-sky-600 uppercase tracking-wider">EUR hedgé</p>
-            <p className="text-2xl font-bold text-sky-700">{samdpHedgeSplit.eurPct.toFixed(2)}%</p>
+            <p className="text-2xl font-bold text-sky-700">{samdpHedgeSplit.hedgedPct.toFixed(2)}%</p>
           </div>
           <div className="flex-1 bg-slate-50 rounded-2xl p-4">
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Non hedgé</p>
-            <p className="text-2xl font-bold text-slate-700">{samdpHedgeSplit.usdPct.toFixed(2)}%</p>
+            <p className="text-2xl font-bold text-slate-700">{samdpHedgeSplit.nonHedgedPct.toFixed(2)}%</p>
+          </div>
+          <div className="flex-1 bg-emerald-50 rounded-2xl p-4">
+            <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Cash</p>
+            <p className="text-2xl font-bold text-emerald-700">{(samdpHedgeSplit.cashEurPct + samdpHedgeSplit.cashUsdPct).toFixed(2)}%</p>
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -4939,7 +4943,7 @@ const total = cashLines.reduce((s: number, row: any) => s + Number(row.wght_ptf_
                   <td className="px-4 py-3 text-right text-slate-600">{r.weight.toFixed(2)}%</td>
                   <td className="px-4 py-3 text-center">
                     {r.isCash
-                      ? <span className="text-[10px] bg-emerald-50 text-emerald-600 font-bold px-2 py-0.5 rounded-full">{r.hedged ? "Cash EUR" : "Cash USD"}</span>
+                      ? <span className="text-[10px] bg-emerald-50 text-emerald-600 font-bold px-2 py-0.5 rounded-full">Cash</span>
                       : r.hedged
                         ? <span className="text-[10px] bg-sky-50 text-sky-600 font-bold px-2 py-0.5 rounded-full">EUR hedgé</span>
                         : <span className="text-[10px] bg-slate-100 text-slate-400 px-2 py-0.5 rounded-full">Non hedgé</span>}
