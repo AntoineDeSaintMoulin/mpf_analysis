@@ -6228,7 +6228,7 @@ const bd = h.isin ? breakdownsWithP30[h.isin] : null;
     const total = holdings.reduce((s, h) => s + (h?.weight ?? 0), 0);
     if (total === 0) return 0;
     let usdHedged = holdings
-      .filter(h => h && (h.currency ?? "").toUpperCase() === "USD" && isHedged(h))
+      .filter(h => h && (h.currency ?? "").toUpperCase() !== "EUR" && isHedged(h))
       .reduce((s, h) => s + (h.weight ?? 0), 0);
     const samdpHolding = holdings.find(h => h?.isin === "LU1795355053");
     if (samdpHolding && samdpEquityRows.length > 0) {
@@ -8767,7 +8767,7 @@ const contribution = totalWeight > 0 ? (h.weight ?? 0) * dur / totalWeight : 0;
                   }
                   return;
                 }
-                if ((h.currency ?? "").toUpperCase() === "USD" && isHedged(h)) {
+                if ((h.currency ?? "").toUpperCase() !== "EUR" && isHedged(h)) {
                   rows.push({
                     name: h.asset_name ?? "—",
                     isin: h.isin ?? "—",
