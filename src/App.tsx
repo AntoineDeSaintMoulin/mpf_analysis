@@ -6482,6 +6482,15 @@ return Array.from(m.entries()).map(([name, value]) => {
     const m = new Map<string, number>();
 (currentPortfolioEffective?.holdings ?? []).forEach((h) => {
       if (!h) return;
+const isHedgedFund = manualOverrides.some(
+  ov => ((ov.manual_isin && ov.manual_isin === h.isin) ||
+  (ov.original_asset_name && ov.original_asset_name === (h.original_asset_name ?? h.asset_name)))
+  && ov.is_hedged === true
+);
+
+if (isHedgedFund) {
+  m.set("EUR", (m.get("EUR") ?? 0) + (h.weight ?? 0));
+} else {
 const cbd = h.isin ? currencyBreakdownsWithP30[h.isin] : null;
       if (cbd && cbd.length > 0) {
         for (const entry of cbd) {
@@ -6518,6 +6527,7 @@ const cbd = h.isin ? currencyBreakdownsWithP30[h.isin] : null;
     );
     const cur = hedged ? "EUR" : (h.currency ?? "Other").toUpperCase().trim();
     m.set(cur, (m.get(cur) ?? 0) + (h.weight ?? 0));
+      }
       }
       }
     });
