@@ -2331,6 +2331,8 @@ function SimulationTab({
   samdpDebtCreditBreakdown,
   samdpDebtInstruments,
   samdpGeoBreakdown,
+  samdpEquityCashPct,
+  samdpDebtCashPct,
 }: {
   allPortfolios: any[];
   breakdowns: Record<string, any[]>;
@@ -2343,6 +2345,8 @@ function SimulationTab({
   samdpDebtCreditBreakdown: { credit_type: string; currency: string; weight: number }[] | null;
   samdpDebtInstruments: any[];
   samdpGeoBreakdown: { region: string; weight: number }[] | null;
+  samdpEquityCashPct: number;
+  samdpDebtCashPct: number;
 }){
 
   const [selectedPortfolioId, setSelectedPortfolioId] = React.useState<number | null>(null);
@@ -2574,29 +2578,6 @@ function computeCreditData(holdings: any[]) {
       .map(ct => ({ name: ct, value: +((m.get(ct) ?? 0).toFixed(2)) }));
   }
 
-function computeDuration(holdings: any[]) {
-    const CATS = ["Fixed Income", "Bonds", "Liquidities"];
-    const SAMDP_DEBT_ISIN_DUR = "LU1545753169";
-    function getSimDuration(isin: string | null | undefined): number | null {
-      if (!isin) return null;
-      if (durations[isin]) return durations[isin].duration;
-      if (isin === SAMDP_DEBT_ISIN_DUR && samdpDebtInstruments.length > 0) {
-        const leafRows = samdpDebtInstruments.filter((i: any) => i.level === 2 && i.isin);
-        const totalW = leafRows.reduce((s: number, i: any) => s + Number(i.wght_pct ?? 0), 0);
-        if (totalW === 0) return null;
-        return +(leafRows.reduce((s: number, i: any) => s + Number(i.modified_duration ?? 0) * Number(i.wght_pct ?? 0), 0) / totalW).toFixed(2);
-      }
-      const dpamDur = dpamLookup[isin]?.duration;
-      if (dpamDur != null) return dpamDur;
-      return null;
-    }
-    const fi = holdings.filter(h => h && CATS.includes(h.category ?? "") &&
-      (h.isin ? (getSimDuration(h.isin) != null || h.category === "Liquidities") : h.category === "Liquidities"));
-    const total = fi.reduce((s, h) => s + (h.weight ?? 0), 0);
-    if (total === 0) return null;
-    const weighted = fi.reduce((s, h) => s + (h.weight ?? 0) * (getSimDuration(h.isin) ?? 0), 0);
-    return +(weighted / total).toFixed(2);
-  }
   const originalHoldings = currentPortfolio?.holdings ?? [];
   const beforeCat = React.useMemo(() => computeCategoryData(originalHoldings), [currentPortfolio]);
   const afterCat = React.useMemo(() => computeCategoryData(simulatedHoldings), [simulatedHoldings]);
@@ -2606,8 +2587,14 @@ function computeDuration(holdings: any[]) {
   const afterCurrency = React.useMemo(() => computeCurrencyData(simulatedHoldings), [simulatedHoldings, currencyBreakdowns]);
   const beforeCredit = React.useMemo(() => computeCreditData(originalHoldings), [currentPortfolio, creditBreakdowns]);
   const afterCredit = React.useMemo(() => computeCreditData(simulatedHoldings), [simulatedHoldings, creditBreakdowns]);
-  const beforeDuration = React.useMemo(() => computeDuration(originalHoldings), [currentPortfolio, durations]);
-  const afterDuration = React.useMemo(() => computeDuration(simulatedHoldings), [simulatedHoldings, durations]);
+  const beforeDuration = React.useMemo(
+    () => computePtfDuration(originalHoldings, durations, dpamLookup, samdpDebtInstruments, breakdowns, samdpEquityCashPct, samdpDebtCashPct),
+    [currentPortfolio, durations, breakdowns, samdpEquityCashPct, samdpDebtCashPct]
+  );
+  const afterDuration = React.useMemo(
+    () => computePtfDuration(simulatedHoldings, durations, dpamLookup, samdpDebtInstruments, breakdowns, samdpEquityCashPct, samdpDebtCashPct),
+    [simulatedHoldings, durations, breakdowns, samdpEquityCashPct, samdpDebtCashPct]
+  );
 
   // Merge avant/après pour graphes combinés
   function mergeData(before: { name: string; value: number }[], after: { name: string; value: number }[]) {
@@ -7736,6 +7723,8 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
   samdpDebtCreditBreakdown={samdpDebtCreditBreakdown}
   samdpDebtInstruments={samdpDebtInstruments}
   samdpGeoBreakdown={samdpGeoBreakdown}
+  samdpEquityCashPct={samdpEquityCashPct}
+  samdpDebtCashPct={samdpDebtCashPct}
 />
   </div>
 </div>
