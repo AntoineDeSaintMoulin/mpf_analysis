@@ -6292,7 +6292,8 @@ const bd = h.isin ? breakdownsWithP30[h.isin] : null;
     const find = (region: string) => geo.find((e: any) => e.region === region)?.weight ?? 0;
     const usd = find("US");
     const jpy = find("Japan");
-    const eur = find("Europe");
+    const cash = find("Cash");
+    const eur = find("Europe") + cash;
     const other = Math.max(0, 100 - usd - jpy - eur);
     return { EUR: eur, USD: usd, JPY: jpy, Other: other };
   }
