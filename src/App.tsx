@@ -6757,16 +6757,6 @@ const bd = h.isin ? breakdownsWithP30[h.isin] : null;
     }
     
 // Chercher la part Cash dans le SAMDP Equity via les lignes niveau 5
-if (h.isin === DPAM_GEO_CURRENCY_ISIN) {
-  const split = getDpamGeoCurrencySplit(h.isin);
-  if (split) {
-    m.set("EUR", (m.get("EUR") ?? 0) + (h.weight ?? 0) * split.EUR / 100);
-    m.set("USD", (m.get("USD") ?? 0) + (h.weight ?? 0) * split.USD / 100);
-    m.set("JPY", (m.get("JPY") ?? 0) + (h.weight ?? 0) * split.JPY / 100);
-    m.set("Other", (m.get("Other") ?? 0) + (h.weight ?? 0) * split.Other / 100);
-    return;
-  }
-}
   if (h.isin === "LU1795355053" && samdpEquityRows.length > 0) {
       const CASH_ISINS_SAMDP = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
       const cashLines = samdpEquityRows.filter((row: any) =>
@@ -8817,11 +8807,19 @@ const contribution = totalWeight > 0 ? (h.weight ?? 0) * dur / totalWeight : 0;
               .map(h => {
                 if (!h) return null;
                 const targetCur = showCurrencyDetail.toUpperCase();
-                if (h.isin === "LU1795355053" && samdpEquityRows.length > 0) {
+                                if (h.isin === "LU1795355053" && samdpEquityRows.length > 0) {
                   const { eurPct, usdPct } = computeSamdpEquityCurrencySplit();
                   const pct = targetCur === "EUR" ? eurPct : targetCur === "USD" ? usdPct : 0;
                   if (pct <= 0.001) return null;
                   return { h, curWeight: pct, exposition: (h.weight ?? 0) * pct / 100 };
+                }
+                if (h.isin === DPAM_GEO_CURRENCY_ISIN) {
+                  const split = getDpamGeoCurrencySplit(h.isin);
+                  if (split) {
+                    const pct = (split as any)[targetCur] ?? 0;
+                    if (pct <= 0.001) return null;
+                    return { h, curWeight: pct, exposition: (h.weight ?? 0) * pct / 100 };
+                  }
                 }
                 const isHedgedFund = manualOverrides.some(
                   ov => ((ov.manual_isin && ov.manual_isin === h.isin) ||
