@@ -6312,6 +6312,25 @@ const bd = h.isin ? breakdownsWithP30[h.isin] : null;
     if (total === 0) return { eurPct: 0, usdPct: 0 };
     return { eurPct: +(eurW / total * 100).toFixed(2), usdPct: +(usdW / total * 100).toFixed(2) };
   }
+    function computeSamdpEquityHedgedPct(): number {
+    if (samdpEquityRows.length === 0) return 0;
+    const level5 = samdpEquityRows.filter((r: any) => r.level === 5 && r.isin);
+    const CASH_ISINS_SAMDP = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
+    let hedgedW = 0, total = 0;
+    level5.forEach((row: any) => {
+      const w = Number(row.expo_pct ?? 0) * 100;
+      total += w;
+      const isinUp = (row.isin ?? "").toUpperCase();
+      if (CASH_ISINS_SAMDP.has(isinUp) || (row.instrument_type ?? "").toUpperCase().includes("DEPOSIT")) return;
+      const override = manualOverrides.find(
+        ov => (ov.manual_isin && ov.manual_isin === row.isin) ||
+        (ov.original_asset_name && ov.original_asset_name === row.name)
+      );
+      if (override?.is_hedged === true) hedgedW += w;
+    });
+    if (total === 0) return 0;
+    return +(hedgedW / total * 100).toFixed(2);
+  }
   
   function computeUsdHedgedPct(holdings: Holding[]): number {
     const total = holdings.reduce((s, h) => s + (h?.weight ?? 0), 0);
@@ -6321,8 +6340,8 @@ const bd = h.isin ? breakdownsWithP30[h.isin] : null;
       .reduce((s, h) => s + (h.weight ?? 0), 0);
     const samdpHolding = holdings.find(h => h?.isin === "LU1795355053");
     if (samdpHolding && samdpEquityRows.length > 0) {
-      const { eurPct } = computeSamdpEquityCurrencySplit();
-      usdHedged += (samdpHolding.weight ?? 0) * eurPct / 100;
+      const hedgedPct = computeSamdpEquityHedgedPct();
+      usdHedged += (samdpHolding.weight ?? 0) * hedgedPct / 100;
     }
     return +(usdHedged / total * 100).toFixed(1);
   }
@@ -8845,15 +8864,15 @@ const contribution = totalWeight > 0 ? (h.weight ?? 0) * dur / totalWeight : 0;
               const rows: { name: string; isin: string; weight: number; hedgedPct: number; contribution: number; onClick?: () => void }[] = [];
               (currentPortfolioEffective.holdings ?? []).forEach(h => {
                 if (!h) return;
-                if (h.isin === "LU1795355053" && samdpEquityRows.length > 0) {
-                  const { eurPct } = computeSamdpEquityCurrencySplit();
-                  if (eurPct > 0.001) {
+                     if (h.isin === "LU1795355053" && samdpEquityRows.length > 0) {
+                  const hedgedPct = computeSamdpEquityHedgedPct();
+                  if (hedgedPct > 0.001) {
                     rows.push({
                       name: h.asset_name ?? "SAMDP Equity",
                       isin: h.isin,
                       weight: h.weight ?? 0,
-                      hedgedPct: eurPct,
-                      contribution: (h.weight ?? 0) * eurPct / 100,
+                      hedgedPct: hedgedPct,
+                      contribution: (h.weight ?? 0) * hedgedPct / 100,
                     });
                   }
                   return;
