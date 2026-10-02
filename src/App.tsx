@@ -7965,10 +7965,7 @@ currentPortfolioEffective.type === "Sicav" ? "bg-purple-100 text-purple-700" : "
                             {currencyData.map(({ label, value }) => (
                               <div key={label}
                                 className="flex items-center gap-3 cursor-pointer group"
-                               onClick={() => {
-                                setDrillDownFilter({ type: "currency", value: label });
-                                setShowCurrencyDetail(label);
-                                }}>
+                                onClick={() => setShowCurrencyDetail(label)}>
                                 <span className="text-xs font-bold text-slate-500 w-9 shrink-0 group-hover:text-slate-800 transition-colors">{label}</span>
                                 <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
                                   <div className="h-full rounded-full transition-all group-hover:opacity-75"
