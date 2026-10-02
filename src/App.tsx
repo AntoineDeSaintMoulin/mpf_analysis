@@ -6312,14 +6312,13 @@ const bd = h.isin ? breakdownsWithP30[h.isin] : null;
     if (total === 0) return { eurPct: 0, usdPct: 0 };
     return { eurPct: +(eurW / total * 100).toFixed(2), usdPct: +(usdW / total * 100).toFixed(2) };
   }
-    function computeSamdpEquityHedgedPct(): number {
+  function computeSamdpEquityHedgedPct(): number {
     if (samdpEquityRows.length === 0) return 0;
     const level5 = samdpEquityRows.filter((r: any) => r.level === 5 && r.isin);
     const CASH_ISINS_SAMDP = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
-    let hedgedW = 0, total = 0;
+    let hedgedW = 0;
     level5.forEach((row: any) => {
       const w = Number(row.expo_pct ?? 0) * 100;
-      total += w;
       const isinUp = (row.isin ?? "").toUpperCase();
       if (CASH_ISINS_SAMDP.has(isinUp) || (row.instrument_type ?? "").toUpperCase().includes("DEPOSIT")) return;
       const override = manualOverrides.find(
@@ -6328,8 +6327,7 @@ const bd = h.isin ? breakdownsWithP30[h.isin] : null;
       );
       if (override?.is_hedged === true) hedgedW += w;
     });
-    if (total === 0) return 0;
-    return +(hedgedW / total * 100).toFixed(2);
+    return +hedgedW.toFixed(2);
   }
   
   function computeUsdHedgedPct(holdings: Holding[]): number {
