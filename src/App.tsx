@@ -8816,7 +8816,8 @@ const contribution = totalWeight > 0 ? (h.weight ?? 0) * dur / totalWeight : 0;
                 if (h.isin === DPAM_GEO_CURRENCY_ISIN) {
                   const split = getDpamGeoCurrencySplit(h.isin);
                   if (split) {
-                    const pct = (split as any)[targetCur] ?? 0;
+                    const splitKey = targetCur === "OTHER" ? "Other" : targetCur;
+                    const pct = (split as any)[splitKey] ?? 0;
                     if (pct <= 0.001) return null;
                     return { h, curWeight: pct, exposition: (h.weight ?? 0) * pct / 100 };
                   }
