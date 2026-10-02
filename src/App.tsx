@@ -6285,6 +6285,18 @@ const bd = h.isin ? breakdownsWithP30[h.isin] : null;
   );
 }
 
+  const DPAM_GEO_CURRENCY_ISIN = "BE6299468940";
+  function getDpamGeoCurrencySplit(isin: string): { EUR: number; USD: number; JPY: number; Other: number } | null {
+    const geo = dpamLookup[isin]?.geoBreakdown;
+    if (!geo) return null;
+    const find = (region: string) => geo.find((e: any) => e.region === region)?.weight ?? 0;
+    const usd = find("US");
+    const jpy = find("Japan");
+    const eur = find("Europe");
+    const other = Math.max(0, 100 - usd - jpy - eur);
+    return { EUR: eur, USD: usd, JPY: jpy, Other: other };
+  }
+  
     function computeSamdpEquityCurrencySplit(): { eurPct: number; usdPct: number } {
     if (samdpEquityRows.length === 0) return { eurPct: 0, usdPct: 0 };
     const level5 = samdpEquityRows.filter((r: any) => r.level === 5 && r.isin);
@@ -6639,6 +6651,16 @@ const isHedgedFund = manualOverrides.some(
 if (isHedgedFund) {
   m.set("EUR", (m.get("EUR") ?? 0) + (h.weight ?? 0));
 } else {
+if (h.isin === DPAM_GEO_CURRENCY_ISIN) {
+  const split = getDpamGeoCurrencySplit(h.isin);
+  if (split) {
+    m.set("EUR", (m.get("EUR") ?? 0) + (h.weight ?? 0) * split.EUR / 100);
+    m.set("USD", (m.get("USD") ?? 0) + (h.weight ?? 0) * split.USD / 100);
+    m.set("JPY", (m.get("JPY") ?? 0) + (h.weight ?? 0) * split.JPY / 100);
+    m.set("Other", (m.get("Other") ?? 0) + (h.weight ?? 0) * split.Other / 100);
+    return;
+  }
+}
 if (h.isin === "LU1795355053" && samdpEquityRows.length > 0) {
         const { eurPct, usdPct } = computeSamdpEquityCurrencySplit();
         m.set("EUR", (m.get("EUR") ?? 0) + (h.weight ?? 0) * eurPct / 100);
@@ -6735,7 +6757,17 @@ const bd = h.isin ? breakdownsWithP30[h.isin] : null;
     }
     
 // Chercher la part Cash dans le SAMDP Equity via les lignes niveau 5
-    if (h.isin === "LU1795355053" && samdpEquityRows.length > 0) {
+if (h.isin === DPAM_GEO_CURRENCY_ISIN) {
+  const split = getDpamGeoCurrencySplit(h.isin);
+  if (split) {
+    m.set("EUR", (m.get("EUR") ?? 0) + (h.weight ?? 0) * split.EUR / 100);
+    m.set("USD", (m.get("USD") ?? 0) + (h.weight ?? 0) * split.USD / 100);
+    m.set("JPY", (m.get("JPY") ?? 0) + (h.weight ?? 0) * split.JPY / 100);
+    m.set("Other", (m.get("Other") ?? 0) + (h.weight ?? 0) * split.Other / 100);
+    return;
+  }
+}
+  if (h.isin === "LU1795355053" && samdpEquityRows.length > 0) {
       const CASH_ISINS_SAMDP = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
       const cashLines = samdpEquityRows.filter((row: any) =>
         row.level === 5 &&
