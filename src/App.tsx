@@ -6287,10 +6287,9 @@ const bd = h.isin ? breakdownsWithP30[h.isin] : null;
     if (samdpEquityRows.length === 0) return { eurPct: 0, usdPct: 0 };
     const level5 = samdpEquityRows.filter((r: any) => r.level === 5 && r.isin);
     const CASH_ISINS_SAMDP = new Set(["EUR", "USD", "GBP", "JPY", "YEN", "CHF", "NOK", "SEK", "DKK"]);
-    let eurW = 0, usdW = 0, total = 0;
+    let eurW = 0, usdW = 0;
     level5.forEach((row: any) => {
       const w = Number(row.expo_pct ?? 0) * 100;
-      total += w;
       const isinUp = (row.isin ?? "").toUpperCase();
       if (CASH_ISINS_SAMDP.has(isinUp) || (row.instrument_type ?? "").toUpperCase().includes("DEPOSIT")) {
         const cur = isinUp === "YEN" ? "JPY" : isinUp;
@@ -6307,10 +6306,8 @@ const bd = h.isin ? breakdownsWithP30[h.isin] : null;
       const nativeCur = (override?.manual_currency || row.currency || "").toUpperCase();
       if (nativeCur === "USD") usdW += w;
       else if (nativeCur === "EUR") eurW += w;
-      // sinon (GBP, JPY, etc.) : ni EUR ni USD, non compté dans ces deux buckets
     });
-    if (total === 0) return { eurPct: 0, usdPct: 0 };
-    return { eurPct: +(eurW / total * 100).toFixed(2), usdPct: +(usdW / total * 100).toFixed(2) };
+    return { eurPct: +eurW.toFixed(2), usdPct: +usdW.toFixed(2) };
   }
   function computeSamdpEquityHedgedPct(): number {
     if (samdpEquityRows.length === 0) return 0;
