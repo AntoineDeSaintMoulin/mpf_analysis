@@ -3716,8 +3716,9 @@ etfRows.forEach((inst: any) => {
     }
   }
 
-  // La devise on la garde pour tous les instruments y compris cash
-  const currency = (override?.manual_currency || inst.currency || "Other").toUpperCase();
+  // La devise : un fonds hedgé est exposé à l'EUR (pas sa devise native) ; le cash garde sa devise propre
+  const isHedgedInstr = !isCash && override?.is_hedged === true;
+  const currency = isHedgedInstr ? "EUR" : (override?.manual_currency || inst.currency || "Other").toUpperCase();
   currencyMap.set(currency, (currencyMap.get(currency) ?? 0) + w);
 });
 
@@ -4571,11 +4572,11 @@ debtLevel2Graph.forEach(inst => {
           {equityData.map(inst => {
             const w = Number(inst.wght_pct ?? 0) * 100;
             if (w === 0) return null;
-            const manualCurrency = manualOverrides.find(ov =>
+            const ov = manualOverrides.find(ov =>
               (ov.manual_isin && ov.manual_isin === inst.isin) ||
               (ov.original_asset_name && ov.original_asset_name === inst.name)
-            )?.manual_currency;
-            const currency = (manualCurrency || inst.currency || "Other").toUpperCase();
+            );
+            const currency = ov?.is_hedged === true ? "EUR" : (ov?.manual_currency || inst.currency || "Other").toUpperCase();
             return (
               <div key={inst.isin} className="flex items-center justify-between py-2 border-b border-slate-50">
                 <div>
@@ -6297,12 +6298,16 @@ const bd = h.isin ? breakdownsWithP30[h.isin] : null;
         else if (cur === "USD") usdW += w;
         return;
       }
-      const isHedgedInstr = manualOverrides.some(
-        ov => ((ov.manual_isin && ov.manual_isin === row.isin) ||
-        (ov.original_asset_name && ov.original_asset_name === row.name))
-        && ov.is_hedged === true
+      const override = manualOverrides.find(
+        ov => (ov.manual_isin && ov.manual_isin === row.isin) ||
+        (ov.original_asset_name && ov.original_asset_name === row.name)
       );
-      if (isHedgedInstr) eurW += w; else usdW += w;
+      const isHedgedInstr = override?.is_hedged === true;
+      if (isHedgedInstr) { eurW += w; return; }
+      const nativeCur = (override?.manual_currency || row.currency || "").toUpperCase();
+      if (nativeCur === "USD") usdW += w;
+      else if (nativeCur === "EUR") eurW += w;
+      // sinon (GBP, JPY, etc.) : ni EUR ni USD, non compté dans ces deux buckets
     });
     if (total === 0) return { eurPct: 0, usdPct: 0 };
     return { eurPct: +(eurW / total * 100).toFixed(2), usdPct: +(usdW / total * 100).toFixed(2) };
