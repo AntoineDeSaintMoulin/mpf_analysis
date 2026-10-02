@@ -6328,13 +6328,23 @@ const bd = h.isin ? breakdownsWithP30[h.isin] : null;
     });
     return +hedgedW.toFixed(2);
   }
+
+  const DPAM_PARTIAL_HEDGE_ISIN = "BE6304413923";
+  function getHedgeRatio(isin: string | null | undefined): number {
+    if (isin === DPAM_PARTIAL_HEDGE_ISIN) {
+      const cur = dpamLookup[isin]?.currencyBreakdown;
+      const usdEntry = cur?.find((e: any) => (e.currency ?? "").toUpperCase() === "USD");
+      return usdEntry ? Number(usdEntry.weight) : 100;
+    }
+    return 100;
+  }
   
   function computeUsdHedgedPct(holdings: Holding[]): number {
     const total = holdings.reduce((s, h) => s + (h?.weight ?? 0), 0);
     if (total === 0) return 0;
     let usdHedged = holdings
       .filter(h => h && (h.currency ?? "").toUpperCase() !== "EUR" && isHedged(h))
-      .reduce((s, h) => s + (h.weight ?? 0), 0);
+      .reduce((s, h) => s + (h.weight ?? 0) * getHedgeRatio(h.isin) / 100, 0);
     const samdpHolding = holdings.find(h => h?.isin === "LU1795355053");
     if (samdpHolding && samdpEquityRows.length > 0) {
       const hedgedPct = computeSamdpEquityHedgedPct();
@@ -8879,8 +8889,8 @@ const contribution = totalWeight > 0 ? (h.weight ?? 0) * dur / totalWeight : 0;
                     name: h.asset_name ?? "—",
                     isin: h.isin ?? "—",
                     weight: h.weight ?? 0,
-                    hedgedPct: 100,
-                    contribution: h.weight ?? 0,
+                    hedgedPct: getHedgeRatio(h.isin),
+                    contribution: (h.weight ?? 0) * getHedgeRatio(h.isin) / 100,
                   });
                 }
               });
