@@ -4567,10 +4567,12 @@ debtLevel2Graph.forEach(inst => {
       
       {/* ── Modales détail ── */}
       {/* ── Modale Devise Equity ── */}
-      <Modal isOpen={showSamdpDetail === "currency_equity"} onClose={() => setShowSamdpDetail(null)} title="Détail Exposition Devise — Equities">
+        <Modal isOpen={showSamdpDetail === "currency_equity"} onClose={() => setShowSamdpDetail(null)} title="Détail Exposition Devise — Equities">
         <div className="space-y-3">
-          {equityData.map(inst => {
-            const w = Number(inst.wght_pct ?? 0) * 100;
+          {equityRows
+            .filter((inst: any) => inst.level === 5 && inst.isin)
+            .map(inst => {
+            const w = Number(inst.expo_pct ?? 0) * 100;
             if (w === 0) return null;
             const ov = manualOverrides.find(ov =>
               (ov.manual_isin && ov.manual_isin === inst.isin) ||
