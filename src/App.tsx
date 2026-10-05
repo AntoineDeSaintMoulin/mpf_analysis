@@ -261,6 +261,53 @@ const ALWAYS_DASH = new Set([
   "fi_em_hard",
 ]);
 
+function detectReportDate(rows: any[][], filename: string): string | null {
+  const MONTHS: Record<string, number> = {
+    jan: 1, feb: 2, fev: 2, mar: 3, apr: 4, avr: 4, may: 5, mai: 5, jun: 6,
+    jul: 7, aug: 8, aou: 8, sep: 9, oct: 10, nov: 11, dec: 12,
+  };
+  const iso = (y: number, m: number, d: number): string | null => {
+    if (y < 100) y += 2000;
+    if (m < 1 || m > 12 || d < 1 || d > 31 || y < 2000 || y > 2100) return null;
+    return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  };
+  const parse = (raw: string): string | null => {
+    const t = raw.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    let m = t.match(/(\d{1,2})(?:st|nd|rd|th)?[\s\-\/\.,]+([A-Za-z]{3,})\.?[\s\-\/\.,]+(\d{2,4})/);
+    if (m) {
+      const mo = MONTHS[m[2].slice(0, 3).toLowerCase()];
+      if (mo) return iso(+m[3], mo, +m[1]);
+    }
+    m = t.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) return iso(+m[1], +m[2], +m[3]);
+    m = t.match(/(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{2,4})/);
+    if (m) return iso(+m[3], +m[2], +m[1]);
+    return null;
+  };
+
+  // 1) Cellules contenant "as of" (titre, "Figure as of ...")
+  for (const row of rows) {
+    for (const cell of row ?? []) {
+      if (typeof cell !== "string") continue;
+      const idx = cell.search(/as of/i);
+      if (idx >= 0) {
+        const d = parse(cell.slice(idx + 5));
+        if (d) return d;
+      }
+    }
+  }
+  // 2) N'importe quelle date dans les premières lignes
+  for (const row of rows.slice(0, 6)) {
+    for (const cell of row ?? []) {
+      if (typeof cell !== "string") continue;
+      const d = parse(cell);
+      if (d) return d;
+    }
+  }
+  // 3) Nom du fichier
+  return parse(filename);
+}
+
 // Calcule le poids d'une ligne du target grid dans un portefeuille donné
 function computePtfWeight(
   gridId: string,
@@ -6041,13 +6088,10 @@ const ROW_MAP: Record<number, string> = {
         const wsReturn = wb.Sheets[targetSheetName];
         const rawReturn: any[][] = XLSX.utils.sheet_to_json(wsReturn, { header: 1, defval: null, blankrows: true });
 
-        const titleCell = String(rawReturn[1]?.[2] ?? "");
-        const dateMatch = titleCell.match(/AS OF (\d{1,2}-\w{3}-\d{4})/i);
-        if (!dateMatch) {
-          setErrorMsg("Impossible de trouver la date du rapport (format attendu : 'AS OF 31-Jul-2026')");
+        const reportDateStr = detectReportDate(rawReturn, file.name);
+        if (!reportDateStr) {
+          setErrorMsg("Impossible de trouver la date du rapport (ni dans le titre 'AS OF …', ni dans le nom du fichier)");
         } else {
-          const reportDate = new Date(dateMatch[1]);
-          const reportDateStr = reportDate.toISOString().slice(0, 10);
 
           const EXTERNAL_LABELS = new Set([
             "Mild", "Moderate", "Strong",
