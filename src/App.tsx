@@ -5409,6 +5409,9 @@ export default function App() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+    useEffect(() => {
+    if (errorMsg) { alert(errorMsg); setErrorMsg(null); }
+  }, [errorMsg]);
   const [drillDownFilter, setDrillDownFilter] = useState<{ type: "category" | "region" | "currency"; value: string } | null>(null);
   const [selectedInstrument, setSelectedInstrument] = useState<Holding | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -6138,7 +6141,10 @@ const res = await fetch("/api/upload-data", { method: "POST", headers: { "Conten
               }
         } catch (e) { setErrorMsg("Erreur lors du traitement du fichier."); }
       }
-    } catch (e) { setErrorMsg("Erreur lors du traitement du fichier."); }
+    } catch (e: any) {
+      console.error("Erreur import fichier :", e);
+      setErrorMsg("Erreur lors du traitement du fichier : " + (e?.message ?? String(e)));
+    }
     finally { setUploading(false); }
   };
 
