@@ -622,6 +622,7 @@ function BreakdownDeviationTable({
   samdpEquityCashPct,
   samdpDebtCashPct,
   computeHedgedUsEquity,
+  computeHedgedUsEquityRows,
 }: {
   allPortfolios: any[];
   targetGridData: Record<string, any>;
@@ -635,12 +636,14 @@ samdpEquityCashPct: number;
   durations: Record<string, { duration: number; updated_at: string }>;
   samdpDebtInstruments: any[];
   computeHedgedUsEquity: (holdings: any[]) => number;
+  computeHedgedUsEquityRows: (holdings: any[]) => { name: string; isin: string; weight: number; ratio: number; contribution: number; note?: string }[];
 }) {
   
   const [portfolioType, setPortfolioType] = React.useState<PortfolioType>("Sicav");
   const [showBDS, setShowBDS] = React.useState(false);
   const [showVH, setShowVH] = React.useState(false);const [collapsedRows, setCollapsedRows] = React.useState<Set<string>>(new Set(["fi_usd", "alternatives"]));
   const [drillDown, setDrillDown] = React.useState<{ rowId: string; rowLabel: string; profile: ProfileKey; ptf: any } | null>(null);
+  const [hedgedUsDetail, setHedgedUsDetail] = React.useState<{ profile: ProfileKey; ptf: any } | null>(null);
   const [portfolioFilter, setPortfolioFilter] = React.useState<PortfolioFilter>("main");
   const [p30Mode, setP30Mode] = React.useState(false);
 
@@ -886,7 +889,12 @@ return ["Target", "Ptf", "Active"].map(col => {
                           <td key={`${profile}-${col}-hedge`}
                             className={cn("px-3 py-1 text-right text-[10px] italic text-slate-400 min-w-[68px] w-[calc((100vw-150px)/3)] sm:w-auto",
                               col === "Target" && "border-l border-slate-100 bg-emerald-50/40")}>
-                            {col === "Ptf" && hedgedUs != null ? hedgedUs.toFixed(1) + "%" : ""}
+                              {col === "Ptf" && hedgedUs != null ? (
+                              <button onClick={() => setHedgedUsDetail({ profile, ptf })}
+                                className="italic hover:underline hover:text-sky-600 transition-colors">
+                                {hedgedUs.toFixed(1)}%
+                              </button>
+                            ) : ""}
                           </td>
                         ));
                       })}
@@ -901,6 +909,57 @@ return ["Target", "Ptf", "Active"].map(col => {
         </div>
       </div>
 
+{hedgedUsDetail && (() => {
+  const { profile, ptf } = hedgedUsDetail;
+  const rows = computeHedgedUsEquityRows(ptf.holdings ?? []);
+  const total = rows.reduce((s, r) => s + r.contribution, 0);
+  return (
+    <Modal isOpen={true} onClose={() => setHedgedUsDetail(null)} title={`United States — dont Hedgé — ${profile}`}>
+      <div className="space-y-4">
+        <p className="text-xs text-slate-500 italic">
+          Part de l'exposition actions USD couverte en EUR dans {ptf.name} : fonds Equities flaggés hedgés (pondérés par leur part USD) + part d'ETFs hedgés à l'intérieur du SAMDP Equity.
+        </p>
+        {rows.length === 0 ? (
+          <p className="text-sm text-slate-400 italic">Aucune position hedgée.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr className="bg-slate-50/50 border-b border-slate-100">
+                  <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Instrument</th>
+                  <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Poids Ptf</th>
+                  <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">% Hedgé</th>
+                  <th className="px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Contribution</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {rows.map((r, i) => (
+                  <tr key={i}>
+                    <td className="px-4 py-3 font-medium text-slate-900">
+                      {r.name}
+                      {r.note && <span className="block text-[10px] italic text-slate-400">{r.note}</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right text-slate-600">{r.weight.toFixed(2)}%</td>
+                    <td className="px-4 py-3 text-right text-slate-500">{r.ratio.toFixed(1)}%</td>
+                    <td className="px-4 py-3 text-right font-bold text-sky-700">{r.contribution.toFixed(2)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-slate-50 border-t border-slate-200">
+                  <td colSpan={3} className="px-4 py-3 font-bold text-slate-700 text-right">Total hedgé</td>
+                  <td className="px-4 py-3 text-right font-bold text-slate-900">{total.toFixed(2)}%</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+        <p className="text-[10px] text-slate-400 italic text-center">Contribution = Poids Ptf × % Hedgé / 100</p>
+      </div>
+    </Modal>
+  );
+})()}
+      
 {drillDown && drillDown.rowId === "modified_duration" && (() => {
   const { rowLabel, profile, ptf } = drillDown;
   const BOND_CATS = ["Fixed Income", "Bonds"];
@@ -6388,19 +6447,27 @@ const bd = h.isin ? breakdownsWithP30[h.isin] : null;
     return +(usdHedged / total * 100).toFixed(1);
   }
 
-  function computeHedgedUsEquity(holdings: Holding[]): number {
-    let total = 0;
+  function computeHedgedUsEquityRows(holdings: Holding[]) {
+    const rows: { name: string; isin: string; weight: number; ratio: number; contribution: number; note?: string }[] = [];
     holdings.forEach(h => {
       if (!h || h.category !== "Equities") return;
       if (h.isin === "LU1795355053") {
-        if (samdpEquityRows.length > 0) total += (h.weight ?? 0) * computeSamdpEquityHedgedPct() / 100;
+        if (samdpEquityRows.length > 0) {
+          const r = computeSamdpEquityHedgedPct();
+          if (r > 0.001) rows.push({ name: h.asset_name ?? "SAMDP Equity", isin: h.isin, weight: h.weight ?? 0, ratio: r, contribution: (h.weight ?? 0) * r / 100, note: "ETFs hedgés internes au fonds" });
+        }
         return;
       }
       if ((h.currency ?? "").toUpperCase() !== "EUR" && isHedged(h)) {
-        total += (h.weight ?? 0) * getHedgeRatio(h.isin) / 100;
+        const r = getHedgeRatio(h.isin);
+        rows.push({ name: h.asset_name ?? "—", isin: h.isin ?? "—", weight: h.weight ?? 0, ratio: r, contribution: (h.weight ?? 0) * r / 100 });
       }
     });
-    return total;
+    return rows.sort((a, b) => b.contribution - a.contribution);
+  }
+
+  function computeHedgedUsEquity(holdings: Holding[]): number {
+    return computeHedgedUsEquityRows(holdings).reduce((s, r) => s + r.contribution, 0);
   }
   
   // ── Derived data ───────────────────────────────────────────────────────────
@@ -7251,6 +7318,7 @@ return (["RISK_ANALYSIS","PERFORMANCE","SYNTHESE", "INSTRUMENTS", "TARGET_GRID",
                     samdpEquityCashPct={samdpEquityCashPct}
                     samdpDebtCashPct={samdpDebtCashPct}
                     computeHedgedUsEquity={computeHedgedUsEquity}
+                    computeHedgedUsEquityRows={computeHedgedUsEquityRows}
                   />
                 )}
               </motion.div>
