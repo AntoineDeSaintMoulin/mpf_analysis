@@ -621,6 +621,7 @@ function BreakdownDeviationTable({
   samdpDebtInstruments,
   samdpEquityCashPct,
   samdpDebtCashPct,
+  computeHedgedUsEquity,
 }: {
   allPortfolios: any[];
   targetGridData: Record<string, any>;
@@ -633,6 +634,7 @@ samdpEquityCashPct: number;
   samdpDebtCreditBreakdown: { credit_type: string; currency: string; weight: number }[] | null;
   durations: Record<string, { duration: number; updated_at: string }>;
   samdpDebtInstruments: any[];
+  computeHedgedUsEquity: (holdings: any[]) => number;
 }) {
   
   const [portfolioType, setPortfolioType] = React.useState<PortfolioType>("Sicav");
@@ -793,7 +795,8 @@ const fmt = (v: number | null) => v == null ? "—" : v.toFixed(1) + "%";
                 const indent = row.level === 1 ? "pl-4 sm:pl-10" : row.level === 2 ? "pl-6 sm:pl-16" : "pl-3 sm:pl-6";
 
                 return (
-                  <tr key={row.id} className={cn("transition-colors", row.level === 0 ? bgColor : "hover:bg-slate-50/50")}>
+                  <React.Fragment key={row.id}>
+                  <tr className={cn("transition-colors", row.level === 0 ? bgColor : "hover:bg-slate-50/50")}>
                     {/* Label */}
                     <td className={cn("w-[150px] sm:w-[260px] max-w-[150px] sm:max-w-none px-2 sm:px-6 py-3 text-[11px] sm:text-sm sticky left-0 z-10 font-medium leading-tight whitespace-normal break-words sm:whitespace-nowrap", bgColor, textColor, indent)}>
                       <div className="flex items-center gap-2">
@@ -871,6 +874,25 @@ return ["Target", "Ptf", "Active"].map(col => {
                       });
                     })}
                   </tr>
+                  {row.id === "eq_us" && (
+                    <tr className="bg-white">
+                      <td className="w-[150px] sm:w-[260px] max-w-[150px] sm:max-w-none pl-6 sm:pl-16 pr-2 sm:pr-6 py-1 text-[10px] sm:text-xs italic text-slate-400 sticky left-0 z-10 bg-white whitespace-normal sm:whitespace-nowrap">
+                        dont Hedgé
+                      </td>
+                      {visibleProfiles.map(profile => {
+                        const ptf = portfoliosByProfile[profile];
+                        const hedgedUs = ptf ? computeHedgedUsEquity(ptf.holdings ?? []) : null;
+                        return ["Target", "Ptf", "Active"].map(col => (
+                          <td key={`${profile}-${col}-hedge`}
+                            className={cn("px-3 py-1 text-right text-[10px] italic text-slate-400 min-w-[68px] w-[calc((100vw-150px)/3)] sm:w-auto",
+                              col === "Target" && "border-l border-slate-100 bg-emerald-50/40")}>
+                            {col === "Ptf" && hedgedUs != null ? hedgedUs.toFixed(1) + "%" : ""}
+                          </td>
+                        ));
+                      })}
+                    </tr>
+                  )}
+                  </React.Fragment>
                 );
               })}
 </tbody>
@@ -6365,6 +6387,21 @@ const bd = h.isin ? breakdownsWithP30[h.isin] : null;
     }
     return +(usdHedged / total * 100).toFixed(1);
   }
+
+  function computeHedgedUsEquity(holdings: Holding[]): number {
+    let total = 0;
+    holdings.forEach(h => {
+      if (!h || h.category !== "Equities") return;
+      if (h.isin === "LU1795355053") {
+        if (samdpEquityRows.length > 0) total += (h.weight ?? 0) * computeSamdpEquityHedgedPct() / 100;
+        return;
+      }
+      if ((h.currency ?? "").toUpperCase() !== "EUR" && isHedged(h)) {
+        total += (h.weight ?? 0) * getHedgeRatio(h.isin) / 100;
+      }
+    });
+    return total;
+  }
   
   // ── Derived data ───────────────────────────────────────────────────────────
 const dpamLookup = useMemo(() => {
@@ -7213,6 +7250,7 @@ return (["RISK_ANALYSIS","PERFORMANCE","SYNTHESE", "INSTRUMENTS", "TARGET_GRID",
                     samdpDebtInstruments={samdpDebtInstruments}
                     samdpEquityCashPct={samdpEquityCashPct}
                     samdpDebtCashPct={samdpDebtCashPct}
+                    computeHedgedUsEquity={computeHedgedUsEquity}
                   />
                 )}
               </motion.div>
