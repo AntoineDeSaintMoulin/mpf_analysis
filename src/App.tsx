@@ -6416,7 +6416,7 @@ const bd = h.isin ? breakdownsWithP30[h.isin] : null;
   );
 }
 
-  const DPAM_GEO_CURRENCY_ISIN = "BE6299468940";
+  const DPAM_GEO_CURRENCY_ISINS = new Set(["BE6299468940", "LU2799769836"]);
   function getDpamGeoCurrencySplit(isin: string): { EUR: number; USD: number; JPY: number; Other: number } | null {
     const geo = dpamLookup[isin]?.geoBreakdown;
     if (!geo) return null;
@@ -6806,7 +6806,7 @@ const isHedgedFund = manualOverrides.some(
 if (isHedgedFund) {
   m.set("EUR", (m.get("EUR") ?? 0) + (h.weight ?? 0));
 } else {
-if (h.isin === DPAM_GEO_CURRENCY_ISIN) {
+if (DPAM_GEO_CURRENCY_ISINS.has(h.isin ?? "")) {
   const split = getDpamGeoCurrencySplit(h.isin);
   if (split) {
     m.set("EUR", (m.get("EUR") ?? 0) + (h.weight ?? 0) * split.EUR / 100);
@@ -8967,7 +8967,7 @@ const contribution = totalWeight > 0 ? (h.weight ?? 0) * dur / totalWeight : 0;
                   if (pct <= 0.001) return null;
                   return { h, curWeight: pct, exposition: (h.weight ?? 0) * pct / 100 };
                 }
-                if (h.isin === DPAM_GEO_CURRENCY_ISIN) {
+                if (DPAM_GEO_CURRENCY_ISINS.has(h.isin ?? "")) {
                   const split = getDpamGeoCurrencySplit(h.isin);
                   if (split) {
                     const splitKey = targetCur === "OTHER" ? "Other" : targetCur;
