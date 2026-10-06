@@ -6421,7 +6421,14 @@ const bd = h.isin ? breakdownsWithP30[h.isin] : null;
     const geo = dpamLookup[isin]?.geoBreakdown;
     if (!geo) return null;
     const find = (region: string) => geo.find((e: any) => e.region === region)?.weight ?? 0;
-    const usd = find("US");
+    // USD = États-Unis uniquement (le Canada n'est pas compté), relu depuis les pays du fichier DPAM
+    const dpamMapping = dpamMappings.find((m: any) => m.isin === isin && m.dpam_type === "equity");
+    const dpamInst = (dpamEquityData?.instruments ?? []).find((i: any) => i.name === dpamMapping?.instrument_name);
+    const usd = dpamInst
+      ? (dpamEquityData?.countries ?? [])
+          .filter((c: any) => c.instrument_col === dpamInst.col_index && c.country === "United States")
+          .reduce((s: number, c: any) => s + Number(c.weight ?? 0), 0)
+      : find("US");
     const jpy = find("Japan");
     const cash = find("Cash");
     const eur = find("Europe") + cash;
