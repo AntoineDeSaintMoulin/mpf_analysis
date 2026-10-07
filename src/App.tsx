@@ -158,6 +158,52 @@ const TARGET_GRID_STRUCTURE: { id: string; label: string; level: 0 | 1 | 2; pare
   { id: "modified_duration", label: "Modified Duration", level: 0 },
 ];
 
+function P30DetailModal({ portfolio, onClose }: { portfolio: any; onClose: () => void }) {
+  const shares = (portfolio?.holdings ?? []).filter((h: any) => h?.instrument === "Share");
+  const total = shares.reduce((s: number, h: any) => s + (h.weight ?? 0), 0);
+  const nonEq = shares.filter((h: any) => h?.category !== "Equities");
+  const nonEqW = nonEq.reduce((s: number, h: any) => s + (h.weight ?? 0), 0);
+  return (
+    <Modal isOpen={true} onClose={onClose} title={`Calcul du poids P30 — ${portfolio?.name ?? ""}`}>
+      <div className="space-y-4">
+        <p className="text-xs text-slate-500 italic">
+          Poids P30 = somme des positions dont l'instrument est « Share ». Elles sont remplacées par une seule ligne P30 (catégorie Equities) dont la répartition région/devise vient de l'onglet Manuals (ISIN PP3011111111).
+        </p>
+        <table className="w-full text-left border-collapse text-sm">
+          <thead>
+            <tr className="text-xs text-slate-500 uppercase">
+              <th className="py-2">Position</th><th>Catégorie</th><th>Région</th><th>Devise</th>
+              <th className="text-right">Poids</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {shares.map((h: any, i: number) => (
+              <tr key={h.id ?? i}>
+                <td className="py-1.5 text-slate-800">{h.asset_name ?? "—"}</td>
+                <td className={h.category !== "Equities" ? "text-amber-600 font-medium" : "text-slate-500"}>{h.category ?? "—"}</td>
+                <td className="text-slate-500">{h.region ?? "—"}</td>
+                <td className="text-slate-500">{h.currency ?? "—"}</td>
+                <td className="text-right font-mono">{(h.weight ?? 0).toFixed(2)}%</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t border-slate-300 font-bold">
+              <td colSpan={4} className="py-2 text-right">Poids P30</td>
+              <td className="text-right font-mono">{total.toFixed(2)}%</td>
+            </tr>
+          </tfoot>
+        </table>
+        {nonEq.length > 0 && (
+          <p className="text-xs text-amber-700 bg-amber-50 rounded-xl p-3">
+            ⚠ {nonEq.length} position(s) « Share » ne sont pas en catégorie Equities ({nonEqW.toFixed(2)}%) mais sont requalifiées en Equities par le P30.
+          </p>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
 function Modal({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title: React.ReactNode; children: React.ReactNode }) {
   if (!isOpen) return null;
   return (
@@ -5530,6 +5576,7 @@ is_hedged?: boolean;
   const [showCurrencyDetail, setShowCurrencyDetail] = useState<string | null>(null);
   const [showUsdHedgedDetail, setShowUsdHedgedDetail] = useState(false);
   const [p30Mode, setP30Mode] = useState(false);
+  const [showP30Detail, setShowP30Detail] = useState(false);
   const [dpamBondsData, setDpamBondsData] = useState<any>(null);
   const [dpamEquityData, setDpamEquityData] = useState<any>(null);
   const [dpamUploading, setDpamUploading] = useState(false);
@@ -6741,20 +6788,24 @@ const samdpEquityCashPct = useMemo(() => {
   return cashLines.reduce((s: number, row: any) => s + Number(row.wght_ptf_ref ?? 0), 0);
 }, [samdpEquityRows]);
   
-  const breakdownsWithP30 = useMemo(() => ({
+const breakdownsWithP30 = useMemo(() => ({
   ...breakdowns,
-  [P30_ISIN]: [
-    { region: "Europe", weight: 50 },
-    { region: "US", weight: 50 },
-  ],
+  [P30_ISIN]: (breakdowns[P30_ISIN]?.length ?? 0) > 0
+    ? breakdowns[P30_ISIN]
+    : [
+        { region: "Europe", weight: 50 },
+        { region: "US", weight: 50 },
+      ],
 }), [breakdowns]);
 
 const currencyBreakdownsWithP30 = useMemo(() => ({
   ...currencyBreakdowns,
-  [P30_ISIN]: [
-    { currency: "EUR", weight: 50 },
-    { currency: "USD", weight: 50 },
-  ],
+  [P30_ISIN]: (currencyBreakdowns[P30_ISIN]?.length ?? 0) > 0
+    ? currencyBreakdowns[P30_ISIN]
+    : [
+        { currency: "EUR", weight: 50 },
+        { currency: "USD", weight: 50 },
+      ],
 }), [currencyBreakdowns]);
 
   const currentPortfolioEffective = useMemo(() => {
@@ -8288,7 +8339,15 @@ currentPortfolioEffective.type === "Sicav" ? "bg-purple-100 text-purple-700" : "
                                     <td className="px-8 py-4"><span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-50 text-sky-700">{h?.category ?? "—"}</span></td>
                                     <td className="px-8 py-4 text-slate-600">{h?.region ?? "—"}</td>
                                     <td className="px-8 py-4 text-slate-500 text-sm">{h?.currency ?? "—"}</td>
-                                    <td className="px-8 py-4 text-right font-bold text-slate-900">{Number(h?.weight ?? 0).toFixed(2)}%</td>
+                                    <td className="px-8 py-4 text-right font-bold text-slate-900">
+                                      {h?.isin === P30_ISIN ? (
+                                        <button onClick={() => setShowP30Detail(true)} className="text-violet-600 underline decoration-dotted hover:text-violet-800">
+                                          {Number(h?.weight ?? 0).toFixed(2)}%
+                                        </button>
+                                      ) : (
+                                        <>{Number(h?.weight ?? 0).toFixed(2)}%</>
+                                      )}
+                                    </td>
                                   </tr>
                                 ))
                               )}
@@ -8948,6 +9007,9 @@ const contribution = totalWeight > 0 ? (h.weight ?? 0) * dur / totalWeight : 0;
 
       {/* ── Currency detail modal ── */}
 <Modal isOpen={!!showCurrencyDetail} onClose={() => setShowCurrencyDetail(null)} title={`Exposition ${showCurrencyDetail}`}>
+  {showP30Detail && currentPortfolio && (
+  <P30DetailModal portfolio={currentPortfolio} onClose={() => setShowP30Detail(false)} />
+)}
 {currentPortfolioEffective && showCurrencyDetail && (
     <div className="space-y-4">
       <p className="text-xs text-slate-500 italic">
