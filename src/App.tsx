@@ -9005,11 +9005,12 @@ const contribution = totalWeight > 0 ? (h.weight ?? 0) * dur / totalWeight : 0;
       })()}
 </Modal>
 
-      {/* ── Currency detail modal ── */}
-<Modal isOpen={!!showCurrencyDetail} onClose={() => setShowCurrencyDetail(null)} title={`Exposition ${showCurrencyDetail}`}>
-  {showP30Detail && currentPortfolio && (
+{showP30Detail && currentPortfolio && (
   <P30DetailModal portfolio={currentPortfolio} onClose={() => setShowP30Detail(false)} />
 )}
+      
+      {/* ── Currency detail modal ── */}
+<Modal isOpen={!!showCurrencyDetail} onClose={() => setShowCurrencyDetail(null)} title={`Exposition ${showCurrencyDetail}`}>
 {currentPortfolioEffective && showCurrencyDetail && (
     <div className="space-y-4">
       <p className="text-xs text-slate-500 italic">
