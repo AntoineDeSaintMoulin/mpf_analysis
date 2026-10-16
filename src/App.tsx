@@ -2532,7 +2532,9 @@ const [regionFilter, setRegionFilter] = React.useState<string | null>(null);
   const [quickEditIds, setQuickEditIds] = React.useState<number[]>([]);
   const [quickAddInput, setQuickAddInput] = React.useState("");
   const [quickAddSuggestions, setQuickAddSuggestions] = React.useState<any[]>([]);
-  const [fullTableCollapsed, setFullTableCollapsed] = React.useState(false);
+  const [fullTableCollapsed, setFullTableCollapsed] = React.useState(true);
+const [extraHoldings, setExtraHoldings] = React.useState<any[]>([]);
+const extraIdRef = React.useRef(-1);
 
   const CREDIT_COLORS_SIM: Record<string, string> = {
     Govies: "#0ea5e9", IG: "#10b981", HY: "#f59e0b", NR: "#94a3b8", "EM Debt": "#8b5cf6",
@@ -2557,6 +2559,18 @@ const [regionFilter, setRegionFilter] = React.useState<string | null>(null);
 
   const currentPortfolio = allPortfolios.find(p => p.id === selectedPortfolioId) ?? null;
 
+  // Fonds présents dans d'autres portefeuilles mais pas dans celui-ci
+  const searchPool = React.useMemo(() => {
+    const own = new Set((currentPortfolio?.holdings ?? []).map((h: any) => h.isin ?? h.asset_name));
+    const m = new Map<string, any>();
+    allPortfolios.forEach(p => (p.holdings ?? []).forEach((h: any) => {
+      const key = h.isin ?? h.asset_name;
+      if (!key || own.has(key) || m.has(key)) return;
+      m.set(key, h);
+    }));
+    return Array.from(m.values());
+  }, [allPortfolios, currentPortfolio]);
+  
   // Init poids simulés quand on change de portefeuille
   React.useEffect(() => {
     if (!currentPortfolio) return;
@@ -2583,6 +2597,7 @@ const [regionFilter, setRegionFilter] = React.useState<string | null>(null);
     setQuickEditIds([]);
     setQuickAddInput("");
     setQuickAddSuggestions([]);
+    setExtraHoldings([]);
   }, [selectedPortfolioId]);
 
   const totalSimulated = Object.values(simulatedWeights).reduce((s, v) => s + (Number(v) || 0), 0);
@@ -2591,11 +2606,11 @@ const [regionFilter, setRegionFilter] = React.useState<string | null>(null);
   // Holdings avec poids simulés
   const simulatedHoldings = React.useMemo(() => {
     if (!currentPortfolio) return [];
-    return (currentPortfolio.holdings ?? []).map((h: any) => ({
+    return [...(currentPortfolio.holdings ?? []), ...extraHoldings].map((h: any) => ({
       ...h,
       weight: simulatedWeights[h.id] ?? h.weight ?? 0,
     }));
-  }, [currentPortfolio, simulatedWeights]);
+  }, [currentPortfolio, simulatedWeights, extraHoldings]);
 
   // Holdings filtrés pour la table
 const filteredHoldings = React.useMemo(() => {
@@ -2632,16 +2647,23 @@ const filteredHoldings = React.useMemo(() => {
       return;
     }
     const q = value.trim().toLowerCase();
-    // Match ISIN exact d'abord
-    const isinMatch = (currentPortfolio.holdings ?? []).find((h: any) => (h.isin ?? "").toLowerCase() === q);
-    if (isinMatch) {
-      addQuickEditRow(isinMatch.id);
-      return;
-    }
-    const matches = (currentPortfolio.holdings ?? [])
-      .filter((h: any) => (h.asset_name ?? "").toLowerCase().includes(q) || (h.isin ?? "").toLowerCase().includes(q))
-      .filter((h: any) => !quickEditIds.includes(h.id))
-      .slice(0, 8);
+    const isinOf = (h: any) => (h.isin ?? "").toLowerCase();
+    // ISIN exact : portefeuille, puis fonds déjà ajoutés, puis autres portefeuilles
+    const inPtf = (currentPortfolio.holdings ?? []).find((h: any) => isinOf(h) === q);
+    if (inPtf) { addQuickEditRow(inPtf.id); return; }
+    const inExtra = extraHoldings.find((h: any) => isinOf(h) === q);
+    if (inExtra) { addQuickEditRow(inExtra.id); return; }
+    const inPool = searchPool.find((h: any) => isinOf(h) === q);
+    if (inPool) { addExtraHolding(inPool); return; }
+
+    const match = (h: any) => (h.asset_name ?? "").toLowerCase().includes(q) || isinOf(h).includes(q);
+    const matches = [
+      ...(currentPortfolio.holdings ?? []).filter(match).filter((h: any) => !quickEditIds.includes(h.id)),
+      ...extraHoldings.filter(match).filter((h: any) => !quickEditIds.includes(h.id)),
+      ...searchPool.filter(match)
+        .filter((h: any) => !extraHoldings.some((e: any) => e.isin && e.isin === h.isin))
+        .map((h: any) => ({ ...h, fromPool: true })),
+    ].slice(0, 8);
     setQuickAddSuggestions(matches);
   }
 
@@ -2651,10 +2673,21 @@ const filteredHoldings = React.useMemo(() => {
     setQuickAddSuggestions([]);
   }
 
-  function removeQuickEditRow(id: number) {
-    setQuickEditIds(prev => prev.filter(x => x !== id));
+  function addExtraHolding(src: any) {
+    const id = extraIdRef.current--;
+    const { fromPool, ...rest } = src;
+    setExtraHoldings(prev => [...prev, { ...rest, id, weight: 0 }]);
+    setSimulatedWeights(prev => ({ ...prev, [id]: 0 }));
+    addQuickEditRow(id);
   }
 
+  function removeQuickEditRow(id: number) {
+    setQuickEditIds(prev => prev.filter(x => x !== id));
+    if (id < 0) {
+      setExtraHoldings(prev => prev.filter(h => h.id !== id));
+      setSimulatedWeights(prev => { const n = { ...prev }; delete n[id]; return n; });
+    }
+  }
   // ── Calculs AVANT / APRÈS ──
 
   function computeCategoryData(holdings: any[]) {
@@ -2842,6 +2875,8 @@ function computeCreditData(holdings: any[]) {
     const init: Record<number, number> = {};
     (currentPortfolio.holdings ?? []).forEach((h: any) => { init[h.id] = Math.round((h.weight ?? 0) * 100) / 100; });
     setSimulatedWeights(init);
+    setExtraHoldings([]);
+    setQuickEditIds(prev => prev.filter(x => x > 0));
     setResetFlash(true);
     setTimeout(() => setResetFlash(false), 600);
   }}
@@ -2876,7 +2911,7 @@ function computeCreditData(holdings: any[]) {
           </thead>
           <tbody className="divide-y divide-slate-50">
             {quickEditIds.map(id => {
-              const h = (currentPortfolio?.holdings ?? []).find((x: any) => x.id === id);
+              const h = [...(currentPortfolio?.holdings ?? []), ...extraHoldings].find((x: any) => x.id === id);
               if (!h) return null;
               const original = h.weight ?? 0;
               const simWeight = simulatedWeights[id] ?? original;
@@ -2941,10 +2976,13 @@ function computeCreditData(holdings: any[]) {
                 {quickAddSuggestions.length > 0 && (
                   <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-10 max-h-56 overflow-y-auto">
                     {quickAddSuggestions.map((h: any) => (
-                      <button key={h.id} onClick={() => addQuickEditRow(h.id)}
+                      <button key={`${h.fromPool ? "p" : "h"}${h.id}`}
+                        onClick={() => h.fromPool ? addExtraHolding(h) : addQuickEditRow(h.id)}
                         className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center justify-between gap-3">
-                        <span className="text-sm text-slate-700 truncate">{h.asset_name ?? "—"}</span>
-                        <span className="text-xs font-mono text-slate-400 shrink-0">{h.isin ?? "—"}</span>
+                        <span className="text-sm text-slate-700 truncate">
+                          {h.asset_name ?? "—"}
+                          {h.fromPool && <span className="ml-2 text-[10px] font-bold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded">Nouveau</span>}
+                        </span>
                       </button>
                     ))}
                   </div>
