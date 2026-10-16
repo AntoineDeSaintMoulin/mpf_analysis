@@ -8015,26 +8015,6 @@ const name = holding?.asset_name ?? samdpInst?.name ?? isin;
   </motion.div>
 )}
 
-<div className={activeTab === "SIMULATION" ? "block" : "hidden"}>
-  <div className="max-w-7xl mx-auto">
-<SimulationTab
-  allPortfolios={allPortfolios}
-  breakdowns={breakdownsWithP30}
-  creditBreakdowns={creditBreakdowns}
-  durations={durations}
-  manualOverrides={manualOverrides}
-  currencyBreakdowns={currencyBreakdownsWithP30}
-  targetGridData={targetGridData}
-  dpamLookup={dpamLookup}
-  samdpDebtCreditBreakdown={samdpDebtCreditBreakdown}
-  samdpDebtInstruments={samdpDebtInstruments}
-  samdpGeoBreakdown={samdpGeoBreakdown}
-  samdpEquityCashPct={samdpEquityCashPct}
-  samdpDebtCashPct={samdpDebtCashPct}
-/>
-  </div>
-</div>
-
   {activeTab === "SAMDP" && (
   <motion.div key="samdp" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
     className="max-w-7xl mx-auto">
@@ -8410,6 +8390,27 @@ currentPortfolioEffective.type === "Sicav" ? "bg-purple-100 text-purple-700" : "
             )}
 
           </AnimatePresence>
+
+<div className={activeTab === "SIMULATION" ? "block" : "hidden"}>
+  <div className="max-w-7xl mx-auto">
+<SimulationTab
+  allPortfolios={allPortfolios}
+  breakdowns={breakdownsWithP30}
+  creditBreakdowns={creditBreakdowns}
+  durations={durations}
+  manualOverrides={manualOverrides}
+  currencyBreakdowns={currencyBreakdownsWithP30}
+  targetGridData={targetGridData}
+  dpamLookup={dpamLookup}
+  samdpDebtCreditBreakdown={samdpDebtCreditBreakdown}
+  samdpDebtInstruments={samdpDebtInstruments}
+  samdpGeoBreakdown={samdpGeoBreakdown}
+  samdpEquityCashPct={samdpEquityCashPct}
+  samdpDebtCashPct={samdpDebtCashPct}
+/>
+  </div>
+</div>
+          
         </main>
       </div>
 
